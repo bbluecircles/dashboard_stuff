@@ -1,0 +1,7 @@
+# DB credentials — never commit
+.env
+
+# Snapshot output contains real sampled data
+db_snapshot.json
+
+__pycache__/

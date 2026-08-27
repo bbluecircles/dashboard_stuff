@@ -23,7 +23,8 @@ Output structure:
   }
 }
 
-Connection details come from environment variables:
+Connection details come from environment variables or a .env file in the
+current directory (real environment variables take precedence):
   DB_HOST        (default: localhost)
   DB_PORT        (default: 3306)
   DB_USER        (required)
@@ -31,7 +32,7 @@ Connection details come from environment variables:
   DB_DATABASES   (required, comma-separated, e.g. "db_one,db_two,db_three")
   DB_SNAPSHOT_OUT (default: db_snapshot.json)
 
-Requires: pip install pymysql
+Requires: pip install pymysql python-dotenv
 """
 
 import json
@@ -41,6 +42,14 @@ from datetime import datetime, timezone
 
 import pymysql
 import pymysql.cursors
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed; fall back to real environment variables only.
+    pass
 
 SAMPLE_LIMIT = 5
 
