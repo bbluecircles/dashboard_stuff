@@ -5,3 +5,5 @@
 db_snapshot.json
 
 __pycache__/
+db_snapshot.json
+data-dict.csv

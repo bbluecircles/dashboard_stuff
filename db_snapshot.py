@@ -45,11 +45,11 @@ import pymysql.cursors
 
 try:
     from dotenv import load_dotenv
-
-    load_dotenv()
 except ImportError:
-    # python-dotenv not installed; fall back to real environment variables only.
-    pass
+    if os.path.exists(".env"):
+        sys.exit("Found a .env file, but python-dotenv is not installed. Run: pip install python-dotenv")
+else:
+    load_dotenv()
 
 SAMPLE_LIMIT = 5
 
