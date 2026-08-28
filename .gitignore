@@ -1,9 +1,14 @@
 # DB credentials — never commit
 .env
 
-# Snapshot output contains real sampled data
-db_snapshot.json
-
-__pycache__/
+# Snapshot and dictionary contain warehouse samples / business field list
 db_snapshot.json
 data-dict.csv
+
+# CMS downloads and Python noise
+data/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
