@@ -1,4 +1,4 @@
-from provider_directory.activity import rebuild_activity, reset_activity_columns_sql
+from provider_directory.activity import iter_period_codes, rebuild_activity, reset_activity_columns_sql
 from provider_directory.schema import PD_PROVIDER_PHASE2_COLUMNS, ddl_statements
 from provider_directory.transforms import (
     age_band,
@@ -59,14 +59,33 @@ def test_active_flag():
     assert is_active(None, None) is False
 
 
+def test_iter_period_codes_frozen_window():
+    assert iter_period_codes(202308, 202407) == [
+        202308,
+        202309,
+        202310,
+        202311,
+        202312,
+        202401,
+        202402,
+        202403,
+        202404,
+        202405,
+        202406,
+        202407,
+    ]
+
+
 def test_phase2_sql_uses_frozen_window_and_mart_only():
     sql = reset_activity_columns_sql("az_pd")
     assert "`az_pd`.pd_provider" in sql
     assert "az.pat_dt" not in sql
     source = open(rebuild_activity.__code__.co_filename, encoding="utf-8").read()
-    assert "period_code BETWEEN %s AND %s" in source
+    assert "period_code = %s" in source
+    assert "MOD(IFNULL(pat_id, 0)" in source
     assert "INSERT INTO" in source
     assert "az.physician" not in source
+    assert "conn.commit()" in source
 
 
 def test_schema_includes_phase2_columns_and_staging():

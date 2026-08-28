@@ -32,4 +32,4 @@ python -m provider_directory.cli phase2
 python -m provider_directory.cli get --last-name Smith --limit 3
 ```
 
-This scan is large (12 months of `pat_dt`). Expect minutes, not seconds. `active_provider`, `visits_total`, panel mix, and top 3 dx/px land on `pd_provider`. Staging tables `pd_stg_*` stay in `az_pd` for later phases.
+This scan is large (12 months of `pat_dt`). Galera cannot replicate one giant transaction (`Maximum writeset size exceeded`), so Phase 2 commits by month and hash bucket. You should see `phase2 window YYYYMM bucket N` lines as it goes.

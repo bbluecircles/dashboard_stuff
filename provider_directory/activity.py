@@ -1,4 +1,8 @@
-"""Phase 2: activity, visits, panel, top dx/px. Reads az/azal, writes az_pd only."""
+"""Phase 2: activity, visits, panel, top dx/px. Reads az/azal, writes az_pd only.
+
+Galera (and similar) reject a single huge transaction ("Maximum writeset size
+exceeded"). Every INSERT/UPDATE here commits in monthly or hashed slices.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,26 @@ from provider_directory.settings import (
     WINDOW_START,
 )
 
+# Keep each writeset well under typical wsrep_max_ws_size (~2GB).
+CLAIM_ID_BUCKETS = 4
+VISIT_BUCKETS = 16
+PROVIDER_BUCKETS = 16
+
+
+def iter_period_codes(start: int, end: int) -> list[int]:
+    """Inclusive YYYYMM months from start through end."""
+    periods: list[int] = []
+    year, month = divmod(start, 100)
+    current = start
+    while current <= end:
+        periods.append(current)
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+        current = year * 100 + month
+    return periods
+
 
 def _session_timeouts(cur) -> None:
     cur.execute("SET SESSION wait_timeout = 28800")
@@ -24,8 +48,18 @@ def _session_timeouts(cur) -> None:
         pass
 
 
-def reset_activity_columns_sql(mart_db: str = MART_DB) -> str:
+def _run(cur, conn, sql: str, params: tuple | None = None) -> int:
+    cur.execute(sql, params or ())
+    n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+    conn.commit()
+    return n
+
+
+def reset_activity_columns_sql(mart_db: str = MART_DB, bucket: int | None = None, buckets: int = PROVIDER_BUCKETS) -> str:
     mart = quote_ident(mart_db)
+    where = ""
+    if bucket is not None:
+        where = f" WHERE MOD(npi, {int(buckets)}) = {int(bucket)}"
     return f"""
         UPDATE {mart}.pd_provider
         SET
@@ -52,6 +86,7 @@ def reset_activity_columns_sql(mart_db: str = MART_DB) -> str:
             panel_percent_age_85_plus = NULL,
             panel_percent_female = NULL,
             panel_percent_male = NULL
+        {where}
     """
 
 
@@ -64,13 +99,21 @@ def rebuild_activity(
     window_start: int = WINDOW_START,
     window_end: int = WINDOW_END,
 ) -> dict:
-    """One claims-window scan into az_pd staging, then roll up onto pd_provider."""
+    """Scan the frozen claims window into az_pd in Galera-safe chunks, then roll up."""
     create_schema(conn, mart_db)
     mart = quote_ident(mart_db)
     claims = quote_ident(claims_db)
     lookup = quote_ident(lookup_db)
     dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
-    counts: dict[str, int] = {}
+    periods = iter_period_codes(window_start, window_end)
+    counts: dict[str, int] = {
+        "window_claims": 0,
+        "visits": 0,
+        "panel_patients": 0,
+        "top_dx_rows": 0,
+        "top_px_rows": 0,
+        "providers_updated": 0,
+    }
 
     with conn.cursor() as cur:
         _session_timeouts(cur)
@@ -82,11 +125,11 @@ def rebuild_activity(
             "pd_stg_top_px",
         ):
             cur.execute(f"TRUNCATE TABLE {mart}.{quote_ident(table)}")
-        cur.execute(reset_activity_columns_sql(mart_db))
         conn.commit()
+        for bucket in range(PROVIDER_BUCKETS):
+            _run(cur, conn, reset_activity_columns_sql(mart_db, bucket=bucket))
 
-        cur.execute(
-            f"""
+        window_sql = f"""
             INSERT INTO {mart}.pd_stg_window_claim (
                 encounter_id, period_code, pat_id, age_code, gender_code,
                 rendering_physician_code, referring_physician_code,
@@ -101,15 +144,16 @@ def rebuild_activity(
                 NULLIF(TRIM(encounter_work_procd_code), ''),
                 sl_code
             FROM {claims}.pat_dt
-            WHERE period_code BETWEEN %s AND %s
-            """,
-            (window_start, window_end),
-        )
-        counts["window_claims"] = cur.rowcount
-        conn.commit()
+            WHERE period_code = %s
+              AND MOD(IFNULL(pat_id, 0), {CLAIM_ID_BUCKETS}) = %s
+        """
+        for period in periods:
+            for bucket in range(CLAIM_ID_BUCKETS):
+                n = _run(cur, conn, window_sql, (period, bucket))
+                counts["window_claims"] += n
+                print(f"phase2 window {period} bucket {bucket}: {n} rows", flush=True)
 
-        cur.execute(
-            f"""
+        visit_sql = f"""
             INSERT INTO {mart}.pd_stg_visit (
                 encounter_id, rendering_npi, dx, px, pat_id, period_code
             )
@@ -122,36 +166,41 @@ def rebuild_activity(
                 MIN(t.period_code)
             FROM {mart}.pd_stg_window_claim t
             WHERE t.encounter_id IS NOT NULL AND t.encounter_id <> 0
+              AND MOD(t.encounter_id, {VISIT_BUCKETS}) = %s
             GROUP BY t.encounter_id
-            """
-        )
-        counts["visits"] = cur.rowcount
-        conn.commit()
+        """
+        for bucket in range(VISIT_BUCKETS):
+            n = _run(cur, conn, visit_sql, (bucket,))
+            counts["visits"] += n
+            print(f"phase2 visits bucket {bucket}: {n} rows", flush=True)
 
-        cur.execute(
-            f"""
+        panel_sql = f"""
             INSERT INTO {mart}.pd_stg_panel_patient (npi, pat_id, age_code, gender_code)
             SELECT npi, pat_id, MAX(age_code), MAX(gender_code)
             FROM (
                 SELECT c.rendering_physician_code AS npi, c.pat_id, c.age_code, c.gender_code
                 FROM {mart}.pd_stg_window_claim c
                 INNER JOIN {mart}.pd_provider p ON p.npi = c.rendering_physician_code
-                WHERE c.pat_id IS NOT NULL
+                WHERE c.pat_id IS NOT NULL AND c.period_code = %s
                 UNION ALL
                 SELECT c.referring_physician_code AS npi, c.pat_id, c.age_code, c.gender_code
                 FROM {mart}.pd_stg_window_claim c
                 INNER JOIN {mart}.pd_provider p ON p.npi = c.referring_physician_code
                 WHERE c.pat_id IS NOT NULL
+                  AND c.period_code = %s
                   AND c.referring_physician_code NOT IN ({dummy})
             ) src
             GROUP BY npi, pat_id
-            """
-        )
-        counts["panel_patients"] = cur.rowcount
-        conn.commit()
+            ON DUPLICATE KEY UPDATE
+                age_code = GREATEST(IFNULL({mart}.pd_stg_panel_patient.age_code, 0), VALUES(age_code)),
+                gender_code = COALESCE(VALUES(gender_code), {mart}.pd_stg_panel_patient.gender_code)
+        """
+        for period in periods:
+            n = _run(cur, conn, panel_sql, (period, period))
+            counts["panel_patients"] += n
+            print(f"phase2 panel {period}: {n} rows", flush=True)
 
-        cur.execute(
-            f"""
+        top_dx_sql = f"""
             INSERT INTO {mart}.pd_stg_top_dx (npi, code, name, visit_count, rk)
             SELECT ranked.npi, ranked.code,
                    LEFT(d.diagnosis_name, 80),
@@ -168,16 +217,13 @@ def rebuild_activity(
                 FROM {mart}.pd_stg_visit v
                 INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
                 WHERE v.dx IS NOT NULL AND v.dx <> ''
+                  AND MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
                 GROUP BY v.rendering_npi, v.dx
             ) ranked
             LEFT JOIN {lookup}.diagnosis d ON d.diagnosis_code = ranked.code
             WHERE ranked.rk <= 3
-            """
-        )
-        counts["top_dx_rows"] = cur.rowcount
-
-        cur.execute(
-            f"""
+        """
+        top_px_sql = f"""
             INSERT INTO {mart}.pd_stg_top_px (npi, code, name, visit_count, rk)
             SELECT ranked.npi, ranked.code, LEFT(pr.procd_name, 80), ranked.visit_count, ranked.rk
             FROM (
@@ -192,45 +238,77 @@ def rebuild_activity(
                 FROM {mart}.pd_stg_visit v
                 INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
                 WHERE v.px IS NOT NULL AND v.px <> ''
+                  AND MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
                 GROUP BY v.rendering_npi, v.px
             ) ranked
             LEFT JOIN {lookup}.procd pr ON pr.procd_code = ranked.code
             WHERE ranked.rk <= 3
-            """
-        )
-        counts["top_px_rows"] = cur.rowcount
-        conn.commit()
+        """
+        for bucket in range(PROVIDER_BUCKETS):
+            counts["top_dx_rows"] += _run(cur, conn, top_dx_sql, (bucket,))
+            counts["top_px_rows"] += _run(cur, conn, top_px_sql, (bucket,))
+            print(f"phase2 top codes bucket {bucket}", flush=True)
 
         cur.execute(
             f"""
+            CREATE TEMPORARY TABLE tmp_visit_counts (
+                npi BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+                visits_total INT UNSIGNED NOT NULL
+            )
+            """
+        )
+        counts["visit_npi"] = _run(
+            cur,
+            conn,
+            f"""
+            INSERT INTO tmp_visit_counts (npi, visits_total)
+            SELECT rendering_npi, COUNT(*)
+            FROM {mart}.pd_stg_visit
+            GROUP BY rendering_npi
+            """,
+        )
+        cur.execute(
+            f"""
+            CREATE TEMPORARY TABLE tmp_panel_counts (
+                npi BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+                panel_size INT UNSIGNED NOT NULL,
+                panel_average_age DECIMAL(5,1),
+                panel_percent_age_0_19 DECIMAL(6,2),
+                panel_percent_age_20_44 DECIMAL(6,2),
+                panel_percent_age_45_64 DECIMAL(6,2),
+                panel_percent_age_65_84 DECIMAL(6,2),
+                panel_percent_age_85_plus DECIMAL(6,2),
+                panel_percent_female DECIMAL(6,2),
+                panel_percent_male DECIMAL(6,2)
+            )
+            """
+        )
+        counts["panel_npi"] = _run(
+            cur,
+            conn,
+            f"""
+            INSERT INTO tmp_panel_counts
+            SELECT
+                npi,
+                COUNT(*),
+                ROUND(AVG(CASE WHEN age_code BETWEEN 0 AND 120 THEN age_code END), 1),
+                ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 0 AND 19 THEN 1 ELSE 0 END) / COUNT(*), 2),
+                ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 20 AND 44 THEN 1 ELSE 0 END) / COUNT(*), 2),
+                ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 45 AND 64 THEN 1 ELSE 0 END) / COUNT(*), 2),
+                ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 65 AND 84 THEN 1 ELSE 0 END) / COUNT(*), 2),
+                ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 85 AND 120 THEN 1 ELSE 0 END) / COUNT(*), 2),
+                ROUND(100.0 * SUM(CASE WHEN UPPER(gender_code) IN ('F', 'FEMALE') THEN 1 ELSE 0 END) / COUNT(*), 2),
+                ROUND(100.0 * SUM(CASE WHEN UPPER(gender_code) IN ('M', 'MALE') THEN 1 ELSE 0 END) / COUNT(*), 2)
+            FROM {mart}.pd_stg_panel_patient
+            GROUP BY npi
+            """,
+        )
+        print("phase2 rollup tables ready", flush=True)
+
+        overlay_sql = f"""
             UPDATE {mart}.pd_provider p
-            LEFT JOIN (
-                SELECT rendering_npi AS npi, COUNT(*) AS visits_total
-                FROM {mart}.pd_stg_visit
-                GROUP BY rendering_npi
-            ) v ON v.npi = p.npi
-            LEFT JOIN (
-                SELECT
-                    npi,
-                    COUNT(*) AS panel_size,
-                    ROUND(AVG(CASE WHEN age_code BETWEEN 0 AND 120 THEN age_code END), 1) AS panel_average_age,
-                    ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 0 AND 19 THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_age_0_19,
-                    ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 20 AND 44 THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_age_20_44,
-                    ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 45 AND 64 THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_age_45_64,
-                    ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 65 AND 84 THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_age_65_84,
-                    ROUND(100.0 * SUM(CASE WHEN age_code BETWEEN 85 AND 120 THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_age_85_plus,
-                    ROUND(100.0 * SUM(CASE WHEN UPPER(gender_code) IN ('F', 'FEMALE') THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_female,
-                    ROUND(100.0 * SUM(CASE WHEN UPPER(gender_code) IN ('M', 'MALE') THEN 1 ELSE 0 END) / COUNT(*), 2)
-                        AS panel_percent_male
-                FROM {mart}.pd_stg_panel_patient
-                GROUP BY npi
-            ) pan ON pan.npi = p.npi
+            LEFT JOIN tmp_visit_counts v ON v.npi = p.npi
+            LEFT JOIN tmp_panel_counts pan ON pan.npi = p.npi
             LEFT JOIN (
                 SELECT
                     npi,
@@ -280,13 +358,16 @@ def rebuild_activity(
                 p.visits_top_procedure_3 = px.p3,
                 p.visits_top_procedure_3_name = px.p3_name,
                 p.refreshed_at = NOW()
-            """
-        )
-        counts["providers_updated"] = cur.rowcount
-        conn.commit()
+            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+        """
+        for bucket in range(PROVIDER_BUCKETS):
+            n = _run(cur, conn, overlay_sql, (bucket,))
+            counts["providers_updated"] += n
+            print(f"phase2 overlay bucket {bucket}: {n} rows", flush=True)
 
     return {
         "window_start": window_start,
         "window_end": window_end,
+        "periods": periods,
         **counts,
     }
