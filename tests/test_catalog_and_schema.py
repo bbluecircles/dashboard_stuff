@@ -54,4 +54,5 @@ def test_schema_has_locked_tables():
     assert "pd_network_npi" in sql
     assert "in_system_provider" in sql
     assert "visits_total" in sql
+    assert "utf8mb4_unicode_520_ci" in sql
     assert "pd_stg_visit" in sql

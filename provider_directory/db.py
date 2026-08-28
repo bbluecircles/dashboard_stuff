@@ -9,7 +9,7 @@ from typing import Iterator
 import pymysql
 import pymysql.cursors
 
-from provider_directory.settings import MART_DB, require_ident
+from provider_directory.settings import MART_CHARSET, MART_COLLATION, MART_DB, require_ident
 
 
 class ConfigError(RuntimeError):
@@ -50,6 +50,7 @@ def get_connection(*, autocommit: bool = False) -> Iterator[pymysql.Connection]:
         charset="utf8mb4",
         autocommit=autocommit,
         cursorclass=pymysql.cursors.DictCursor,
+        init_command=f"SET NAMES utf8mb4 COLLATE {require_ident(MART_COLLATION, 'collation')}",
     )
     try:
         yield conn
@@ -65,6 +66,11 @@ def get_connection(*, autocommit: bool = False) -> Iterator[pymysql.Connection]:
 
 def ensure_mart_database(conn, mart_db: str = MART_DB) -> None:
     ident = quote_ident(mart_db)
+    charset = require_ident(MART_CHARSET, "charset")
+    collation = require_ident(MART_COLLATION, "collation")
     with conn.cursor() as cur:
-        cur.execute(f"CREATE DATABASE IF NOT EXISTS {ident} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
+        cur.execute(
+            f"CREATE DATABASE IF NOT EXISTS {ident} CHARACTER SET {charset} COLLATE {collation}"
+        )
+        cur.execute(f"ALTER DATABASE {ident} CHARACTER SET {charset} COLLATE {collation}")
         cur.execute(f"USE {ident}")

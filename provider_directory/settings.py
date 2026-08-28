@@ -18,6 +18,8 @@ if load_dotenv is not None:
 CLAIMS_DB = os.environ.get("PD_CLAIMS_DB", "az")
 LOOKUP_DB = os.environ.get("PD_LOOKUP_DB", "azal")
 MART_DB = os.environ.get("PD_MART_DB", "az_pd")
+MART_CHARSET = os.environ.get("PD_MART_CHARSET", "utf8mb4")
+MART_COLLATION = os.environ.get("PD_MART_COLLATION", "utf8mb4_unicode_520_ci")
 
 WINDOW_START = 202308
 WINDOW_END = 202407

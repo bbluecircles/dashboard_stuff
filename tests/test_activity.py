@@ -85,7 +85,7 @@ def test_phase2_sql_uses_frozen_window_and_mart_only():
     assert "MOD(IFNULL(pat_id, 0)" in source
     assert "INSERT INTO" in source
     assert "az.physician" not in source
-    assert "conn.commit()" in source
+    assert "COLLATE {MART_COLLATION}" in source
 
 
 def test_schema_includes_phase2_columns_and_staging():

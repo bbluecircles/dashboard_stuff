@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
-from provider_directory.settings import MART_DB, require_ident
+from provider_directory.settings import MART_CHARSET, MART_COLLATION, MART_DB, require_ident
 
 TABLES = (
     "cms_pdc_clinician",
@@ -18,6 +18,21 @@ TABLES = (
     "pd_stg_top_dx",
     "pd_stg_top_px",
 )
+
+STAGING_TABLES = (
+    "pd_stg_window_claim",
+    "pd_stg_visit",
+    "pd_stg_panel_patient",
+    "pd_stg_top_dx",
+    "pd_stg_top_px",
+)
+
+
+def table_options() -> str:
+    charset = require_ident(MART_CHARSET, "charset")
+    collation = require_ident(MART_COLLATION, "collation")
+    return f"ENGINE=InnoDB DEFAULT CHARSET={charset} COLLATE={collation}"
+
 
 PD_PROVIDER_PHASE2_COLUMNS = (
     ("active_provider", "TINYINT NULL"),
@@ -76,7 +91,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             loaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             KEY idx_npi (npi),
             KEY idx_state (state)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.cms_pdc_facility_affil (
@@ -90,7 +105,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             loaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             KEY idx_npi (npi),
             KEY idx_ccn (ccn)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.cms_nppes_type1 (
@@ -109,7 +124,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             sole_proprietor CHAR(1),
             loaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_provider (
@@ -158,7 +173,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_last_name (last_name),
             KEY idx_specialty (primary_specialty_code),
             KEY idx_active (active_provider)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_npi_xwalk (
@@ -169,7 +184,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             pdc_loaded_at DATETIME,
             nppes_loaded_at DATETIME,
             PRIMARY KEY (npi)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_network_npi (
@@ -177,7 +192,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             customer_id VARCHAR(64) NOT NULL,
             PRIMARY KEY (customer_id, npi),
             KEY idx_npi (npi)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_window_claim (
@@ -198,7 +213,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_enc_rend (encounter_rendering_physician_code),
             KEY idx_rend (rendering_physician_code),
             KEY idx_refr (referring_physician_code)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit (
@@ -212,7 +227,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_rend (rendering_npi),
             KEY idx_dx (dx),
             KEY idx_px (px)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_panel_patient (
@@ -221,7 +236,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             age_code SMALLINT,
             gender_code VARCHAR(1),
             PRIMARY KEY (npi, pat_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_dx (
@@ -232,7 +247,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             rk TINYINT UNSIGNED NOT NULL,
             PRIMARY KEY (npi, rk),
             KEY idx_npi (npi)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_px (
@@ -243,7 +258,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             rk TINYINT UNSIGNED NOT NULL,
             PRIMARY KEY (npi, rk),
             KEY idx_npi (npi)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) {table_options()}
         """,
     ]
 
@@ -258,6 +273,38 @@ def migrate_phase2_columns(conn, mart_db: str = MART_DB) -> None:
             )
 
 
+def drop_staging_tables(conn, mart_db: str = MART_DB) -> None:
+    db = quote_ident(mart_db)
+    with conn.cursor() as cur:
+        for table in STAGING_TABLES:
+            cur.execute(f"DROP TABLE IF EXISTS {db}.{quote_ident(table)}")
+
+
+def convert_persistent_collation(conn, mart_db: str = MART_DB) -> None:
+    """Bring existing Phase 1 tables onto utf8mb4_unicode_520_ci. Skip staging (dropped/recreated)."""
+    charset = require_ident(MART_CHARSET, "charset")
+    collation = require_ident(MART_COLLATION, "collation")
+    db = quote_ident(mart_db)
+    persistent = [name for name in TABLES if name not in STAGING_TABLES]
+    with conn.cursor() as cur:
+        for table in persistent:
+            cur.execute(
+                """
+                SELECT TABLE_COLLATION AS coll
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                """,
+                (mart_db, table),
+            )
+            row = cur.fetchone()
+            if not row or row["coll"] == collation:
+                continue
+            cur.execute(
+                f"ALTER TABLE {db}.{quote_ident(table)} "
+                f"CONVERT TO CHARACTER SET {charset} COLLATE {collation}"
+            )
+
+
 def create_schema(conn, mart_db: str = MART_DB) -> None:
     from provider_directory.db import ensure_mart_database
 
@@ -266,3 +313,4 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
         for stmt in ddl_statements(mart_db):
             cur.execute(stmt)
     migrate_phase2_columns(conn, mart_db)
+    convert_persistent_collation(conn, mart_db)

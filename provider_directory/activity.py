@@ -7,11 +7,12 @@ exceeded"). Every INSERT/UPDATE here commits in monthly or hashed slices.
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
-from provider_directory.schema import create_schema
+from provider_directory.schema import create_schema, drop_staging_tables, table_options
 from provider_directory.settings import (
     CLAIMS_DB,
     DUMMY_NPIS,
     LOOKUP_DB,
+    MART_COLLATION,
     MART_DB,
     WINDOW_END,
     WINDOW_START,
@@ -100,6 +101,7 @@ def rebuild_activity(
     window_end: int = WINDOW_END,
 ) -> dict:
     """Scan the frozen claims window into az_pd in Galera-safe chunks, then roll up."""
+    drop_staging_tables(conn, mart_db)
     create_schema(conn, mart_db)
     mart = quote_ident(mart_db)
     claims = quote_ident(claims_db)
@@ -117,14 +119,6 @@ def rebuild_activity(
 
     with conn.cursor() as cur:
         _session_timeouts(cur)
-        for table in (
-            "pd_stg_window_claim",
-            "pd_stg_visit",
-            "pd_stg_panel_patient",
-            "pd_stg_top_dx",
-            "pd_stg_top_px",
-        ):
-            cur.execute(f"TRUNCATE TABLE {mart}.{quote_ident(table)}")
         conn.commit()
         for bucket in range(PROVIDER_BUCKETS):
             _run(cur, conn, reset_activity_columns_sql(mart_db, bucket=bucket))
@@ -220,7 +214,8 @@ def rebuild_activity(
                   AND MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
                 GROUP BY v.rendering_npi, v.dx
             ) ranked
-            LEFT JOIN {lookup}.diagnosis d ON d.diagnosis_code = ranked.code
+            LEFT JOIN {lookup}.diagnosis d
+                ON d.diagnosis_code = ranked.code COLLATE {MART_COLLATION}
             WHERE ranked.rk <= 3
         """
         top_px_sql = f"""
@@ -241,7 +236,8 @@ def rebuild_activity(
                   AND MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
                 GROUP BY v.rendering_npi, v.px
             ) ranked
-            LEFT JOIN {lookup}.procd pr ON pr.procd_code = ranked.code
+            LEFT JOIN {lookup}.procd pr
+                ON pr.procd_code = ranked.code COLLATE {MART_COLLATION}
             WHERE ranked.rk <= 3
         """
         for bucket in range(PROVIDER_BUCKETS):
@@ -254,7 +250,7 @@ def rebuild_activity(
             CREATE TEMPORARY TABLE tmp_visit_counts (
                 npi BIGINT UNSIGNED NOT NULL PRIMARY KEY,
                 visits_total INT UNSIGNED NOT NULL
-            )
+            ) {table_options()}
             """
         )
         counts["visit_npi"] = _run(
@@ -280,7 +276,7 @@ def rebuild_activity(
                 panel_percent_age_85_plus DECIMAL(6,2),
                 panel_percent_female DECIMAL(6,2),
                 panel_percent_male DECIMAL(6,2)
-            )
+            ) {table_options()}
             """
         )
         counts["panel_npi"] = _run(
