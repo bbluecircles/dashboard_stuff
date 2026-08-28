@@ -7,6 +7,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
+from provider_directory.activity import rebuild_activity
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -120,3 +121,9 @@ def run_phase1(
         "skipped": skipped,
         "cached": {key: str(path) for key, path in cached.items()},
     }
+
+
+def run_phase2(conn, *, mart_db: str = MART_DB) -> dict:
+    ensure_mart_database(conn, mart_db)
+    create_schema(conn, mart_db)
+    return rebuild_activity(conn, mart_db=mart_db)

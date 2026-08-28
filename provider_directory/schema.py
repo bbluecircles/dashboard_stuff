@@ -1,4 +1,4 @@
-"""DDL for CMS staging + Phase 1 mart tables."""
+"""DDL for CMS staging + mart tables. Writes only land in the mart DB."""
 
 from __future__ import annotations
 
@@ -12,6 +12,37 @@ TABLES = (
     "pd_provider",
     "pd_npi_xwalk",
     "pd_network_npi",
+    "pd_stg_window_claim",
+    "pd_stg_visit",
+    "pd_stg_panel_patient",
+    "pd_stg_top_dx",
+    "pd_stg_top_px",
+)
+
+PD_PROVIDER_PHASE2_COLUMNS = (
+    ("active_provider", "TINYINT NULL"),
+    ("visits_total", "INT UNSIGNED NULL"),
+    ("visits_top_diagnosis_1", "VARCHAR(10) NULL"),
+    ("visits_top_diagnosis_1_name", "VARCHAR(80) NULL"),
+    ("visits_top_diagnosis_2", "VARCHAR(10) NULL"),
+    ("visits_top_diagnosis_2_name", "VARCHAR(80) NULL"),
+    ("visits_top_diagnosis_3", "VARCHAR(10) NULL"),
+    ("visits_top_diagnosis_3_name", "VARCHAR(80) NULL"),
+    ("visits_top_procedure_1", "VARCHAR(10) NULL"),
+    ("visits_top_procedure_1_name", "VARCHAR(80) NULL"),
+    ("visits_top_procedure_2", "VARCHAR(10) NULL"),
+    ("visits_top_procedure_2_name", "VARCHAR(80) NULL"),
+    ("visits_top_procedure_3", "VARCHAR(10) NULL"),
+    ("visits_top_procedure_3_name", "VARCHAR(80) NULL"),
+    ("panel_size", "INT UNSIGNED NULL"),
+    ("panel_average_age", "DECIMAL(5,1) NULL"),
+    ("panel_percent_age_0_19", "DECIMAL(6,2) NULL"),
+    ("panel_percent_age_20_44", "DECIMAL(6,2) NULL"),
+    ("panel_percent_age_45_64", "DECIMAL(6,2) NULL"),
+    ("panel_percent_age_65_84", "DECIMAL(6,2) NULL"),
+    ("panel_percent_age_85_plus", "DECIMAL(6,2) NULL"),
+    ("panel_percent_female", "DECIMAL(6,2) NULL"),
+    ("panel_percent_male", "DECIMAL(6,2) NULL"),
 )
 
 
@@ -99,10 +130,34 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             name_source VARCHAR(16),
             gender_source VARCHAR(16),
             school_source VARCHAR(16),
+            active_provider TINYINT NULL,
+            visits_total INT UNSIGNED NULL,
+            visits_top_diagnosis_1 VARCHAR(10) NULL,
+            visits_top_diagnosis_1_name VARCHAR(80) NULL,
+            visits_top_diagnosis_2 VARCHAR(10) NULL,
+            visits_top_diagnosis_2_name VARCHAR(80) NULL,
+            visits_top_diagnosis_3 VARCHAR(10) NULL,
+            visits_top_diagnosis_3_name VARCHAR(80) NULL,
+            visits_top_procedure_1 VARCHAR(10) NULL,
+            visits_top_procedure_1_name VARCHAR(80) NULL,
+            visits_top_procedure_2 VARCHAR(10) NULL,
+            visits_top_procedure_2_name VARCHAR(80) NULL,
+            visits_top_procedure_3 VARCHAR(10) NULL,
+            visits_top_procedure_3_name VARCHAR(80) NULL,
+            panel_size INT UNSIGNED NULL,
+            panel_average_age DECIMAL(5,1) NULL,
+            panel_percent_age_0_19 DECIMAL(6,2) NULL,
+            panel_percent_age_20_44 DECIMAL(6,2) NULL,
+            panel_percent_age_45_64 DECIMAL(6,2) NULL,
+            panel_percent_age_65_84 DECIMAL(6,2) NULL,
+            panel_percent_age_85_plus DECIMAL(6,2) NULL,
+            panel_percent_female DECIMAL(6,2) NULL,
+            panel_percent_male DECIMAL(6,2) NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi),
             KEY idx_last_name (last_name),
-            KEY idx_specialty (primary_specialty_code)
+            KEY idx_specialty (primary_specialty_code),
+            KEY idx_active (active_provider)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """,
         f"""
@@ -124,7 +179,83 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_npi (npi)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_window_claim (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            encounter_id BIGINT UNSIGNED,
+            period_code INT,
+            pat_id BIGINT UNSIGNED,
+            age_code SMALLINT,
+            gender_code VARCHAR(1),
+            rendering_physician_code BIGINT UNSIGNED,
+            referring_physician_code BIGINT UNSIGNED,
+            encounter_rendering_physician_code BIGINT,
+            encounter_diagnosis_code VARCHAR(10),
+            encounter_work_procd_code VARCHAR(10),
+            sl_code BIGINT UNSIGNED,
+            PRIMARY KEY (id),
+            KEY idx_enc (encounter_id),
+            KEY idx_enc_rend (encounter_rendering_physician_code),
+            KEY idx_rend (rendering_physician_code),
+            KEY idx_refr (referring_physician_code)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit (
+            encounter_id BIGINT UNSIGNED NOT NULL,
+            rendering_npi BIGINT UNSIGNED,
+            dx VARCHAR(10),
+            px VARCHAR(10),
+            pat_id BIGINT UNSIGNED,
+            period_code INT,
+            PRIMARY KEY (encounter_id),
+            KEY idx_rend (rendering_npi),
+            KEY idx_dx (dx),
+            KEY idx_px (px)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_panel_patient (
+            npi BIGINT UNSIGNED NOT NULL,
+            pat_id BIGINT UNSIGNED NOT NULL,
+            age_code SMALLINT,
+            gender_code VARCHAR(1),
+            PRIMARY KEY (npi, pat_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_dx (
+            npi BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            name VARCHAR(80),
+            visit_count INT UNSIGNED NOT NULL,
+            rk TINYINT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, rk),
+            KEY idx_npi (npi)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_px (
+            npi BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            name VARCHAR(80),
+            visit_count INT UNSIGNED NOT NULL,
+            rk TINYINT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, rk),
+            KEY idx_npi (npi)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """,
     ]
+
+
+def migrate_phase2_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add Phase 2 columns to a pd_provider that was created in Phase 1."""
+    table = f"{quote_ident(mart_db)}.pd_provider"
+    with conn.cursor() as cur:
+        for name, definition in PD_PROVIDER_PHASE2_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
 
 
 def create_schema(conn, mart_db: str = MART_DB) -> None:
@@ -134,3 +265,4 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     with conn.cursor() as cur:
         for stmt in ddl_statements(mart_db):
             cur.execute(stmt)
+    migrate_phase2_columns(conn, mart_db)

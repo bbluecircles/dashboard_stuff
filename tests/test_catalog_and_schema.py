@@ -53,3 +53,5 @@ def test_schema_has_locked_tables():
         assert table in sql
     assert "pd_network_npi" in sql
     assert "in_system_provider" in sql
+    assert "visits_total" in sql
+    assert "pd_stg_visit" in sql

@@ -199,6 +199,74 @@ def merge_identity(
     }
 
 
+AGE_BANDS = ("0_19", "20_44", "45_64", "65_84", "85_plus")
+MAX_PLAUSIBLE_AGE = 120
+
+
+def age_band(age: Any) -> str | None:
+    years = parse_int(age)
+    if years is None or years < 0 or years > MAX_PLAUSIBLE_AGE:
+        return None
+    if years <= 19:
+        return "0_19"
+    if years <= 44:
+        return "20_44"
+    if years <= 64:
+        return "45_64"
+    if years <= 84:
+        return "65_84"
+    return "85_plus"
+
+
+def round_pct(part: int, whole: int) -> float | None:
+    if whole <= 0:
+        return None
+    return round(100.0 * part / whole, 2)
+
+
+def summarize_panel(patients: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """One row per patient: age, gender. Average age, not median."""
+    size = len(patients)
+    bands = {key: 0 for key in AGE_BANDS}
+    ages: list[int] = []
+    female = 0
+    male = 0
+    for patient in patients:
+        years = parse_int(patient.get("age"))
+        band = age_band(years)
+        if band is not None and years is not None:
+            bands[band] += 1
+            ages.append(years)
+        gender = normalize_gender(patient.get("gender"))
+        if gender == "F":
+            female += 1
+        elif gender == "M":
+            male += 1
+    return {
+        "panel_size": size,
+        "panel_average_age": round(sum(ages) / len(ages), 1) if ages else None,
+        "panel_percent_age_0_19": round_pct(bands["0_19"], size),
+        "panel_percent_age_20_44": round_pct(bands["20_44"], size),
+        "panel_percent_age_45_64": round_pct(bands["45_64"], size),
+        "panel_percent_age_65_84": round_pct(bands["65_84"], size),
+        "panel_percent_age_85_plus": round_pct(bands["85_plus"], size),
+        "panel_percent_female": round_pct(female, size),
+        "panel_percent_male": round_pct(male, size),
+    }
+
+
+def top_n_codes(counts: Mapping[str, int], n: int = 3) -> list[str]:
+    ranked = sorted(
+        ((code, cnt) for code, cnt in counts.items() if nonempty(code) is not None),
+        key=lambda item: (-item[1], item[0]),
+    )
+    return [code for code, _cnt in ranked[:n]]
+
+
+def is_active(visits_total: int | None, panel_size: int | None) -> bool:
+    return (visits_total or 0) > 0 or (panel_size or 0) > 0
+
+
 def nppes_primary_taxonomy(row: Mapping[str, Any]) -> str | None:
     for i in range(1, 16):
         switch = nonempty(row.get(f"healthcare_provider_primary_taxonomy_switch_{i}"))

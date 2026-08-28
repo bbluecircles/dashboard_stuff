@@ -1,10 +1,10 @@
-"""CLI for Phase 1. FastAPI will call the same functions, not this module.
+"""CLI. FastAPI will call the same functions, not this module.
 
 Examples:
-  python -m provider_directory.cli init-schema
   python -m provider_directory.cli phase1
   python -m provider_directory.cli phase1 --download --skip-nppes
-  python -m provider_directory.cli get 1234567893
+  python -m provider_directory.cli phase2
+  python -m provider_directory.cli get --last-name Smith --limit 3
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import sys
 
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.lookup import get_provider, search_providers
-from provider_directory.pipeline import download_cms_files, run_phase1
+from provider_directory.pipeline import download_cms_files, run_phase1, run_phase2
 from provider_directory.schema import create_schema
 from provider_directory.spine import rebuild_spine
 from provider_directory.mart import overlay_cms
@@ -51,6 +51,13 @@ def _cmd_phase1(args: argparse.Namespace) -> int:
             skip_nppes=args.skip_nppes,
         )
     print(json.dumps(summary, indent=2))
+    return 0
+
+
+def _cmd_phase2(_args: argparse.Namespace) -> int:
+    with get_connection(autocommit=False) as conn:
+        summary = run_phase2(conn)
+    print(json.dumps(summary, indent=2, default=str))
     return 0
 
 
@@ -103,6 +110,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skip-pdc", action="store_true")
     p.add_argument("--skip-nppes", action="store_true")
     p.set_defaults(func=_cmd_phase1)
+
+    p = sub.add_parser(
+        "phase2",
+        help="Activity + panel + top dx/px for period_code 202308–202407",
+    )
+    p.set_defaults(func=_cmd_phase2)
 
     p = sub.add_parser("get", help="Look up a provider (preview of the future API)")
     p.add_argument("npi", nargs="?", type=int)

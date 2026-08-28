@@ -23,8 +23,9 @@ def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | N
         row = cur.fetchone()
     if not row:
         return None
-    if row.get("in_system_provider") is not None:
-        row["in_system_provider"] = bool(row["in_system_provider"])
+    for flag in ("in_system_provider", "active_provider"):
+        if row.get(flag) is not None:
+            row[flag] = bool(row[flag])
     return ProviderSpine.model_validate(row)
 
 
@@ -65,7 +66,8 @@ def search_providers(
         rows = cur.fetchall()
     items = []
     for row in rows:
-        if row.get("in_system_provider") is not None:
-            row["in_system_provider"] = bool(row["in_system_provider"])
+        for flag in ("in_system_provider", "active_provider"):
+            if row.get(flag) is not None:
+                row[flag] = bool(row[flag])
         items.append(ProviderSpine.model_validate(row))
     return ProviderSpineList(items=items, total=total)

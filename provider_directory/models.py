@@ -25,6 +25,29 @@ class ProviderSpine(BaseModel):
     name_source: str | None = None
     gender_source: str | None = None
     school_source: str | None = None
+    active_provider: bool | None = None
+    visits_total: int | None = None
+    visits_top_diagnosis_1: str | None = None
+    visits_top_diagnosis_1_name: str | None = None
+    visits_top_diagnosis_2: str | None = None
+    visits_top_diagnosis_2_name: str | None = None
+    visits_top_diagnosis_3: str | None = None
+    visits_top_diagnosis_3_name: str | None = None
+    visits_top_procedure_1: str | None = None
+    visits_top_procedure_1_name: str | None = None
+    visits_top_procedure_2: str | None = None
+    visits_top_procedure_2_name: str | None = None
+    visits_top_procedure_3: str | None = None
+    visits_top_procedure_3_name: str | None = None
+    panel_size: int | None = None
+    panel_average_age: float | None = None
+    panel_percent_age_0_19: float | None = None
+    panel_percent_age_20_44: float | None = None
+    panel_percent_age_45_64: float | None = None
+    panel_percent_age_65_84: float | None = None
+    panel_percent_age_85_plus: float | None = None
+    panel_percent_female: float | None = None
+    panel_percent_male: float | None = None
 
 
 class ProviderSpineList(BaseModel):

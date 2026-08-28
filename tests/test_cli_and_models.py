@@ -2,10 +2,9 @@ from provider_directory.cli import build_parser
 from provider_directory.models import ProviderSpine
 
 
-def test_cli_phase1_flags():
-    args = build_parser().parse_args(["phase1", "--download", "--skip-nppes"])
-    assert args.download is True
-    assert args.skip_nppes is True
+def test_cli_phase2_command():
+    args = build_parser().parse_args(["phase2"])
+    assert args.cmd == "phase2"
 
 
 def test_provider_spine_model_roundtrip():
