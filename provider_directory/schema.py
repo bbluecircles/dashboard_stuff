@@ -12,6 +12,17 @@ TABLES = (
     "pd_provider",
     "pd_npi_xwalk",
     "pd_network_npi",
+    "pd_provider_practice",
+    "pd_stg_window_claim",
+    "pd_stg_visit",
+    "pd_stg_panel_patient",
+    "pd_stg_top_dx",
+    "pd_stg_top_px",
+    "pd_stg_visit_site",
+    "pd_stg_npi_sl",
+)
+
+PHASE2_STAGING_TABLES = (
     "pd_stg_window_claim",
     "pd_stg_visit",
     "pd_stg_panel_patient",
@@ -19,13 +30,12 @@ TABLES = (
     "pd_stg_top_px",
 )
 
-STAGING_TABLES = (
-    "pd_stg_window_claim",
-    "pd_stg_visit",
-    "pd_stg_panel_patient",
-    "pd_stg_top_dx",
-    "pd_stg_top_px",
+PHASE3_STAGING_TABLES = (
+    "pd_stg_visit_site",
+    "pd_stg_npi_sl",
 )
+
+STAGING_TABLES = PHASE2_STAGING_TABLES + PHASE3_STAGING_TABLES
 
 
 def table_options() -> str:
@@ -58,6 +68,10 @@ PD_PROVIDER_PHASE2_COLUMNS = (
     ("panel_percent_age_85_plus", "DECIMAL(6,2) NULL"),
     ("panel_percent_female", "DECIMAL(6,2) NULL"),
     ("panel_percent_male", "DECIMAL(6,2) NULL"),
+)
+
+PD_PROVIDER_PHASE3_COLUMNS = (
+    ("provider_practices_total", "INT UNSIGNED NULL"),
 )
 
 
@@ -168,6 +182,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             panel_percent_age_85_plus DECIMAL(6,2) NULL,
             panel_percent_female DECIMAL(6,2) NULL,
             panel_percent_male DECIMAL(6,2) NULL,
+            provider_practices_total INT UNSIGNED NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi),
             KEY idx_last_name (last_name),
@@ -260,6 +275,65 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_npi (npi)
         ) {table_options()}
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_provider_practice (
+            npi BIGINT UNSIGNED NOT NULL,
+            site_rank TINYINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED,
+            cluster_key VARCHAR(180),
+            name VARCHAR(254),
+            street VARCHAR(80),
+            city VARCHAR(80),
+            county VARCHAR(80),
+            state CHAR(2),
+            zip VARCHAR(5),
+            latitude DECIMAL(10,6),
+            longitude DECIMAL(10,6),
+            phone VARCHAR(20),
+            work_type VARCHAR(80),
+            visits_at_site INT UNSIGNED NOT NULL DEFAULT 0,
+            visit_share_pct DECIMAL(6,2),
+            npi_type VARCHAR(8),
+            location_source VARCHAR(16),
+            location_flag VARCHAR(20),
+            phone_source VARCHAR(16),
+            needs_geocode TINYINT NOT NULL DEFAULT 0,
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, site_rank),
+            KEY idx_sl (sl_code),
+            KEY idx_state_zip (state, zip)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit_site (
+            encounter_id BIGINT UNSIGNED NOT NULL,
+            rendering_npi BIGINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED NOT NULL,
+            PRIMARY KEY (encounter_id),
+            KEY idx_rend_sl (rendering_npi, sl_code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_sl (
+            npi BIGINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED NOT NULL,
+            visits INT UNSIGNED NOT NULL,
+            cluster_key VARCHAR(180) NOT NULL,
+            name VARCHAR(254),
+            street VARCHAR(80),
+            city VARCHAR(80),
+            county VARCHAR(80),
+            state CHAR(2),
+            zip VARCHAR(5),
+            latitude DECIMAL(10,6),
+            longitude DECIMAL(10,6),
+            work_type VARCHAR(80),
+            npi_type VARCHAR(8),
+            needs_geocode TINYINT NOT NULL DEFAULT 0,
+            PRIMARY KEY (npi, sl_code),
+            KEY idx_cluster (npi, cluster_key)
+        ) {table_options()}
+        """,
     ]
 
 
@@ -273,11 +347,26 @@ def migrate_phase2_columns(conn, mart_db: str = MART_DB) -> None:
             )
 
 
-def drop_staging_tables(conn, mart_db: str = MART_DB) -> None:
-    db = quote_ident(mart_db)
+def migrate_phase3_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add Phase 3 columns to a pd_provider that was created before locations."""
+    table = f"{quote_ident(mart_db)}.pd_provider"
     with conn.cursor() as cur:
-        for table in STAGING_TABLES:
+        for name, definition in PD_PROVIDER_PHASE3_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
+
+
+def drop_staging_tables(conn, mart_db: str = MART_DB, tables: tuple[str, ...] | None = None) -> None:
+    db = quote_ident(mart_db)
+    names = tables if tables is not None else STAGING_TABLES
+    with conn.cursor() as cur:
+        for table in names:
             cur.execute(f"DROP TABLE IF EXISTS {db}.{quote_ident(table)}")
+
+
+def drop_phase3_staging(conn, mart_db: str = MART_DB) -> None:
+    drop_staging_tables(conn, mart_db, PHASE3_STAGING_TABLES)
 
 
 def convert_persistent_collation(conn, mart_db: str = MART_DB) -> None:
@@ -313,4 +402,5 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
         for stmt in ddl_statements(mart_db):
             cur.execute(stmt)
     migrate_phase2_columns(conn, mart_db)
+    migrate_phase3_columns(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

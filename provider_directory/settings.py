@@ -34,6 +34,8 @@ DUMMY_STATES = frozenset({"XX"})
 NPI_MIN = 1_000_000_000
 NPI_MAX = 9_999_999_999
 MARKET_STATE = "AZ"
+MAX_PRACTICE_SITES = 5
+GEO_CLUSTER_DECIMALS = 4
 
 CMS_CACHE_DIR = Path(os.environ.get("PD_CMS_CACHE", str(ROOT / "data" / "cms")))
 

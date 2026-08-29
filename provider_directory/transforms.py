@@ -267,6 +267,179 @@ def is_active(visits_total: int | None, panel_size: int | None) -> bool:
     return (visits_total or 0) > 0 or (panel_size or 0) > 0
 
 
+_STREET_SUFFIX = {
+    "STREET": "ST",
+    "AVENUE": "AVE",
+    "ROAD": "RD",
+    "BOULEVARD": "BLVD",
+    "DRIVE": "DR",
+    "LANE": "LN",
+    "PARKWAY": "PKWY",
+    "HIGHWAY": "HWY",
+    "PLACE": "PL",
+    "COURT": "CT",
+    "CIRCLE": "CIR",
+    "TRAIL": "TRL",
+}
+_DIRECTIONALS = {
+    "NORTH": "N",
+    "SOUTH": "S",
+    "EAST": "E",
+    "WEST": "W",
+    "NORTHEAST": "NE",
+    "NORTHWEST": "NW",
+    "SOUTHEAST": "SE",
+    "SOUTHWEST": "SW",
+}
+_SUITE_RE = re.compile(
+    r"\s+(STE|SUITE|APT|UNIT|BLDG|BUILDING|FLOOR|FL|#)([.\s].*)?$",
+    re.IGNORECASE,
+)
+_POBOX_RE = re.compile(r"^POBOX")
+_ENTITY_SUFFIX_RE = re.compile(r"\s*TYPE-2-ENTITY\s*$", re.IGNORECASE)
+
+
+def is_po_box(street: Any) -> bool:
+    text = nonempty(street)
+    if text is None:
+        return False
+    compact = re.sub(r"[^A-Z0-9]", "", text.upper())
+    return bool(_POBOX_RE.match(compact))
+
+
+def is_junk_geocode(lat: Any, lon: Any) -> bool:
+    try:
+        latitude = float(lat)
+        longitude = float(lon)
+    except (TypeError, ValueError):
+        return True
+    return latitude == 0.0 and longitude == 0.0
+
+
+def city_without_state(value: Any) -> str | None:
+    text = nonempty(value)
+    if text is None:
+        return None
+    return nonempty(text.split(",", 1)[0])
+
+
+def zip5(value: Any) -> str | None:
+    text = nonempty(value)
+    if text is None:
+        return None
+    digits = re.sub(r"\D", "", text)
+    if len(digits) < 5:
+        return None
+    return digits[:5]
+
+
+def normalize_street(value: Any) -> str | None:
+    """Uppercase street with suite stripped so suite variants cluster as one site."""
+    text = nonempty(value)
+    if text is None or is_po_box(text):
+        return None
+    text = _SUITE_RE.sub("", text.upper())
+    text = re.sub(r"[.,]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return None
+    parts = []
+    for token in text.split():
+        parts.append(_DIRECTIONALS.get(token) or _STREET_SUFFIX.get(token) or token)
+    return " ".join(parts) or None
+
+
+def cluster_key(
+    *,
+    sl_code: Any,
+    street: Any,
+    zip_code: Any,
+    latitude: Any = None,
+    longitude: Any = None,
+    geo_decimals: int = 4,
+) -> str:
+    """Same building (street+zip), else ~11m geocode, else the raw sl_code."""
+    street_key = normalize_street(street)
+    zed = zip5(zip_code)
+    if street_key and zed:
+        return f"a:{street_key}|{zed}"
+    if not is_junk_geocode(latitude, longitude):
+        return f"g:{float(latitude):.{geo_decimals}f},{float(longitude):.{geo_decimals}f}"
+    return f"s:{parse_int(sl_code) or 0}"
+
+
+def strip_entity_suffix(value: Any) -> str | None:
+    text = nonempty(value)
+    if text is None:
+        return None
+    return nonempty(_ENTITY_SUFFIX_RE.sub("", text))
+
+
+def pick_practice_name(
+    *,
+    npi_type: Any = None,
+    hospital_system: Any = None,
+    dba_name: Any = None,
+    common_name: Any = None,
+    sl_name: Any = None,
+    facility_dba: Any = None,
+    facility_hospital_system: Any = None,
+) -> str | None:
+    """Prefer system / Type 2 DBA over a Type 1 clone of the doctor's own name."""
+    ntype = nonempty(npi_type)
+    candidates = [
+        hospital_system,
+        facility_hospital_system,
+        dba_name if ntype == "2" else None,
+        sl_name if ntype == "2" else None,
+        facility_dba,
+        common_name,
+        dba_name,
+        sl_name,
+    ]
+    for value in candidates:
+        found = strip_entity_suffix(value)
+        if found is not None:
+            return found
+    return None
+
+
+def pick_work_type(
+    pos_type_name: Any = None,
+    im_specialty_rollup: Any = None,
+    hospital_system: Any = None,
+) -> str | None:
+    if nonempty(hospital_system):
+        return nonempty(im_specialty_rollup) or "Hospital"
+    return pick_value(pos_type_name, im_specialty_rollup)
+
+
+def rank_clusters(
+    clusters: list[Mapping[str, Any]],
+    visits_total: int | None,
+    *,
+    max_sites: int = 5,
+) -> list[dict[str, Any]]:
+    """Primary = most visits, then lowest sl_code. Share may not sum to 100."""
+    ranked = sorted(
+        clusters,
+        key=lambda row: (-int(row.get("visits") or 0), int(row.get("sl_code") or 0)),
+    )
+    total = visits_total or 0
+    out: list[dict[str, Any]] = []
+    for index, row in enumerate(ranked[:max_sites], start=1):
+        visits = int(row.get("visits") or 0)
+        out.append(
+            {
+                **dict(row),
+                "site_rank": index,
+                "visits_at_site": visits,
+                "visit_share_pct": round_pct(visits, total),
+            }
+        )
+    return out
+
+
 def nppes_primary_taxonomy(row: Mapping[str, Any]) -> str | None:
     for i in range(1, 16):
         switch = nonempty(row.get(f"healthcare_provider_primary_taxonomy_switch_{i}"))

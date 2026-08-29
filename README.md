@@ -33,3 +33,16 @@ python -m provider_directory.cli get --last-name Smith --limit 3
 ```
 
 This scan is large (12 months of `pat_dt`). Galera cannot replicate one giant transaction (`Maximum writeset size exceeded`), so Phase 2 commits by month and hash bucket. You should see `phase2 window YYYYMM bucket N` lines as it goes.
+
+Keep Phase 2 staging (`pd_stg_visit`, `pd_stg_window_claim`) around for Phase 3.
+
+## Phase 3
+
+Claims-weighted practice locations. One site per visit from the modal `sl_code` on Phase 2 staging, clustered by street+ZIP (suite variants collapse), ranked to five sites, PDC phone overlaid when ZIP+street or ZIP+city match. Does not rescan `az.pat_dt` and does not write NPPES/PDC streets over claims sites.
+
+```
+python -m provider_directory.cli phase3
+python -m provider_directory.cli get 1952863797
+```
+
+Re-run `phase3` after any `phase2` rebuild. Referring-only NPIs have no rendered visits, so they will have empty `practices`.

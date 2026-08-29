@@ -9,9 +9,60 @@
 
 from __future__ import annotations
 
+import pymysql
+
 from provider_directory.db import quote_ident
-from provider_directory.models import ProviderSpine, ProviderSpineList
+from provider_directory.models import ProviderPractice, ProviderSpine, ProviderSpineList
 from provider_directory.settings import MART_DB
+
+
+def _as_bool(row: dict, *flags: str) -> dict:
+    for flag in flags:
+        if row.get(flag) is not None:
+            row[flag] = bool(row[flag])
+    return row
+
+
+def _practice_from_row(row: dict) -> ProviderPractice:
+    _as_bool(row, "needs_geocode")
+    return ProviderPractice.model_validate(row)
+
+
+def fetch_practices(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[int, list[ProviderPractice]]:
+    empty = {npi: [] for npi in npis}
+    if not npis:
+        return {}
+    placeholders = ", ".join(["%s"] * len(npis))
+    table = f"{quote_ident(mart_db)}.pd_provider_practice"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT * FROM {table}
+                WHERE npi IN ({placeholders})
+                ORDER BY npi, site_rank
+                """,
+                npis,
+            )
+            rows = cur.fetchall()
+    except pymysql.err.ProgrammingError as exc:
+        if exc.args and exc.args[0] == 1146:
+            return empty
+        raise
+    by_npi: dict[int, list[ProviderPractice]] = empty
+    for row in rows:
+        by_npi.setdefault(int(row["npi"]), []).append(_practice_from_row(row))
+    return by_npi
+
+
+def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_DB) -> list[ProviderSpine]:
+    if not items:
+        return items
+    by_npi = fetch_practices(conn, [item.npi for item in items], mart_db=mart_db)
+    return [
+        item.model_copy(update={"practices": by_npi.get(item.npi, [])})
+        for item in items
+    ]
 
 
 def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | None:
@@ -23,10 +74,9 @@ def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | N
         row = cur.fetchone()
     if not row:
         return None
-    for flag in ("in_system_provider", "active_provider"):
-        if row.get(flag) is not None:
-            row[flag] = bool(row[flag])
-    return ProviderSpine.model_validate(row)
+    _as_bool(row, "in_system_provider", "active_provider")
+    item = ProviderSpine.model_validate(row)
+    return _attach_practices(conn, [item], mart_db=mart_db)[0]
 
 
 def search_providers(
@@ -75,8 +125,6 @@ def search_providers(
         rows = cur.fetchall()
     items = []
     for row in rows:
-        for flag in ("in_system_provider", "active_provider"):
-            if row.get(flag) is not None:
-                row[flag] = bool(row[flag])
+        _as_bool(row, "in_system_provider", "active_provider")
         items.append(ProviderSpine.model_validate(row))
-    return ProviderSpineList(items=items, total=total)
+    return ProviderSpineList(items=_attach_practices(conn, items, mart_db=mart_db), total=total)

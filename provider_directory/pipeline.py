@@ -17,6 +17,7 @@ from provider_directory.cms import (
 )
 from provider_directory.cms.load import load_nppes, load_pdc_clinician, load_pdc_facility, load_spine_npis
 from provider_directory.db import ensure_mart_database
+from provider_directory.locations import rebuild_locations
 from provider_directory.mart import overlay_cms
 from provider_directory.schema import create_schema
 from provider_directory.settings import CMS_CACHE_DIR, MART_DB
@@ -127,3 +128,9 @@ def run_phase2(conn, *, mart_db: str = MART_DB) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     return rebuild_activity(conn, mart_db=mart_db)
+
+
+def run_phase3(conn, *, mart_db: str = MART_DB) -> dict:
+    ensure_mart_database(conn, mart_db)
+    create_schema(conn, mart_db)
+    return rebuild_locations(conn, mart_db=mart_db)

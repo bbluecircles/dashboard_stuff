@@ -5,6 +5,32 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ProviderPractice(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    npi: int
+    site_rank: int
+    sl_code: int | None = None
+    cluster_key: str | None = None
+    name: str | None = None
+    street: str | None = None
+    city: str | None = None
+    county: str | None = None
+    state: str | None = None
+    zip: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    phone: str | None = None
+    work_type: str | None = None
+    visits_at_site: int | None = None
+    visit_share_pct: float | None = None
+    npi_type: str | None = None
+    location_source: str | None = None
+    location_flag: str | None = None
+    phone_source: str | None = None
+    needs_geocode: bool = False
+
+
 class ProviderSpine(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -48,6 +74,8 @@ class ProviderSpine(BaseModel):
     panel_percent_age_85_plus: float | None = None
     panel_percent_female: float | None = None
     panel_percent_male: float | None = None
+    provider_practices_total: int | None = None
+    practices: list[ProviderPractice] = Field(default_factory=list)
 
 
 class ProviderSpineList(BaseModel):
