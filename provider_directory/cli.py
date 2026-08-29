@@ -70,14 +70,28 @@ def _cmd_overlay(_args: argparse.Namespace) -> int:
 
 def _cmd_get(args: argparse.Namespace) -> int:
     with get_connection() as conn:
-        if args.last_name or args.specialty:
+        searching = any(
+            [
+                args.last_name,
+                args.specialty,
+                args.active,
+                args.min_visits is not None,
+            ]
+        )
+        if searching:
             result = search_providers(
-                conn, last_name=args.last_name, npi=args.npi, specialty=args.specialty, limit=args.limit
+                conn,
+                last_name=args.last_name,
+                npi=args.npi,
+                specialty=args.specialty,
+                active=True if args.active else None,
+                min_visits=args.min_visits,
+                limit=args.limit,
             )
             print(result.model_dump_json(indent=2))
             return 0
         if args.npi is None:
-            print("Pass an NPI or --last-name / --specialty.", file=sys.stderr)
+            print("Pass an NPI or --last-name / --specialty / --active.", file=sys.stderr)
             return 2
         row = get_provider(conn, args.npi)
     if row is None:
@@ -121,6 +135,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("npi", nargs="?", type=int)
     p.add_argument("--last-name")
     p.add_argument("--specialty")
+    p.add_argument("--active", action="store_true", help="Only providers with activity in the frozen window")
+    p.add_argument("--min-visits", type=int, dest="min_visits", help="Minimum visits_total")
     p.add_argument("--limit", type=int, default=25)
     p.set_defaults(func=_cmd_get)
     return parser

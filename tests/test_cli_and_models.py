@@ -2,9 +2,13 @@ from provider_directory.cli import build_parser
 from provider_directory.models import ProviderSpine
 
 
-def test_cli_phase2_command():
-    args = build_parser().parse_args(["phase2"])
-    assert args.cmd == "phase2"
+def test_cli_get_active_and_min_visits():
+    args = build_parser().parse_args(
+        ["get", "--last-name", "Smith", "--specialty", "Cardiovascular", "--active", "--min-visits", "50", "--limit", "5"]
+    )
+    assert args.active is True
+    assert args.min_visits == 50
+    assert args.limit == 5
 
 
 def test_provider_spine_model_roundtrip():

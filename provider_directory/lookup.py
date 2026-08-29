@@ -35,6 +35,8 @@ def search_providers(
     last_name: str | None = None,
     npi: int | None = None,
     specialty: str | None = None,
+    active: bool | None = None,
+    min_visits: int | None = None,
     limit: int = 25,
     mart_db: str = MART_DB,
 ) -> ProviderSpineList:
@@ -49,6 +51,13 @@ def search_providers(
     if specialty:
         clauses.append("(primary_specialty_code = %s OR primary_specialty_description LIKE %s)")
         params.extend([specialty, f"%{specialty}%"])
+    if active is True:
+        clauses.append("active_provider = 1")
+    elif active is False:
+        clauses.append("(active_provider = 0 OR active_provider IS NULL)")
+    if min_visits is not None:
+        clauses.append("IFNULL(visits_total, 0) >= %s")
+        params.append(min_visits)
     where = " AND ".join(clauses)
     table = f"{quote_ident(mart_db)}.pd_provider"
     with conn.cursor() as cur:
@@ -58,7 +67,7 @@ def search_providers(
             f"""
             SELECT * FROM {table}
             WHERE {where}
-            ORDER BY last_name, first_name, npi
+            ORDER BY IFNULL(visits_total, 0) DESC, IFNULL(panel_size, 0) DESC, last_name, first_name, npi
             LIMIT %s
             """,
             [*params, limit],
