@@ -104,7 +104,9 @@ def test_phase3_sql_stays_on_staging_and_mart():
     assert "claims_sl" in source
     street = street_key_sql("sl.street")
     assert "STE|SUITE" in street
-    assert "POBOX%" in po_box_sql("sl.street")
+    assert "CHAR(37)" in po_box_sql("sl.street")
+    assert "%" not in po_box_sql("sl.street")
+    "SELECT 1 WHERE x = %s AND NOT ({})".format(po_box_sql("sl.street")) % (0,)
     assert "npi_type = '2'" in practice_name_sql()
     key = cluster_key_sql("sl.street", "sl.zip_code", "sl.latitude", "sl.longitude", "sl.sl_code")
     assert "a:" in key and "g:" in key and "s:" in key

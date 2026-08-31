@@ -11,7 +11,7 @@ sites. Never copy an NPPES or PDC street over a claims site.
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
-from provider_directory.schema import create_schema, drop_phase3_staging, table_options
+from provider_directory.schema import create_schema, drop_phase3_staging, drop_staging_tables, table_options
 from provider_directory.settings import (
     CLAIMS_DB,
     DUMMY_NPIS,
@@ -76,9 +76,11 @@ def cluster_key_sql(street_expr: str, zip_expr: str, lat_expr: str, lon_expr: st
 
 
 def po_box_sql(street_expr: str) -> str:
+    # CHAR(37) is '%'. Do not put a literal % here — pymysql treats it as a
+    # format placeholder whenever the statement also has %s params.
     return (
         "REPLACE(REPLACE(REPLACE(UPPER(IFNULL("
-        f"{street_expr}, '')), '.', ''), ' ', ''), '-', '') LIKE 'POBOX%'"
+        f"{street_expr}, '')), '.', ''), ' ', ''), '-', '') LIKE CONCAT('POBOX', CHAR(37))"
     )
 
 
@@ -132,6 +134,23 @@ def require_phase2_staging(conn, mart_db: str = MART_DB) -> None:
             raise Phase2Required("pd_stg_visit is empty. Run phase2 first.")
 
 
+def table_has_rows(conn, mart_db: str, table: str) -> bool:
+    mart = quote_ident(mart_db)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 AS ok
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+            """,
+            (mart_db, table),
+        )
+        if cur.fetchone() is None:
+            return False
+        cur.execute(f"SELECT 1 AS ok FROM {mart}.{quote_ident(table)} LIMIT 1")
+        return cur.fetchone() is not None
+
+
 def rebuild_locations(
     conn,
     *,
@@ -140,7 +159,11 @@ def rebuild_locations(
     max_sites: int = MAX_PRACTICE_SITES,
 ) -> dict:
     require_phase2_staging(conn, mart_db)
-    drop_phase3_staging(conn, mart_db)
+    keep_visit_site = table_has_rows(conn, mart_db, "pd_stg_visit_site")
+    if keep_visit_site:
+        drop_staging_tables(conn, mart_db, ("pd_stg_npi_sl",))
+    else:
+        drop_phase3_staging(conn, mart_db)
     mart = quote_ident(mart_db)
     with conn.cursor() as cur:
         cur.execute(
@@ -179,7 +202,22 @@ def rebuild_locations(
                 """,
             )
 
-        visit_site_sql = f"""
+        if keep_visit_site:
+            cur.execute(
+                """
+                SELECT TABLE_ROWS AS n
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'pd_stg_visit_site'
+                """,
+                (mart_db,),
+            )
+            counts["visit_sites"] = int((cur.fetchone() or {}).get("n") or 0)
+            print(
+                f"phase3 visit_site reused (~{counts['visit_sites']} rows)",
+                flush=True,
+            )
+        else:
+            visit_site_sql = f"""
             INSERT INTO {mart}.pd_stg_visit_site (encounter_id, rendering_npi, sl_code)
             SELECT picked.encounter_id, picked.rendering_npi, picked.sl_code
             FROM (
@@ -209,11 +247,11 @@ def rebuild_locations(
                 ) agg
             ) picked
             WHERE picked.rk = 1
-        """
-        for bucket in range(VISIT_BUCKETS):
-            n = _run(cur, conn, visit_site_sql, (bucket,))
-            counts["visit_sites"] += n
-            print(f"phase3 visit_site bucket {bucket}: {n} rows", flush=True)
+            """
+            for bucket in range(VISIT_BUCKETS):
+                n = _run(cur, conn, visit_site_sql, (bucket,))
+                counts["visit_sites"] += n
+                print(f"phase3 visit_site bucket {bucket}: {n} rows", flush=True)
 
         npi_sl_sql = f"""
             INSERT INTO {mart}.pd_stg_npi_sl (
