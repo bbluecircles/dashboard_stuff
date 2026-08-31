@@ -46,3 +46,16 @@ python -m provider_directory.cli get 1952863797
 ```
 
 Re-run `phase3` after any `phase2` rebuild. Referring-only NPIs have no rendered visits, so they will have empty `practices`.
+
+Phase 3 JSON that looks healthy: `visit_sites` in the tens of millions, `practice_rows` around 2 sites per active renderer, `phones_overlaid` well below practice_rows (PDC is Medicare-enrolled only).
+
+## Phase 4
+
+wRVU (encounter work procedure × `azal.procd.WORK_RVU`), payer mix from `az.dash_physician_payor_all`, primary billing org from `az.physician_primary_affiliation`, and Trilliant-style `work_type` labels. Does not rescan `az.pat_dt`. Other / is_payor 5 is excluded from the four payer percents. Top 3 payers are commercial parents only.
+
+```
+python -m provider_directory.cli phase4
+python -m provider_directory.cli get 1952863797
+```
+
+Keep Phase 2–3 staging. Re-run `phase4` after `phase2`/`phase3` rebuilds. State-specialty wRVU benchmarks, prior-year wRVU, and day-of-week mix are Phase 5.

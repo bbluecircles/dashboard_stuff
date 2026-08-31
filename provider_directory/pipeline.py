@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlparse
 import requests
 
 from provider_directory.activity import rebuild_activity
+from provider_directory.analytics import rebuild_analytics
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -134,3 +135,9 @@ def run_phase3(conn, *, mart_db: str = MART_DB) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     return rebuild_locations(conn, mart_db=mart_db)
+
+
+def run_phase4(conn, *, mart_db: str = MART_DB) -> dict:
+    ensure_mart_database(conn, mart_db)
+    create_schema(conn, mart_db)
+    return rebuild_analytics(conn, mart_db=mart_db)

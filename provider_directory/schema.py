@@ -20,6 +20,9 @@ TABLES = (
     "pd_stg_top_px",
     "pd_stg_visit_site",
     "pd_stg_npi_sl",
+    "pd_stg_npi_wrvu",
+    "pd_stg_site_wrvu",
+    "pd_stg_npi_payor",
 )
 
 PHASE2_STAGING_TABLES = (
@@ -35,7 +38,13 @@ PHASE3_STAGING_TABLES = (
     "pd_stg_npi_sl",
 )
 
-STAGING_TABLES = PHASE2_STAGING_TABLES + PHASE3_STAGING_TABLES
+PHASE4_STAGING_TABLES = (
+    "pd_stg_npi_wrvu",
+    "pd_stg_site_wrvu",
+    "pd_stg_npi_payor",
+)
+
+STAGING_TABLES = PHASE2_STAGING_TABLES + PHASE3_STAGING_TABLES + PHASE4_STAGING_TABLES
 
 
 def table_options() -> str:
@@ -72,6 +81,32 @@ PD_PROVIDER_PHASE2_COLUMNS = (
 
 PD_PROVIDER_PHASE3_COLUMNS = (
     ("provider_practices_total", "INT UNSIGNED NULL"),
+)
+
+PD_PROVIDER_PHASE4_COLUMNS = (
+    ("wrvu_total", "DECIMAL(14,2) NULL"),
+    ("wrvu_average", "DECIMAL(10,3) NULL"),
+    ("wrvu_procedure_count", "INT UNSIGNED NULL"),
+    ("visits_percent_third_party", "DECIMAL(6,2) NULL"),
+    ("visits_percent_medicaid", "DECIMAL(6,2) NULL"),
+    ("visits_percent_medicare_advantage", "DECIMAL(6,2) NULL"),
+    ("visits_percent_medicare_traditional", "DECIMAL(6,2) NULL"),
+    ("top_payer_name_1", "VARCHAR(140) NULL"),
+    ("top_payer_percent_1", "DECIMAL(6,2) NULL"),
+    ("top_payer_name_2", "VARCHAR(140) NULL"),
+    ("top_payer_percent_2", "DECIMAL(6,2) NULL"),
+    ("top_payer_name_3", "VARCHAR(140) NULL"),
+    ("top_payer_percent_3", "DECIMAL(6,2) NULL"),
+    ("primary_organization_id", "BIGINT NULL"),
+    ("primary_organization_name", "VARCHAR(180) NULL"),
+    ("primary_organization_npi", "BIGINT NULL"),
+    ("primary_organization_parent_id", "INT NULL"),
+    ("primary_organization_parent_name", "VARCHAR(80) NULL"),
+)
+
+PD_PRACTICE_PHASE4_COLUMNS = (
+    ("wrvu_at_site", "DECIMAL(14,2) NULL"),
+    ("wrvu_share_pct", "DECIMAL(6,2) NULL"),
 )
 
 
@@ -183,6 +218,24 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             panel_percent_female DECIMAL(6,2) NULL,
             panel_percent_male DECIMAL(6,2) NULL,
             provider_practices_total INT UNSIGNED NULL,
+            wrvu_total DECIMAL(14,2) NULL,
+            wrvu_average DECIMAL(10,3) NULL,
+            wrvu_procedure_count INT UNSIGNED NULL,
+            visits_percent_third_party DECIMAL(6,2) NULL,
+            visits_percent_medicaid DECIMAL(6,2) NULL,
+            visits_percent_medicare_advantage DECIMAL(6,2) NULL,
+            visits_percent_medicare_traditional DECIMAL(6,2) NULL,
+            top_payer_name_1 VARCHAR(140) NULL,
+            top_payer_percent_1 DECIMAL(6,2) NULL,
+            top_payer_name_2 VARCHAR(140) NULL,
+            top_payer_percent_2 DECIMAL(6,2) NULL,
+            top_payer_name_3 VARCHAR(140) NULL,
+            top_payer_percent_3 DECIMAL(6,2) NULL,
+            primary_organization_id BIGINT NULL,
+            primary_organization_name VARCHAR(180) NULL,
+            primary_organization_npi BIGINT NULL,
+            primary_organization_parent_id INT NULL,
+            primary_organization_parent_name VARCHAR(80) NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi),
             KEY idx_last_name (last_name),
@@ -293,6 +346,8 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             work_type VARCHAR(80),
             visits_at_site INT UNSIGNED NOT NULL DEFAULT 0,
             visit_share_pct DECIMAL(6,2),
+            wrvu_at_site DECIMAL(14,2) NULL,
+            wrvu_share_pct DECIMAL(6,2) NULL,
             npi_type VARCHAR(8),
             location_source VARCHAR(16),
             location_flag VARCHAR(20),
@@ -334,6 +389,33 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_cluster (npi, cluster_key)
         ) {table_options()}
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_wrvu (
+            npi BIGINT UNSIGNED NOT NULL,
+            total_wrvu DECIMAL(14,2) NOT NULL,
+            procedure_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_site_wrvu (
+            npi BIGINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED NOT NULL,
+            total_wrvu DECIMAL(14,2) NOT NULL,
+            procedure_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, sl_code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_payor (
+            npi BIGINT UNSIGNED NOT NULL,
+            is_payor_code SMALLINT NOT NULL,
+            payor_parent_name VARCHAR(140) NOT NULL,
+            claim_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, is_payor_code, payor_parent_name),
+            KEY idx_npi (npi)
+        ) {table_options()}
+        """,
     ]
 
 
@@ -365,8 +447,36 @@ def drop_staging_tables(conn, mart_db: str = MART_DB, tables: tuple[str, ...] | 
             cur.execute(f"DROP TABLE IF EXISTS {db}.{quote_ident(table)}")
 
 
+def migrate_phase4_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add Phase 4 columns to pd_provider / pd_provider_practice."""
+    provider = f"{quote_ident(mart_db)}.pd_provider"
+    practice = f"{quote_ident(mart_db)}.pd_provider_practice"
+    with conn.cursor() as cur:
+        for name, definition in PD_PROVIDER_PHASE4_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {provider} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
+        cur.execute(
+            """
+            SELECT 1 AS ok
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'pd_provider_practice'
+            """,
+            (mart_db,),
+        )
+        if cur.fetchone():
+            for name, definition in PD_PRACTICE_PHASE4_COLUMNS:
+                cur.execute(
+                    f"ALTER TABLE {practice} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+                )
+
+
 def drop_phase3_staging(conn, mart_db: str = MART_DB) -> None:
     drop_staging_tables(conn, mart_db, PHASE3_STAGING_TABLES)
+
+
+def drop_phase4_staging(conn, mart_db: str = MART_DB) -> None:
+    drop_staging_tables(conn, mart_db, PHASE4_STAGING_TABLES)
 
 
 def convert_persistent_collation(conn, mart_db: str = MART_DB) -> None:
@@ -403,4 +513,5 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
             cur.execute(stmt)
     migrate_phase2_columns(conn, mart_db)
     migrate_phase3_columns(conn, mart_db)
+    migrate_phase4_columns(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

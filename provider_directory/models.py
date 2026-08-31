@@ -29,6 +29,8 @@ class ProviderPractice(BaseModel):
     location_flag: str | None = None
     phone_source: str | None = None
     needs_geocode: bool = False
+    wrvu_at_site: float | None = None
+    wrvu_share_pct: float | None = None
 
 
 class ProviderSpine(BaseModel):
@@ -75,6 +77,24 @@ class ProviderSpine(BaseModel):
     panel_percent_female: float | None = None
     panel_percent_male: float | None = None
     provider_practices_total: int | None = None
+    wrvu_total: float | None = None
+    wrvu_average: float | None = None
+    wrvu_procedure_count: int | None = None
+    visits_percent_third_party: float | None = None
+    visits_percent_medicaid: float | None = None
+    visits_percent_medicare_advantage: float | None = None
+    visits_percent_medicare_traditional: float | None = None
+    top_payer_name_1: str | None = None
+    top_payer_percent_1: float | None = None
+    top_payer_name_2: str | None = None
+    top_payer_percent_2: float | None = None
+    top_payer_name_3: str | None = None
+    top_payer_percent_3: float | None = None
+    primary_organization_id: int | None = None
+    primary_organization_name: str | None = None
+    primary_organization_npi: int | None = None
+    primary_organization_parent_id: int | None = None
+    primary_organization_parent_name: str | None = None
     practices: list[ProviderPractice] = Field(default_factory=list)
 
 

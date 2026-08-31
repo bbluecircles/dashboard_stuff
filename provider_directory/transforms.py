@@ -404,11 +404,108 @@ def pick_practice_name(
     return None
 
 
+POS_WORK_TYPE = {
+    11: "Office",
+    12: "Home",
+    19: "Off Campus Outpatient Hospital",
+    20: "Urgent Care",
+    21: "Short Term Acute Care Hospital",
+    22: "Hospital Outpatient",
+    23: "Emergency Department",
+    24: "Ambulatory Surgery Center",
+    31: "Skilled Nursing Facility",
+    32: "Nursing Facility",
+    34: "Hospice",
+    41: "Ambulance (Land)",
+    49: "Independent Clinic",
+    50: "Federally Qualified Health Center",
+    65: "End-Stage Renal Disease Facility",
+    72: "Rural Health Clinic",
+    81: "Independent Laboratory",
+}
+
+
+def polish_work_type(
+    *,
+    pos_type_code: Any = None,
+    pos_type_name: Any = None,
+    im_specialty_rollup: Any = None,
+    hospital_system: Any = None,
+) -> str | None:
+    """Trilliant-style site label from CMS POS, then warehouse rollup."""
+    pos = parse_int(pos_type_code)
+    if pos in POS_WORK_TYPE:
+        return POS_WORK_TYPE[pos]
+    roll = (nonempty(im_specialty_rollup) or "").lower()
+    if "urgent" in roll:
+        return "Urgent Care"
+    if "emergency" in roll:
+        return "Emergency Department"
+    if "ambulatory surg" in roll:
+        return "Ambulatory Surgery Center"
+    if "skilled nursing" in roll:
+        return "Skilled Nursing Facility"
+    if "hospice" in roll:
+        return "Hospice"
+    if "dialysis" in roll or "end-stage" in roll:
+        return "End-Stage Renal Disease Facility"
+    if "acute care hospital" in roll or "general acute" in roll:
+        return "Short Term Acute Care Hospital"
+    if "outpatient hospital" in roll:
+        return "Hospital Outpatient"
+    if "office specialty" in roll:
+        return "Single Specialty Group"
+    if "office" in roll:
+        return "Office"
+    if nonempty(hospital_system) and "hospital" in roll:
+        return "Short Term Acute Care Hospital"
+    return nonempty(pos_type_name) or nonempty(im_specialty_rollup)
+
+
+def payer_mix_percents(counts: Mapping[int, int]) -> dict[str, float | None]:
+    """Percents over is_payor 1–4. Code 5 Other is excluded from the denominator."""
+    from provider_directory.settings import (
+        PAYOR_COMMERCIAL,
+        PAYOR_HMO_MA,
+        PAYOR_MEDICAID,
+        PAYOR_MEDICARE_FFS,
+        PAYOR_MIX_CODES,
+    )
+
+    four = sum(int(counts.get(code, 0) or 0) for code in PAYOR_MIX_CODES)
+    return {
+        "visits_percent_medicare_traditional": round_pct(int(counts.get(PAYOR_MEDICARE_FFS, 0) or 0), four),
+        "visits_percent_medicaid": round_pct(int(counts.get(PAYOR_MEDICAID, 0) or 0), four),
+        "visits_percent_third_party": round_pct(int(counts.get(PAYOR_COMMERCIAL, 0) or 0), four),
+        "visits_percent_medicare_advantage": round_pct(int(counts.get(PAYOR_HMO_MA, 0) or 0), four),
+    }
+
+
+def top_commercial_payers(
+    volumes: Mapping[str, int],
+    *,
+    n: int = 3,
+) -> list[tuple[str, float]]:
+    """Top commercial parent names. Percents are of commercial volume only."""
+    ranked = sorted(
+        ((nonempty(name), int(cnt)) for name, cnt in volumes.items() if nonempty(name) is not None),
+        key=lambda item: (-item[1], item[0]),
+    )
+    total = sum(cnt for _name, cnt in ranked)
+    out: list[tuple[str, float]] = []
+    for name, cnt in ranked[:n]:
+        pct = round_pct(cnt, total)
+        if name is not None and pct is not None:
+            out.append((name, pct))
+    return out
+
+
 def pick_work_type(
     pos_type_name: Any = None,
     im_specialty_rollup: Any = None,
     hospital_system: Any = None,
 ) -> str | None:
+    """Raw Phase 3 label. Phase 4 polishes with polish_work_type."""
     if nonempty(hospital_system):
         return nonempty(im_specialty_rollup) or "Hospital"
     return pick_value(pos_type_name, im_specialty_rollup)
