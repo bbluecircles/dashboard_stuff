@@ -31,6 +31,26 @@ class ProviderPractice(BaseModel):
     needs_geocode: bool = False
     wrvu_at_site: float | None = None
     wrvu_share_pct: float | None = None
+    visits_percent_monday: float | None = None
+    visits_percent_tuesday: float | None = None
+    visits_percent_wednesday: float | None = None
+    visits_percent_thursday: float | None = None
+    visits_percent_friday: float | None = None
+    visits_percent_saturday: float | None = None
+    visits_percent_sunday: float | None = None
+
+
+class ProviderReferral(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    npi: int
+    direction: str
+    peer_rank: int
+    peer_npi: int
+    peer_name: str | None = None
+    peer_specialty: str | None = None
+    patient_count: int | None = None
+    claim_count: int | None = None
 
 
 class ProviderSpine(BaseModel):
@@ -95,7 +115,25 @@ class ProviderSpine(BaseModel):
     primary_organization_npi: int | None = None
     primary_organization_parent_id: int | None = None
     primary_organization_parent_name: str | None = None
+    visits_percent_monday: float | None = None
+    visits_percent_tuesday: float | None = None
+    visits_percent_wednesday: float | None = None
+    visits_percent_thursday: float | None = None
+    visits_percent_friday: float | None = None
+    visits_percent_saturday: float | None = None
+    visits_percent_sunday: float | None = None
+    wrvu_prior_year_total: float | None = None
+    wrvu_prior_year_average: float | None = None
+    wrvu_prior_year_procedure_count: int | None = None
+    wrvu_yoy_change_pct: float | None = None
+    wrvu_state_specialty_average: float | None = None
+    wrvu_state_specialty_median: float | None = None
+    wrvu_state_specialty_p25: float | None = None
+    wrvu_state_specialty_p75: float | None = None
+    wrvu_state_specialty_npi_count: int | None = None
+    wrvu_specialty_percentile: float | None = None
     practices: list[ProviderPractice] = Field(default_factory=list)
+    referrals: list[ProviderReferral] = Field(default_factory=list)
 
 
 class ProviderSpineList(BaseModel):

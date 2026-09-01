@@ -12,7 +12,7 @@ from __future__ import annotations
 import pymysql
 
 from provider_directory.db import quote_ident
-from provider_directory.models import ProviderPractice, ProviderSpine, ProviderSpineList
+from provider_directory.models import ProviderPractice, ProviderReferral, ProviderSpine, ProviderSpineList
 from provider_directory.settings import MART_DB
 
 
@@ -55,12 +55,50 @@ def fetch_practices(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[in
     return by_npi
 
 
+def _referral_from_row(row: dict) -> ProviderReferral:
+    return ProviderReferral.model_validate(row)
+
+
+def fetch_referrals(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[int, list[ProviderReferral]]:
+    empty = {npi: [] for npi in npis}
+    if not npis:
+        return {}
+    placeholders = ", ".join(["%s"] * len(npis))
+    table = f"{quote_ident(mart_db)}.pd_provider_referral"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT * FROM {table}
+                WHERE npi IN ({placeholders})
+                ORDER BY npi, direction, peer_rank
+                """,
+                npis,
+            )
+            rows = cur.fetchall()
+    except pymysql.err.ProgrammingError as exc:
+        if exc.args and exc.args[0] == 1146:
+            return empty
+        raise
+    by_npi: dict[int, list[ProviderReferral]] = empty
+    for row in rows:
+        by_npi.setdefault(int(row["npi"]), []).append(_referral_from_row(row))
+    return by_npi
+
+
 def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_DB) -> list[ProviderSpine]:
     if not items:
         return items
-    by_npi = fetch_practices(conn, [item.npi for item in items], mart_db=mart_db)
+    npis = [item.npi for item in items]
+    by_npi = fetch_practices(conn, npis, mart_db=mart_db)
+    by_ref = fetch_referrals(conn, npis, mart_db=mart_db)
     return [
-        item.model_copy(update={"practices": by_npi.get(item.npi, [])})
+        item.model_copy(
+            update={
+                "practices": by_npi.get(item.npi, []),
+                "referrals": by_ref.get(item.npi, []),
+            }
+        )
         for item in items
     ]
 

@@ -224,6 +224,51 @@ def round_pct(part: int, whole: int) -> float | None:
     return round(100.0 * part / whole, 2)
 
 
+# MariaDB DAYOFWEEK: 1=Sunday … 7=Saturday.
+DOW_PERCENT_COLUMNS = (
+    (2, "visits_percent_monday"),
+    (3, "visits_percent_tuesday"),
+    (4, "visits_percent_wednesday"),
+    (5, "visits_percent_thursday"),
+    (6, "visits_percent_friday"),
+    (7, "visits_percent_saturday"),
+    (1, "visits_percent_sunday"),
+)
+
+
+def dow_percentages(counts: Mapping[int, int]) -> dict[str, float | None]:
+    total = sum(int(counts.get(day, 0) or 0) for day, _col in DOW_PERCENT_COLUMNS)
+    return {col: round_pct(int(counts.get(day, 0) or 0), total) for day, col in DOW_PERCENT_COLUMNS}
+
+
+def wrvu_yoy_change_pct(current: Any, prior: Any) -> float | None:
+    try:
+        cur = float(current)
+        old = float(prior)
+    except (TypeError, ValueError):
+        return None
+    if old == 0:
+        return None
+    return round(100.0 * (cur - old) / old, 2)
+
+
+def specialty_percentile(rank: int | None, n: int | None) -> float | None:
+    """1-based rank from lowest wRVU. 100 = highest in the specialty."""
+    if rank is None or n is None or n <= 0 or rank <= 0:
+        return None
+    if n == 1:
+        return 100.0
+    return round(100.0 * rank / n, 1)
+
+
+def referral_display_name(*, last_name: Any = None, first_name: Any = None) -> str | None:
+    last = nonempty(last_name)
+    first = nonempty(first_name)
+    if last and first:
+        return f"{last}, {first}"
+    return last or first
+
+
 def summarize_panel(patients: list[Mapping[str, Any]]) -> dict[str, Any]:
     """One row per patient: age, gender. Average age, not median."""
     size = len(patients)

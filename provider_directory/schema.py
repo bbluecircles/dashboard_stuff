@@ -13,6 +13,7 @@ TABLES = (
     "pd_npi_xwalk",
     "pd_network_npi",
     "pd_provider_practice",
+    "pd_provider_referral",
     "pd_stg_window_claim",
     "pd_stg_visit",
     "pd_stg_panel_patient",
@@ -23,6 +24,13 @@ TABLES = (
     "pd_stg_npi_wrvu",
     "pd_stg_site_wrvu",
     "pd_stg_npi_payor",
+    "pd_stg_visit_date",
+    "pd_stg_npi_dow",
+    "pd_stg_site_dow",
+    "pd_stg_referral_edge",
+    "pd_stg_npi_wrvu_prior",
+    "pd_stg_specialty_wrvu",
+    "pd_stg_npi_percentile",
 )
 
 PHASE2_STAGING_TABLES = (
@@ -44,7 +52,26 @@ PHASE4_STAGING_TABLES = (
     "pd_stg_npi_payor",
 )
 
-STAGING_TABLES = PHASE2_STAGING_TABLES + PHASE3_STAGING_TABLES + PHASE4_STAGING_TABLES
+PHASE5_STAGING_TABLES = (
+    "pd_stg_npi_dow",
+    "pd_stg_site_dow",
+    "pd_stg_referral_edge",
+    "pd_stg_specialty_wrvu",
+    "pd_stg_npi_percentile",
+)
+
+PHASE5_CACHED_STAGING_TABLES = (
+    "pd_stg_visit_date",
+    "pd_stg_npi_wrvu_prior",
+)
+
+STAGING_TABLES = (
+    PHASE2_STAGING_TABLES
+    + PHASE3_STAGING_TABLES
+    + PHASE4_STAGING_TABLES
+    + PHASE5_STAGING_TABLES
+    + PHASE5_CACHED_STAGING_TABLES
+)
 
 
 def table_options() -> str:
@@ -107,6 +134,36 @@ PD_PROVIDER_PHASE4_COLUMNS = (
 PD_PRACTICE_PHASE4_COLUMNS = (
     ("wrvu_at_site", "DECIMAL(14,2) NULL"),
     ("wrvu_share_pct", "DECIMAL(6,2) NULL"),
+)
+
+PD_PROVIDER_PHASE5_COLUMNS = (
+    ("visits_percent_monday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_tuesday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_wednesday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_thursday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_friday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_saturday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_sunday", "DECIMAL(6,2) NULL"),
+    ("wrvu_prior_year_total", "DECIMAL(14,2) NULL"),
+    ("wrvu_prior_year_average", "DECIMAL(10,3) NULL"),
+    ("wrvu_prior_year_procedure_count", "INT UNSIGNED NULL"),
+    ("wrvu_yoy_change_pct", "DECIMAL(8,2) NULL"),
+    ("wrvu_state_specialty_average", "DECIMAL(14,2) NULL"),
+    ("wrvu_state_specialty_median", "DECIMAL(14,2) NULL"),
+    ("wrvu_state_specialty_p25", "DECIMAL(14,2) NULL"),
+    ("wrvu_state_specialty_p75", "DECIMAL(14,2) NULL"),
+    ("wrvu_state_specialty_npi_count", "INT UNSIGNED NULL"),
+    ("wrvu_specialty_percentile", "DECIMAL(5,1) NULL"),
+)
+
+PD_PRACTICE_PHASE5_COLUMNS = (
+    ("visits_percent_monday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_tuesday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_wednesday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_thursday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_friday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_saturday", "DECIMAL(6,2) NULL"),
+    ("visits_percent_sunday", "DECIMAL(6,2) NULL"),
 )
 
 
@@ -236,6 +293,23 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             primary_organization_npi BIGINT NULL,
             primary_organization_parent_id INT NULL,
             primary_organization_parent_name VARCHAR(80) NULL,
+            visits_percent_monday DECIMAL(6,2) NULL,
+            visits_percent_tuesday DECIMAL(6,2) NULL,
+            visits_percent_wednesday DECIMAL(6,2) NULL,
+            visits_percent_thursday DECIMAL(6,2) NULL,
+            visits_percent_friday DECIMAL(6,2) NULL,
+            visits_percent_saturday DECIMAL(6,2) NULL,
+            visits_percent_sunday DECIMAL(6,2) NULL,
+            wrvu_prior_year_total DECIMAL(14,2) NULL,
+            wrvu_prior_year_average DECIMAL(10,3) NULL,
+            wrvu_prior_year_procedure_count INT UNSIGNED NULL,
+            wrvu_yoy_change_pct DECIMAL(8,2) NULL,
+            wrvu_state_specialty_average DECIMAL(14,2) NULL,
+            wrvu_state_specialty_median DECIMAL(14,2) NULL,
+            wrvu_state_specialty_p25 DECIMAL(14,2) NULL,
+            wrvu_state_specialty_p75 DECIMAL(14,2) NULL,
+            wrvu_state_specialty_npi_count INT UNSIGNED NULL,
+            wrvu_specialty_percentile DECIMAL(5,1) NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi),
             KEY idx_last_name (last_name),
@@ -348,6 +422,13 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             visit_share_pct DECIMAL(6,2),
             wrvu_at_site DECIMAL(14,2) NULL,
             wrvu_share_pct DECIMAL(6,2) NULL,
+            visits_percent_monday DECIMAL(6,2) NULL,
+            visits_percent_tuesday DECIMAL(6,2) NULL,
+            visits_percent_wednesday DECIMAL(6,2) NULL,
+            visits_percent_thursday DECIMAL(6,2) NULL,
+            visits_percent_friday DECIMAL(6,2) NULL,
+            visits_percent_saturday DECIMAL(6,2) NULL,
+            visits_percent_sunday DECIMAL(6,2) NULL,
             npi_type VARCHAR(8),
             location_source VARCHAR(16),
             location_flag VARCHAR(20),
@@ -416,6 +497,81 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_npi (npi)
         ) {table_options()}
         """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_provider_referral (
+            npi BIGINT UNSIGNED NOT NULL,
+            direction VARCHAR(3) NOT NULL,
+            peer_rank TINYINT UNSIGNED NOT NULL,
+            peer_npi BIGINT UNSIGNED NOT NULL,
+            peer_name VARCHAR(180),
+            peer_specialty VARCHAR(120),
+            patient_count INT UNSIGNED NOT NULL DEFAULT 0,
+            claim_count INT UNSIGNED NULL,
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, direction, peer_rank),
+            KEY idx_peer (peer_npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit_date (
+            encounter_id BIGINT UNSIGNED NOT NULL,
+            service_end_date DATE NOT NULL,
+            PRIMARY KEY (encounter_id)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_dow (
+            npi BIGINT UNSIGNED NOT NULL,
+            dow TINYINT UNSIGNED NOT NULL,
+            visits INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, dow)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_site_dow (
+            npi BIGINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED NOT NULL,
+            dow TINYINT UNSIGNED NOT NULL,
+            visits INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, sl_code, dow)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_referral_edge (
+            npi BIGINT UNSIGNED NOT NULL,
+            direction VARCHAR(3) NOT NULL,
+            peer_npi BIGINT UNSIGNED NOT NULL,
+            patient_count INT UNSIGNED NOT NULL,
+            claim_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, direction, peer_npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_wrvu_prior (
+            npi BIGINT UNSIGNED NOT NULL,
+            total_wrvu DECIMAL(14,4) NOT NULL,
+            procedure_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_specialty_wrvu (
+            specialty_code VARCHAR(25) NOT NULL,
+            npi_count INT UNSIGNED NOT NULL,
+            avg_wrvu DECIMAL(14,2) NOT NULL,
+            p25_wrvu DECIMAL(14,2) NULL,
+            median_wrvu DECIMAL(14,2) NULL,
+            p75_wrvu DECIMAL(14,2) NULL,
+            PRIMARY KEY (specialty_code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_percentile (
+            npi BIGINT UNSIGNED NOT NULL,
+            pct DECIMAL(5,1) NOT NULL,
+            PRIMARY KEY (npi)
+        ) {table_options()}
+        """,
     ]
 
 
@@ -471,12 +627,40 @@ def migrate_phase4_columns(conn, mart_db: str = MART_DB) -> None:
                 )
 
 
+def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add Phase 5 columns to pd_provider / pd_provider_practice."""
+    provider = f"{quote_ident(mart_db)}.pd_provider"
+    practice = f"{quote_ident(mart_db)}.pd_provider_practice"
+    with conn.cursor() as cur:
+        for name, definition in PD_PROVIDER_PHASE5_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {provider} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
+        cur.execute(
+            """
+            SELECT 1 AS ok
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'pd_provider_practice'
+            """,
+            (mart_db,),
+        )
+        if cur.fetchone():
+            for name, definition in PD_PRACTICE_PHASE5_COLUMNS:
+                cur.execute(
+                    f"ALTER TABLE {practice} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+                )
+
+
 def drop_phase3_staging(conn, mart_db: str = MART_DB) -> None:
     drop_staging_tables(conn, mart_db, PHASE3_STAGING_TABLES)
 
 
 def drop_phase4_staging(conn, mart_db: str = MART_DB) -> None:
     drop_staging_tables(conn, mart_db, PHASE4_STAGING_TABLES)
+
+
+def drop_phase5_staging(conn, mart_db: str = MART_DB) -> None:
+    drop_staging_tables(conn, mart_db, PHASE5_STAGING_TABLES)
 
 
 def convert_persistent_collation(conn, mart_db: str = MART_DB) -> None:
@@ -514,4 +698,5 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     migrate_phase2_columns(conn, mart_db)
     migrate_phase3_columns(conn, mart_db)
     migrate_phase4_columns(conn, mart_db)
+    migrate_phase5_columns(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

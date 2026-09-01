@@ -58,4 +58,17 @@ python -m provider_directory.cli phase4
 python -m provider_directory.cli get 1952863797
 ```
 
-Keep Phase 2–3 staging. Re-run `phase4` after `phase2`/`phase3` rebuilds. State-specialty wRVU benchmarks, prior-year wRVU, and day-of-week mix are Phase 5.
+Keep Phase 2–3 staging. Re-run `phase4` after `phase2`/`phase3` rebuilds.
+
+## Phase 5
+
+Referrals both directions from `az.dash_physician_referrals_to_rendering`, day-of-week mix from `az.pat_dt.service_end_date`, prior-year wRVU (202208–202307, same formula as Phase 4), and state-specialty wRVU benchmarks (average / p25 / median / p75 / percentile among NPIs with the same taxonomy). Nested `referrals` on `get` (`in` = who sends to this NPI, `out` = who this NPI sends to). Top 3 peers per direction by summed monthly `patient_count`. Dummy NPIs 0/4 and self-referrals dropped. Type 1 spine only.
+
+Day-of-week is visit grain (encounter date), not `period_code`. Site DOW uses Phase 3 `pd_stg_visit_site`. Visit dates and prior-year wRVU are cached (`pd_stg_visit_date`, `pd_stg_npi_wrvu_prior`) and reused on reruns. Drop those two tables if you need a full rebuild.
+
+```
+python -m provider_directory.cli phase5
+python -m provider_directory.cli get 1952863797
+```
+
+Keep Phase 2–4 staging. First run scans `pat_dt` for dates and the prior year — expect Phase 2-like runtime. Referral/benchmark overlays are cheaper. Do not rerun Phase 2–4 first.

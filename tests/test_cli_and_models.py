@@ -25,6 +25,7 @@ def test_provider_spine_model_roundtrip():
     assert dumped["npi"] == 1234567893
     assert dumped["in_system_provider"] is None
     assert dumped["practices"] == []
+    assert dumped["referrals"] == []
     assert ProviderSpine.model_validate(dumped).last_name == "Smith"
 
 
