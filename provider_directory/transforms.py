@@ -241,15 +241,25 @@ def dow_percentages(counts: Mapping[int, int]) -> dict[str, float | None]:
     return {col: round_pct(int(counts.get(day, 0) or 0), total) for day, col in DOW_PERCENT_COLUMNS}
 
 
+MIN_YOY_PRIOR_WRVU = 1.0
+MAX_YOY_CHANGE_PCT = 9999.99
+
+
 def wrvu_yoy_change_pct(current: Any, prior: Any) -> float | None:
+    """Null if prior is missing, zero, or below 1 wRVU (junk scale). Cap at ±9999.99."""
     try:
         cur = float(current)
         old = float(prior)
     except (TypeError, ValueError):
         return None
-    if old == 0:
+    if old < MIN_YOY_PRIOR_WRVU:
         return None
-    return round(100.0 * (cur - old) / old, 2)
+    pct = 100.0 * (cur - old) / old
+    if pct > MAX_YOY_CHANGE_PCT:
+        return MAX_YOY_CHANGE_PCT
+    if pct < -MAX_YOY_CHANGE_PCT:
+        return -MAX_YOY_CHANGE_PCT
+    return round(pct, 2)
 
 
 def specialty_percentile(rank: int | None, n: int | None) -> float | None:

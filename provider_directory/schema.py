@@ -147,7 +147,7 @@ PD_PROVIDER_PHASE5_COLUMNS = (
     ("wrvu_prior_year_total", "DECIMAL(14,2) NULL"),
     ("wrvu_prior_year_average", "DECIMAL(10,3) NULL"),
     ("wrvu_prior_year_procedure_count", "INT UNSIGNED NULL"),
-    ("wrvu_yoy_change_pct", "DECIMAL(8,2) NULL"),
+    ("wrvu_yoy_change_pct", "DECIMAL(12,2) NULL"),
     ("wrvu_state_specialty_average", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_median", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_p25", "DECIMAL(14,2) NULL"),
@@ -303,7 +303,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             wrvu_prior_year_total DECIMAL(14,2) NULL,
             wrvu_prior_year_average DECIMAL(10,3) NULL,
             wrvu_prior_year_procedure_count INT UNSIGNED NULL,
-            wrvu_yoy_change_pct DECIMAL(8,2) NULL,
+            wrvu_yoy_change_pct DECIMAL(12,2) NULL,
             wrvu_state_specialty_average DECIMAL(14,2) NULL,
             wrvu_state_specialty_median DECIMAL(14,2) NULL,
             wrvu_state_specialty_p25 DECIMAL(14,2) NULL,
@@ -649,6 +649,9 @@ def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
                 cur.execute(
                     f"ALTER TABLE {practice} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
                 )
+        cur.execute(
+            f"ALTER TABLE {provider} MODIFY COLUMN wrvu_yoy_change_pct DECIMAL(12,2) NULL"
+        )
 
 
 def drop_phase3_staging(conn, mart_db: str = MART_DB) -> None:

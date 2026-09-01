@@ -36,7 +36,7 @@ from provider_directory.settings import (
     WINDOW_END,
     WINDOW_START,
 )
-from provider_directory.transforms import DOW_PERCENT_COLUMNS
+from provider_directory.transforms import DOW_PERCENT_COLUMNS, MAX_YOY_CHANGE_PCT, MIN_YOY_PRIOR_WRVU
 
 
 def _session_timeouts(cur) -> None:
@@ -83,6 +83,19 @@ def dow_overlay_set(src: str = "x", dest: str = "p") -> str:
         f"{dest}.{col} = ROUND(100.0 * {src}.d{int(day)} / NULLIF({src}.tot, 0), 2)"
         for day, col in DOW_PERCENT_COLUMNS
     )
+
+
+def yoy_change_sql(current_expr: str, prior_expr: str) -> str:
+    """Null tiny priors; clamp so DECIMAL cannot overflow (1264)."""
+    return f"""
+        CASE
+            WHEN {current_expr} IS NULL THEN NULL
+            WHEN {prior_expr} IS NULL OR {prior_expr} < {MIN_YOY_PRIOR_WRVU} THEN NULL
+            ELSE ROUND(LEAST({MAX_YOY_CHANGE_PCT}, GREATEST(-{MAX_YOY_CHANGE_PCT},
+                100.0 * ({current_expr} - {prior_expr}) / {prior_expr}
+            )), 2)
+        END
+    """
 
 
 def provider_phase5_null_sql(mart: str, bucket: int) -> str:
@@ -510,11 +523,7 @@ def _overlay_prior_wrvu(cur, conn, mart: str) -> int:
             p.wrvu_prior_year_total = ROUND(w.total_wrvu, 2),
             p.wrvu_prior_year_procedure_count = w.procedure_count,
             p.wrvu_prior_year_average = ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3),
-            p.wrvu_yoy_change_pct = ROUND(
-                100.0 * (p.wrvu_total - ROUND(w.total_wrvu, 2))
-                / NULLIF(ROUND(w.total_wrvu, 2), 0),
-                2
-            ),
+            p.wrvu_yoy_change_pct = {yoy_change_sql("p.wrvu_total", "ROUND(w.total_wrvu, 2)")},
             p.refreshed_at = NOW()
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
     """

@@ -4,6 +4,7 @@ from provider_directory.complete import (
     is_ymd_sql,
     rebuild_complete,
     service_date_sql,
+    yoy_change_sql,
 )
 from provider_directory.schema import PD_PROVIDER_PHASE5_COLUMNS, TABLES, ddl_statements
 from provider_directory.settings import PRIOR_WINDOW_END, PRIOR_WINDOW_START
@@ -31,6 +32,8 @@ def test_wrvu_yoy_and_percentile():
     assert wrvu_yoy_change_pct(120, 100) == 20.0
     assert wrvu_yoy_change_pct(80, 100) == -20.0
     assert wrvu_yoy_change_pct(10, 0) is None
+    assert wrvu_yoy_change_pct(26.23, 0.01) is None
+    assert wrvu_yoy_change_pct(1_000_000, 1) == 9999.99
     assert specialty_percentile(10, 40) == 25.0
     assert specialty_percentile(1, 1) == 100.0
     assert referral_display_name(last_name="Smith", first_name="Sean") == "Smith, Sean"
@@ -41,7 +44,7 @@ def test_schema_includes_phase5():
     assert "pd_provider_referral" in sql
     assert "pd_stg_visit_date" in sql
     assert "pd_stg_npi_wrvu_prior" in sql
-    assert "wrvu_specialty_percentile" in sql
+    assert "wrvu_yoy_change_pct DECIMAL(12,2)" in sql
     names = {name for name, _def in PD_PROVIDER_PHASE5_COLUMNS}
     assert "visits_percent_monday" in names
     assert "pd_provider_referral" in TABLES
@@ -58,7 +61,8 @@ def test_phase5_sql_stays_on_dash_and_pat_dt_dates():
     overlay = dow_overlay_set("x", "p")
     formatted = f"UPDATE t SET {overlay} WHERE MOD(npi, 16) = %s"
     formatted % (3,)
-    f"SELECT {date_sql} FROM t WHERE npi = %s" % (1,)
+    assert "LEAST(" in yoy_change_sql("p.wrvu_total", "w.prior")
+    assert "%" not in yoy_change_sql("p.wrvu_total", "w.prior")
 
 
 def test_cli_phase5():
