@@ -392,7 +392,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_wrvu (
             npi BIGINT UNSIGNED NOT NULL,
-            total_wrvu DECIMAL(14,2) NOT NULL,
+            total_wrvu DECIMAL(14,4) NOT NULL,
             procedure_count INT UNSIGNED NOT NULL,
             PRIMARY KEY (npi)
         ) {table_options()}
@@ -401,7 +401,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_site_wrvu (
             npi BIGINT UNSIGNED NOT NULL,
             sl_code BIGINT UNSIGNED NOT NULL,
-            total_wrvu DECIMAL(14,2) NOT NULL,
+            total_wrvu DECIMAL(14,4) NOT NULL,
             procedure_count INT UNSIGNED NOT NULL,
             PRIMARY KEY (npi, sl_code)
         ) {table_options()}

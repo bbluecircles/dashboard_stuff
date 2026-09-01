@@ -1,7 +1,19 @@
-from provider_directory.analytics import period_in_sql, rebuild_analytics, work_type_case_sql
+from provider_directory.analytics import (
+    is_hcpcs_sql,
+    period_in_sql,
+    rebuild_analytics,
+    work_rvu_sql,
+    work_type_case_sql,
+)
 from provider_directory.cli import build_parser
 from provider_directory.schema import PD_PROVIDER_PHASE4_COLUMNS, TABLES, ddl_statements
-from provider_directory.transforms import payer_mix_percents, polish_work_type, top_commercial_payers
+from provider_directory.transforms import (
+    looks_like_person_name,
+    payer_mix_percents,
+    physician_work_rvu,
+    polish_work_type,
+    top_commercial_payers,
+)
 
 
 def test_polish_work_type_pos_and_rollup():
@@ -38,11 +50,27 @@ def test_schema_includes_phase4():
     assert "pd_stg_npi_wrvu" in TABLES
 
 
+def test_work_rvu_prefers_plausible_pfs_columns():
+    assert physician_work_rvu(work_rvu=1.46) == 1.46
+    assert physician_work_rvu(
+        work_rvu=0.001,
+        non_facility_total=5.0,
+        non_fac_pe_rvu=3.0,
+        mp_rvu=0.5,
+    ) == 1.5
+    assert physician_work_rvu(work_rvu=0.001, nf_total_rvu=4.6) == 4.6
+    assert physician_work_rvu(work_rvu=0.03) == 0.03
+    assert looks_like_person_name("ROBETORYE, RYAN") is True
+    assert looks_like_person_name("MAYO CLINIC HOSPITAL") is False
+
+
 def test_phase4_sql_stays_on_mart_and_dash():
     source = open(rebuild_analytics.__code__.co_filename, encoding="utf-8").read()
     assert "dash_physician_payor_all" in source
     assert "physician_primary_affiliation" in source
     assert "WORK_RVU" in source
+    assert "NON_FACILITY_TOTAL" in source
+    assert "ROUND(SUM(pr.WORK_RVU)" not in source
     assert "FROM az.pat_dt" not in source
     assert "pd_stg_visit" in source
     assert "is_payor_code = 5" not in source or "PAYOR_OTHER" in source
@@ -52,6 +80,10 @@ def test_phase4_sql_stays_on_mart_and_dash():
     formatted = f"UPDATE t SET w = {case_sql} WHERE MOD(npi, 16) = %s"
     formatted % (3,)
     assert "Urgent Care" in case_sql
+    wrvu = work_rvu_sql("pr")
+    assert "NON_FACILITY_TOTAL" in wrvu
+    assert "CHAR_LENGTH(TRIM(px)) = 5" in is_hcpcs_sql("px")
+    f"SELECT {wrvu} FROM t WHERE npi = %s" % (1,)
 
 
 def test_cli_phase4():

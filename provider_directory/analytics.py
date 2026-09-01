@@ -3,18 +3,20 @@
 Reads az / azal / existing Phase 2–3 staging. Writes az_pd only.
 Does not rescan az.pat_dt or drop Phase 2/3 tables.
 
-wRVU is encounter work procedure × azal.procd.WORK_RVU (one work CPT per
-visit). Line-level procd_dt sums are a later refinement. Payer mix reuses
-az.dash_physician_payor_all claim counts in the frozen window. Code 5
-Other is excluded from the four percents. Top 3 payers are commercial
-parents only.
+wRVU is one HCPCS/CPT work procedure per visit × a plausible physician work
+RVU from azal.procd (WORK_RVU when it looks real, else total − PE − MP).
+Do not round site wRVU per encounter bucket — Galera splits visits across
+16 hashes and ROUND(0.001, 2) zeros them out. Line-level procd_dt sums are
+a later refinement. Payer mix reuses az.dash_physician_payor_all claim
+counts in the frozen window. Code 5 Other is excluded from the four
+percents. Top 3 payers are commercial parents only.
 """
 
 from __future__ import annotations
 
 from provider_directory.activity import iter_period_codes
 from provider_directory.db import quote_ident
-from provider_directory.locations import Phase2Required, table_has_rows
+from provider_directory.locations import Phase2Required, is_person_practice_name_sql, table_has_rows
 from provider_directory.schema import create_schema, drop_phase4_staging
 from provider_directory.settings import (
     CLAIMS_DB,
@@ -30,7 +32,11 @@ from provider_directory.settings import (
     WINDOW_END,
     WINDOW_START,
 )
-from provider_directory.transforms import POS_WORK_TYPE
+from provider_directory.transforms import (
+    MIN_PLAUSIBLE_TOTAL_RVU,
+    MIN_PLAUSIBLE_WORK_RVU,
+    POS_WORK_TYPE,
+)
 
 PROVIDER_BUCKETS = 16
 VISIT_BUCKETS = 16
@@ -56,6 +62,43 @@ def _run(cur, conn, sql: str, params: tuple | None = None) -> int:
 def period_in_sql(start: int = WINDOW_START, end: int = WINDOW_END) -> str:
     periods = ", ".join(str(p) for p in iter_period_codes(start, end))
     return f"IN ({periods})"
+
+
+def is_hcpcs_sql(expr: str) -> str:
+    """Professional claims use 5-character CPT/HCPCS, not 7-character ICD-10-PCS."""
+    return f"CHAR_LENGTH(TRIM({expr})) = 5"
+
+
+def work_rvu_sql(alias: str = "pr") -> str:
+    """Plausible physician work RVU. See physician_work_rvu() for the same rules."""
+    a = alias
+    min_w = MIN_PLAUSIBLE_WORK_RVU
+    min_t = MIN_PLAUSIBLE_TOTAL_RVU
+    return f"""
+        COALESCE(
+            CASE WHEN {a}.WORK_RVU >= {min_w} THEN {a}.WORK_RVU END,
+            CASE
+                WHEN {a}.NON_FACILITY_TOTAL IS NOT NULL
+                 AND {a}.NON_FAC_PE_RVU IS NOT NULL
+                 AND {a}.MP_RVU IS NOT NULL
+                 AND ({a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU) >= {min_w}
+                THEN {a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU
+            END,
+            CASE
+                WHEN {a}.FACILITY_TOTAL IS NOT NULL
+                 AND {a}.FACILITY_PE_RVU IS NOT NULL
+                 AND {a}.MP_RVU IS NOT NULL
+                 AND ({a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU) >= {min_w}
+                THEN {a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU
+            END,
+            CASE
+                WHEN {a}.nf_total_rvu >= {min_t}
+                 AND ({a}.WORK_RVU IS NULL OR {a}.WORK_RVU < {min_w})
+                THEN {a}.nf_total_rvu
+            END,
+            CASE WHEN {a}.WORK_RVU > 0 THEN {a}.WORK_RVU END
+        )
+    """
 
 
 def work_type_case_sql(sl: str = "sl") -> str:
@@ -123,6 +166,7 @@ def rebuild_analytics(
         "providers_org": 0,
         "practices_wrvu": 0,
         "practices_work_type": 0,
+        "practices_names": 0,
     }
 
     with conn.cursor() as cur:
@@ -156,20 +200,33 @@ def rebuild_analytics(
                 WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
                 """,
             )
+        if has_practice:
+            for bucket in range(PROVIDER_BUCKETS):
+                _run(
+                    cur,
+                    conn,
+                    f"""
+                    UPDATE {mart}.pd_provider_practice
+                    SET wrvu_at_site = NULL, wrvu_share_pct = NULL
+                    WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
+                    """,
+                )
 
+        wrvu_expr = work_rvu_sql("pr")
         wrvu_sql = f"""
             INSERT INTO {mart}.pd_stg_npi_wrvu (npi, total_wrvu, procedure_count)
             SELECT
                 v.rendering_npi,
-                ROUND(SUM(pr.WORK_RVU), 2),
+                ROUND(SUM({wrvu_expr}), 2),
                 COUNT(*)
             FROM {mart}.pd_stg_visit v
             INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
             INNER JOIN {lookup}.procd pr
-                ON pr.procd_code = v.px COLLATE {MART_COLLATION}
+                ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
             WHERE MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
               AND v.px IS NOT NULL AND v.px <> ''
-              AND pr.WORK_RVU IS NOT NULL AND pr.WORK_RVU > 0
+              AND {is_hcpcs_sql("v.px")}
+              AND {wrvu_expr} IS NOT NULL
             GROUP BY v.rendering_npi
         """
         for bucket in range(PROVIDER_BUCKETS):
@@ -198,15 +255,16 @@ def rebuild_analytics(
                 SELECT
                     vs.rendering_npi,
                     vs.sl_code,
-                    ROUND(SUM(pr.WORK_RVU), 2),
+                    SUM({wrvu_expr}),
                     COUNT(*)
                 FROM {mart}.pd_stg_visit_site vs
                 INNER JOIN {mart}.pd_stg_visit v ON v.encounter_id = vs.encounter_id
                 INNER JOIN {lookup}.procd pr
-                    ON pr.procd_code = v.px COLLATE {MART_COLLATION}
+                    ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
                 WHERE MOD(vs.encounter_id, {VISIT_BUCKETS}) = %s
                   AND v.px IS NOT NULL AND v.px <> ''
-                  AND pr.WORK_RVU IS NOT NULL AND pr.WORK_RVU > 0
+                  AND {is_hcpcs_sql("v.px")}
+                  AND {wrvu_expr} IS NOT NULL
                 GROUP BY vs.rendering_npi, vs.sl_code
                 ON DUPLICATE KEY UPDATE
                     total_wrvu = {mart}.pd_stg_site_wrvu.total_wrvu + VALUES(total_wrvu),
@@ -402,6 +460,27 @@ def rebuild_analytics(
                 n = _run(cur, conn, work_sql, (bucket,))
                 counts["practices_work_type"] += n
                 print(f"phase4 work_type bucket {bucket}: {n} rows", flush=True)
+
+            name_sql = f"""
+                UPDATE {mart}.pd_provider_practice pr
+                SET pr.name = TRIM(BOTH ' ,' FROM CONCAT_WS(
+                    ', ',
+                    NULLIF(TRIM(pr.street), ''),
+                    NULLIF(TRIM(pr.city), '')
+                ))
+                WHERE MOD(pr.npi, {PROVIDER_BUCKETS}) = %s
+                  AND IFNULL(pr.npi_type, '') = '1'
+                  AND pr.name IS NOT NULL
+                  AND {is_person_practice_name_sql("pr.name")}
+                  AND (
+                      NULLIF(TRIM(pr.street), '') IS NOT NULL
+                      OR NULLIF(TRIM(pr.city), '') IS NOT NULL
+                  )
+            """
+            for bucket in range(PROVIDER_BUCKETS):
+                n = _run(cur, conn, name_sql, (bucket,))
+                counts["practices_names"] += n
+                print(f"phase4 practice name bucket {bucket}: {n} rows", flush=True)
 
     return {
         "window_start": window_start,

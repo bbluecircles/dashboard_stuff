@@ -8,6 +8,7 @@ from provider_directory.locations import (
 )
 from provider_directory.schema import PD_PROVIDER_PHASE3_COLUMNS, TABLES, ddl_statements
 from provider_directory.transforms import (
+    PERSON_NAME_REGEXP,
     city_without_state,
     cluster_key,
     is_po_box,
@@ -47,7 +48,6 @@ def test_cluster_key_prefers_street_zip_over_geo():
 
 
 def test_pick_practice_name_prefers_type2_and_strips_entity():
-    type1 = pick_practice_name(npi_type="1", dba_name="SMITH, SEAN", sl_name="SMITH, SEAN")
     type2 = pick_practice_name(
         npi_type="2",
         dba_name="VALLEY HEART TYPE-2-ENTITY",
@@ -58,9 +58,18 @@ def test_pick_practice_name_prefers_type2_and_strips_entity():
         dba_name="SMITH, SEAN",
         hospital_system="Banner Health",
     )
-    assert type1 == "SMITH, SEAN"
     assert type2 == "VALLEY HEART"
     assert hospital == "Banner Health"
+    clone = pick_practice_name(
+        npi_type="1",
+        dba_name="ROBETORYE, RYAN",
+        sl_name="ROBETORYE, RYAN",
+        street="13400 E Shea Blvd",
+        city="Scottsdale",
+    )
+    assert clone == "13400 E Shea Blvd, Scottsdale"
+    own = pick_practice_name(npi_type="1", dba_name="SMITH, SEAN", sl_name="SMITH, SEAN")
+    assert own is None
 
 
 def test_work_type_and_rank_clusters():
@@ -107,7 +116,10 @@ def test_phase3_sql_stays_on_staging_and_mart():
     assert "CHAR(37)" in po_box_sql("sl.street")
     assert "%" not in po_box_sql("sl.street")
     "SELECT 1 WHERE x = %s AND NOT ({})".format(po_box_sql("sl.street")) % (0,)
-    assert "npi_type = '2'" in practice_name_sql()
+    name_sql = practice_name_sql()
+    assert "npi_type = '2'" in name_sql
+    assert "sl.street" in name_sql
+    assert PERSON_NAME_REGEXP in name_sql or "^[^,]+," in name_sql
     key = cluster_key_sql("sl.street", "sl.zip_code", "sl.latitude", "sl.longitude", "sl.sl_code")
     assert "a:" in key and "g:" in key and "s:" in key
 

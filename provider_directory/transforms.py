@@ -297,6 +297,39 @@ _SUITE_RE = re.compile(
 )
 _POBOX_RE = re.compile(r"^POBOX")
 _ENTITY_SUFFIX_RE = re.compile(r"\s*TYPE-2-ENTITY\s*$", re.IGNORECASE)
+_PERSON_NAME_RE = re.compile(r"^[A-Z][A-Z'`. \-]*,[ ]+[A-Z][A-Z'`. \-]*$", re.IGNORECASE)
+ORG_NAME_HINTS = (
+    "CLINIC",
+    "HOSPITAL",
+    "HEALTH",
+    "MEDICAL",
+    "GROUP",
+    "CENTER",
+    "ASSOCIATES",
+    "INSTITUTE",
+    "SURGERY",
+    "UNIVERSITY",
+    "PHARMACY",
+    "LABORATOR",
+    " LLC",
+    "L.L.C",
+    " P.C",
+    " PC",
+    " INC",
+    " PLLC",
+    "FOUNDATION",
+    "SYSTEM",
+)
+# MariaDB REGEXP equivalent of ORG_NAME_HINTS. No `%` — pymysql would treat it
+# as a format placeholder when the statement also has %s params.
+ORG_NAME_REGEXP = (
+    "CLINIC|HOSPITAL|HEALTH|MEDICAL|GROUP|CENTER|ASSOCIATES|INSTITUTE|"
+    "SURGERY|UNIVERSITY|PHARMACY|LABORATOR| LLC| PLLC| INC|FOUNDATION|"
+    "SYSTEM|[[:space:]]PC"
+)
+PERSON_NAME_REGEXP = "^[^,]+,[[:space:]]*[^,]+$"
+MIN_PLAUSIBLE_WORK_RVU = 0.05
+MIN_PLAUSIBLE_TOTAL_RVU = 0.5
 
 
 def is_po_box(street: Any) -> bool:
@@ -375,6 +408,25 @@ def strip_entity_suffix(value: Any) -> str | None:
     return nonempty(_ENTITY_SUFFIX_RE.sub("", text))
 
 
+def looks_like_person_name(value: Any) -> bool:
+    """True for LAST, FIRST clones (Type 1 SL / another clinician's DBA)."""
+    text = nonempty(value)
+    if text is None:
+        return False
+    upper = text.upper()
+    if any(hint in upper for hint in ORG_NAME_HINTS):
+        return False
+    return _PERSON_NAME_RE.match(upper) is not None
+
+
+def street_city_label(*, street: Any = None, city: Any = None) -> str | None:
+    street_s = nonempty(street)
+    city_s = nonempty(city)
+    if street_s and city_s:
+        return f"{street_s}, {city_s}"
+    return street_s or city_s
+
+
 def pick_practice_name(
     *,
     npi_type: Any = None,
@@ -384,8 +436,10 @@ def pick_practice_name(
     sl_name: Any = None,
     facility_dba: Any = None,
     facility_hospital_system: Any = None,
+    street: Any = None,
+    city: Any = None,
 ) -> str | None:
-    """Prefer system / Type 2 DBA over a Type 1 clone of the doctor's own name."""
+    """Prefer system / Type 2 DBA over a Type 1 clone of a person's name."""
     ntype = nonempty(npi_type)
     candidates = [
         hospital_system,
@@ -399,8 +453,61 @@ def pick_practice_name(
     ]
     for value in candidates:
         found = strip_entity_suffix(value)
-        if found is not None:
-            return found
+        if found is None or looks_like_person_name(found):
+            continue
+        return found
+    return street_city_label(street=street, city=city)
+
+
+def physician_work_rvu(
+    *,
+    work_rvu: Any = None,
+    non_facility_total: Any = None,
+    non_fac_pe_rvu: Any = None,
+    mp_rvu: Any = None,
+    facility_total: Any = None,
+    facility_pe_rvu: Any = None,
+    nf_total_rvu: Any = None,
+) -> float | None:
+    """Physician work RVU from azal.procd PFS columns.
+
+    azal.procd.WORK_RVU is trustworthy on many ICD-10-PCS rows and wrong or
+    near-zero on some CPT/HCPCS rows (Sean Smith 93306/99204 summed to 0.01).
+    Prefer a plausible WORK_RVU; else reconstruct work as total − PE − MP;
+    else nf_total_rvu (includes practice expense — last resort).
+    """
+
+    def as_float(value: Any) -> float | None:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    work = as_float(work_rvu)
+    if work is not None and work >= MIN_PLAUSIBLE_WORK_RVU:
+        return work
+    nf_total = as_float(non_facility_total)
+    nf_pe = as_float(non_fac_pe_rvu)
+    mp = as_float(mp_rvu)
+    if nf_total is not None and nf_pe is not None and mp is not None:
+        reconstructed = nf_total - nf_pe - mp
+        if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
+            return reconstructed
+    fac_total = as_float(facility_total)
+    fac_pe = as_float(facility_pe_rvu)
+    if fac_total is not None and fac_pe is not None and mp is not None:
+        reconstructed = fac_total - fac_pe - mp
+        if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
+            return reconstructed
+    nf = as_float(nf_total_rvu)
+    if nf is not None and nf >= MIN_PLAUSIBLE_TOTAL_RVU and (
+        work is None or work < MIN_PLAUSIBLE_WORK_RVU
+    ):
+        return nf
+    if work is not None and work > 0:
+        return work
     return None
 
 

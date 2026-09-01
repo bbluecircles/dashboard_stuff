@@ -51,7 +51,7 @@ Phase 3 JSON that looks healthy: `visit_sites` in the tens of millions, `practic
 
 ## Phase 4
 
-wRVU (encounter work procedure × `azal.procd.WORK_RVU`), payer mix from `az.dash_physician_payor_all`, primary billing org from `az.physician_primary_affiliation`, and Trilliant-style `work_type` labels. Does not rescan `az.pat_dt`. Other / is_payor 5 is excluded from the four payer percents. Top 3 payers are commercial parents only.
+wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all`, primary billing org from `az.physician_primary_affiliation`, and Trilliant-style `work_type` labels. Phase 4 also replaces Type 1 `LAST, FIRST` practice names with street+city so another clinician's NPI is not shown as the site. Does not rescan `az.pat_dt`. Other / is_payor 5 is excluded from the four payer percents. Top 3 payers are commercial parents only.
 
 ```
 python -m provider_directory.cli phase4

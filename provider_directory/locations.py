@@ -19,6 +19,7 @@ from provider_directory.settings import (
     MART_DB,
     MAX_PRACTICE_SITES,
 )
+from provider_directory.transforms import ORG_NAME_REGEXP, PERSON_NAME_REGEXP
 
 VISIT_BUCKETS = 16
 PROVIDER_BUCKETS = 16
@@ -84,7 +85,28 @@ def po_box_sql(street_expr: str) -> str:
     )
 
 
+def org_or_null_sql(expr: str) -> str:
+    """Keep clinic/system names; drop LAST, FIRST Type 1 clones."""
+    return f"""
+        CASE
+            WHEN NULLIF(TRIM({expr}), '') IS NULL THEN NULL
+            WHEN UPPER(TRIM({expr})) REGEXP '{ORG_NAME_REGEXP}' THEN TRIM({expr})
+            WHEN TRIM({expr}) REGEXP '{PERSON_NAME_REGEXP}' THEN NULL
+            ELSE TRIM({expr})
+        END
+    """
+
+
+def is_person_practice_name_sql(expr: str) -> str:
+    return (
+        f"UPPER(TRIM({expr})) NOT REGEXP '{ORG_NAME_REGEXP}' "
+        f"AND TRIM({expr}) REGEXP '{PERSON_NAME_REGEXP}'"
+    )
+
+
 def practice_name_sql(sl: str = "sl", fac: str = "fac") -> str:
+    street = f"NULLIF(TRIM({sl}.street), '')"
+    city = f"NULLIF(TRIM(SUBSTRING_INDEX(IFNULL({sl}.city, ''), ',', 1)), '')"
     return f"""
         TRIM(REGEXP_REPLACE(COALESCE(
             NULLIF(TRIM({sl}.sl_hospital_system_name), ''),
@@ -92,9 +114,11 @@ def practice_name_sql(sl: str = "sl", fac: str = "fac") -> str:
             CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_dba_name), '') END,
             CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_name), '') END,
             NULLIF(TRIM({fac}.PROVIDER_FACILITY_NPI_dba_name), ''),
-            NULLIF(TRIM({sl}.sl_common_name), ''),
-            NULLIF(TRIM({sl}.sl_dba_name), ''),
-            NULLIF(TRIM({sl}.sl_name), '')
+            {org_or_null_sql(f"{sl}.sl_common_name")},
+            {org_or_null_sql(f"{sl}.sl_dba_name")},
+            {org_or_null_sql(f"{sl}.sl_name")},
+            {street},
+            {city}
         ), '[[:space:]]*TYPE-2-ENTITY[[:space:]]*$', ''))
     """
 
