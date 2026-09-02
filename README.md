@@ -95,3 +95,56 @@ python -m provider_directory.cli phase6 --slide
 `--slide` does **not** rescan the 11 months that stay in the window. It **does** rebuild Phase 3–5 from staging (locations cannot reuse stale `pd_stg_visit_site`; Phase 5 date/prior-wRVU caches are dropped). After a slide, later `phase2`–`phase5` runs use the window stored in `pd_refresh_state`.
 
 If the warehouse is still 202409, usable end stays 202407 and `--slide` is a no-op after indexes.
+
+## Phase 7 — HTTP API for .NET
+
+The UI lives in your .NET app. This process is a local API: lookup/search from `az_pd`, plus `POST /v1/jobs/phaseN` so NSSM/IIS do not wait hours on a rebuild.
+
+```
+pip install -r requirements.txt
+python -m provider_directory.cli serve
+```
+
+Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_API_KEY` and send it as `X-API-Key` (or `Authorization: Bearer`). `PD_CORS_ORIGINS` is a comma list if the browser talks to this API directly; a server-side .NET `HttpClient` does not need CORS.
+
+| Method | Path | What |
+| --- | --- | --- |
+| GET | `/health` | Process up (no API key). Use this for NSSM / probes. |
+| GET | `/v1/mart` | Frozen window, warehouse max, running job |
+| GET | `/v1/providers/{npi}` | Full profile + `practices` + `referrals` |
+| GET | `/v1/providers?last_name=&specialty=&active=&min_visits=&limit=&offset=` | Search (max 100) |
+| POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
+| GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
+| GET | `/v1/jobs` | Recent jobs |
+
+One phase job at a time (409 if another is running). `workers=1` is required so job state stays in this process. Poll `GET /v1/jobs/{id}` — do not use a 100-second HTTP timeout on `POST /v1/jobs/phase2`.
+
+NSSM (App directory = Analysis Scripts, same `.env` as the CLI):
+
+```
+nssm install PdApi "C:\Users\jluna\Documents\Analysis Scripts\.venv\Scripts\python.exe"
+nssm set PdApi AppDirectory "C:\Users\jluna\Documents\Analysis Scripts"
+nssm set PdApi AppParameters "-m provider_directory.cli serve --host 127.0.0.1 --port 8080"
+nssm set PdApi AppStdout "C:\Users\jluna\Documents\Analysis Scripts\logs\pd-api.out.log"
+nssm set PdApi AppStderr "C:\Users\jluna\Documents\Analysis Scripts\logs\pd-api.err.log"
+nssm set PdApi AppRotateFiles 1
+```
+
+Set `PD_API_KEY` in the service environment (or `.env`). Bind `127.0.0.1` unless you put a reverse proxy in front.
+
+.NET (server-side). JSON fields are **snake_case** (`last_name`, `visits_total`, `practices`), matching the CLI `get` payload:
+
+```csharp
+var json = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:8080") };
+client.DefaultRequestHeaders.Add("X-API-Key", config["PdApiKey"]);
+
+var provider = await client.GetFromJsonAsync<JsonElement>("/v1/providers/1952863797", json);
+var search = await client.GetFromJsonAsync<JsonElement>(
+    "/v1/providers?last_name=Smith&active=true&min_visits=1&limit=25", json);
+
+var started = await client.PostAsJsonAsync("/v1/jobs/phase6", new { slide = false });
+var jobUrl = started.Headers.Location; // /v1/jobs/{guid}
+```
+
+Copy `provider_directory/` into Analysis Scripts after pulling these changes, then `pip install -r requirements.txt` in that venv so FastAPI/uvicorn land.

@@ -8,6 +8,7 @@ Examples:
   python -m provider_directory.cli phase4
   python -m provider_directory.cli phase5
   python -m provider_directory.cli phase6
+  python -m provider_directory.cli serve
   python -m provider_directory.cli get --last-name Smith --limit 3
 """
 
@@ -95,6 +96,13 @@ def _cmd_phase6(args: argparse.Namespace) -> int:
             skip_staging_indexes=args.skip_staging_indexes,
         )
     print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from provider_directory.api import serve
+
+    serve(host=args.host, port=args.port)
     return 0
 
 
@@ -201,6 +209,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Only add pd_provider search indexes; skip period_code indexes on 49M-row staging",
     )
     p.set_defaults(func=_cmd_phase6)
+
+    p = sub.add_parser(
+        "serve",
+        help="HTTP API for the .NET app (lookup + background phase jobs). Bind 127.0.0.1 and run under NSSM.",
+    )
+    p.add_argument("--host", default=None, help="Default PD_API_HOST or 127.0.0.1")
+    p.add_argument("--port", type=int, default=None, help="Default PD_API_PORT or 8080")
+    p.set_defaults(func=_cmd_serve)
 
     p = sub.add_parser("get", help="Look up a provider (preview of the future API)")
     p.add_argument("npi", nargs="?", type=int)

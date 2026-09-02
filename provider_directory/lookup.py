@@ -126,6 +126,7 @@ def search_providers(
     active: bool | None = None,
     min_visits: int | None = None,
     limit: int = 25,
+    offset: int = 0,
     mart_db: str = MART_DB,
 ) -> ProviderSpineList:
     clauses = ["1=1"]
@@ -156,9 +157,9 @@ def search_providers(
             SELECT * FROM {table}
             WHERE {where}
             ORDER BY IFNULL(visits_total, 0) DESC, IFNULL(panel_size, 0) DESC, last_name, first_name, npi
-            LIMIT %s
+            LIMIT %s OFFSET %s
             """,
-            [*params, limit],
+            [*params, limit, offset],
         )
         rows = cur.fetchall()
     items = []

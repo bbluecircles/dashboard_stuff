@@ -52,6 +52,10 @@ PAYOR_OTHER = 5
 PAYOR_MIX_CODES = (PAYOR_MEDICARE_FFS, PAYOR_MEDICAID, PAYOR_COMMERCIAL, PAYOR_HMO_MA)
 
 CMS_CACHE_DIR = Path(os.environ.get("PD_CMS_CACHE", str(ROOT / "data" / "cms")))
+API_JOB_STORE = Path(os.environ.get("PD_API_JOB_STORE", str(ROOT / "data" / "api_jobs.json")))
+API_HOST = os.environ.get("PD_API_HOST", "127.0.0.1")
+API_PORT = int(os.environ.get("PD_API_PORT", "8080"))
+SEARCH_LIMIT_MAX = 100
 
 PDC_CLINICIAN_DATASET = "mj5m-pzi6"
 PDC_FACILITY_DATASET = "27ea-46a8"
