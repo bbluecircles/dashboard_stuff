@@ -21,7 +21,7 @@ from provider_directory.activity import PROVIDER_BUCKETS, VISIT_BUCKETS, iter_pe
 from provider_directory.analytics import is_hcpcs_sql, period_in_sql, work_rvu_sql
 from provider_directory.db import quote_ident
 from provider_directory.locations import table_has_rows
-from provider_directory.schema import create_schema, drop_phase5_staging
+from provider_directory.schema import create_schema, drop_phase5_cached, drop_phase5_staging
 from provider_directory.settings import (
     CLAIMS_DB,
     DUMMY_NPIS,
@@ -125,9 +125,12 @@ def rebuild_complete(
     prior_start: int = PRIOR_WINDOW_START,
     prior_end: int = PRIOR_WINDOW_END,
     max_peers: int = MAX_REFERRAL_PEERS,
+    reuse_cached: bool = True,
 ) -> dict:
     create_schema(conn, mart_db)
     drop_phase5_staging(conn, mart_db)
+    if not reuse_cached:
+        drop_phase5_cached(conn, mart_db)
     create_schema(conn, mart_db)
 
     mart = quote_ident(mart_db)
@@ -179,7 +182,8 @@ def rebuild_complete(
 
         if has_visit:
             counts["visit_dates"] = _fill_visit_dates(
-                cur, conn, mart, mart_db, claims, window_start, window_end
+                cur, conn, mart, mart_db, claims, window_start, window_end,
+                reuse_cached=reuse_cached,
             )
             counts["npi_dow_rows"] = _fill_npi_dow(cur, conn, mart)
             counts["providers_dow"] = _overlay_provider_dow(cur, conn, mart)
@@ -199,6 +203,7 @@ def rebuild_complete(
             lookup,
             prior_start,
             prior_end,
+            reuse_cached=reuse_cached,
         )
         counts["prior_wrvu_npi"] = prior_npi
         counts["providers_prior"] = providers_prior
@@ -325,9 +330,17 @@ def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
 
 
 def _fill_visit_dates(
-    cur, conn, mart: str, mart_db: str, claims: str, window_start: int, window_end: int
+    cur,
+    conn,
+    mart: str,
+    mart_db: str,
+    claims: str,
+    window_start: int,
+    window_end: int,
+    *,
+    reuse_cached: bool = True,
 ) -> int:
-    if table_has_rows(conn, mart_db, "pd_stg_visit_date"):
+    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_visit_date"):
         print("phase5 visit_date reused", flush=True)
         cur.execute(f"SELECT COUNT(*) AS n FROM {mart}.pd_stg_visit_date")
         return int(cur.fetchone()["n"])
@@ -467,8 +480,10 @@ def _fill_prior_wrvu(
     lookup: str,
     prior_start: int,
     prior_end: int,
+    *,
+    reuse_cached: bool = True,
 ) -> tuple[int, int]:
-    if table_has_rows(conn, mart_db, "pd_stg_npi_wrvu_prior"):
+    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_npi_wrvu_prior"):
         print("phase5 prior wrvu reused", flush=True)
         cur.execute(f"SELECT COUNT(*) AS n FROM {mart}.pd_stg_npi_wrvu_prior")
         npi_n = int(cur.fetchone()["n"])

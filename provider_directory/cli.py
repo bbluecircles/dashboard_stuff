@@ -7,6 +7,7 @@ Examples:
   python -m provider_directory.cli phase3
   python -m provider_directory.cli phase4
   python -m provider_directory.cli phase5
+  python -m provider_directory.cli phase6
   python -m provider_directory.cli get --last-name Smith --limit 3
 """
 
@@ -19,7 +20,7 @@ import sys
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.locations import Phase2Required
 from provider_directory.lookup import get_provider, search_providers
-from provider_directory.pipeline import download_cms_files, run_phase1, run_phase2, run_phase3, run_phase4, run_phase5
+from provider_directory.pipeline import download_cms_files, run_phase1, run_phase2, run_phase3, run_phase4, run_phase5, run_phase6
 from provider_directory.schema import create_schema
 from provider_directory.spine import rebuild_spine
 from provider_directory.mart import overlay_cms
@@ -82,6 +83,17 @@ def _cmd_phase4(_args: argparse.Namespace) -> int:
 def _cmd_phase5(_args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
         summary = run_phase5(conn)
+    print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
+def _cmd_phase6(args: argparse.Namespace) -> int:
+    with get_connection(autocommit=False) as conn:
+        summary = run_phase6(
+            conn,
+            slide=args.slide,
+            skip_staging_indexes=args.skip_staging_indexes,
+        )
     print(json.dumps(summary, indent=2, default=str))
     return 0
 
@@ -173,6 +185,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Referrals both ways, day-of-week mix, prior-year wRVU, state-specialty benchmarks",
     )
     p.set_defaults(func=_cmd_phase5)
+
+    p = sub.add_parser(
+        "phase6",
+        help="Mart indexes + window watermark; --slide adds only new months instead of a 12-month pat_dt rescan",
+    )
+    p.add_argument(
+        "--slide",
+        action="store_true",
+        help="If az has a later usable month, drop the oldest month and rebuild 3–5 from updated staging",
+    )
+    p.add_argument(
+        "--skip-staging-indexes",
+        action="store_true",
+        help="Only add pd_provider search indexes; skip period_code indexes on 49M-row staging",
+    )
+    p.set_defaults(func=_cmd_phase6)
 
     p = sub.add_parser("get", help="Look up a provider (preview of the future API)")
     p.add_argument("npi", nargs="?", type=int)

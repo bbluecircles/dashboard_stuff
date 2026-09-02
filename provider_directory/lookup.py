@@ -1,4 +1,4 @@
-"""Read path the FastAPI layer should call.
+"""Read path the FastAPI layer should call. Reads az_pd only — never az.pat_dt.
 
     from provider_directory.db import get_connection
     from provider_directory.lookup import get_provider

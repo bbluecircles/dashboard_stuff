@@ -12,6 +12,7 @@ TABLES = (
     "pd_provider",
     "pd_npi_xwalk",
     "pd_network_npi",
+    "pd_refresh_state",
     "pd_provider_practice",
     "pd_provider_referral",
     "pd_stg_window_claim",
@@ -35,6 +36,13 @@ TABLES = (
 
 PHASE2_STAGING_TABLES = (
     "pd_stg_window_claim",
+    "pd_stg_visit",
+    "pd_stg_panel_patient",
+    "pd_stg_top_dx",
+    "pd_stg_top_px",
+)
+
+PHASE2_DERIVED_TABLES = (
     "pd_stg_visit",
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
@@ -314,7 +322,9 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             PRIMARY KEY (npi),
             KEY idx_last_name (last_name),
             KEY idx_specialty (primary_specialty_code),
-            KEY idx_active (active_provider)
+            KEY idx_active (active_provider),
+            KEY idx_active_visits (active_provider, visits_total),
+            KEY idx_spec_visits (primary_specialty_code, visits_total)
         ) {table_options()}
         """,
         f"""
@@ -337,6 +347,23 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         ) {table_options()}
         """,
         f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_refresh_state (
+            id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+            window_start INT NOT NULL,
+            window_end INT NOT NULL,
+            prior_window_start INT NOT NULL,
+            prior_window_end INT NOT NULL,
+            warehouse_max_period INT NULL,
+            warehouse_source VARCHAR(80) NULL,
+            slide_available TINYINT NOT NULL DEFAULT 0,
+            last_action VARCHAR(32) NULL,
+            last_indexes_at DATETIME NULL,
+            last_slide_at DATETIME NULL,
+            notes VARCHAR(255) NULL,
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) {table_options()}
+        """,
+        f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_window_claim (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             encounter_id BIGINT UNSIGNED,
@@ -354,7 +381,8 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_enc (encounter_id),
             KEY idx_enc_rend (encounter_rendering_physician_code),
             KEY idx_rend (rendering_physician_code),
-            KEY idx_refr (referring_physician_code)
+            KEY idx_refr (referring_physician_code),
+            KEY idx_period (period_code)
         ) {table_options()}
         """,
         f"""
@@ -368,7 +396,8 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             PRIMARY KEY (encounter_id),
             KEY idx_rend (rendering_npi),
             KEY idx_dx (dx),
-            KEY idx_px (px)
+            KEY idx_px (px),
+            KEY idx_period (period_code)
         ) {table_options()}
         """,
         f"""
@@ -654,6 +683,10 @@ def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
         )
 
 
+def drop_phase2_derived(conn, mart_db: str = MART_DB) -> None:
+    drop_staging_tables(conn, mart_db, PHASE2_DERIVED_TABLES)
+
+
 def drop_phase3_staging(conn, mart_db: str = MART_DB) -> None:
     drop_staging_tables(conn, mart_db, PHASE3_STAGING_TABLES)
 
@@ -664,6 +697,87 @@ def drop_phase4_staging(conn, mart_db: str = MART_DB) -> None:
 
 def drop_phase5_staging(conn, mart_db: str = MART_DB) -> None:
     drop_staging_tables(conn, mart_db, PHASE5_STAGING_TABLES)
+
+
+def drop_phase5_cached(conn, mart_db: str = MART_DB) -> None:
+    drop_staging_tables(conn, mart_db, PHASE5_CACHED_STAGING_TABLES)
+
+
+MART_INDEXES = (
+    ("pd_provider", "idx_active_visits", "active_provider, visits_total"),
+    ("pd_provider", "idx_spec_visits", "primary_specialty_code, visits_total"),
+    ("pd_stg_window_claim", "idx_period", "period_code"),
+    ("pd_stg_visit", "idx_period", "period_code"),
+)
+
+STAGING_INDEX_TABLES = frozenset({"pd_stg_window_claim", "pd_stg_visit"})
+
+
+def index_exists(conn, mart_db: str, table: str, index_name: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 AS ok
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND INDEX_NAME = %s
+            LIMIT 1
+            """,
+            (mart_db, table, index_name),
+        )
+        return cur.fetchone() is not None
+
+
+def _table_exists(conn, mart_db: str, table: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 AS ok
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+            """,
+            (mart_db, table),
+        )
+        return cur.fetchone() is not None
+
+
+def ensure_indexes(
+    conn,
+    mart_db: str = MART_DB,
+    *,
+    include_staging: bool = True,
+) -> dict[str, list[str]]:
+    """Add search / monthly-slide indexes on existing mart tables. Never touches az."""
+    added: list[str] = []
+    existed: list[str] = []
+    skipped: list[str] = []
+    db = quote_ident(mart_db)
+    for table, name, cols in MART_INDEXES:
+        label = f"{table}.{name}"
+        if not include_staging and table in STAGING_INDEX_TABLES:
+            skipped.append(label)
+            continue
+        if not _table_exists(conn, mart_db, table):
+            skipped.append(label)
+            continue
+        if index_exists(conn, mart_db, table, name):
+            existed.append(label)
+            continue
+        print(f"phase6 index {label}", flush=True)
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    f"ALTER TABLE {db}.{quote_ident(table)} ADD INDEX {quote_ident(name)} ({cols})"
+                )
+                conn.commit()
+                added.append(label)
+            except Exception as exc:
+                code = exc.args[0] if getattr(exc, "args", None) else None
+                if code == 1061:
+                    conn.rollback()
+                    existed.append(label)
+                else:
+                    raise
+    return {"added": added, "existed": existed, "skipped": skipped}
 
 
 def convert_persistent_collation(conn, mart_db: str = MART_DB) -> None:

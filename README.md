@@ -72,3 +72,26 @@ python -m provider_directory.cli get 1952863797
 ```
 
 Keep Phase 2–4 staging. First run scans `pat_dt` for dates and the prior year — expect Phase 2-like runtime. Referral/benchmark overlays are cheaper. Do not rerun Phase 2–4 first.
+
+## Phase 6
+
+Monthly incremental mart. `get` / `search` already read `az_pd` only — they never scan `az.pat_dt`. Phase 6 adds search indexes, a `period_code` index on window-claim staging (so dropping a month is not a 49M-row table scan), and a `pd_refresh_state` watermark. When the warehouse grows past the 2-month lag, `--slide` adds only the new month(s) of `pat_dt`, deletes the month that fell out of the 12-month window, then rebuilds visits/locations/analytics/complete from the updated staging.
+
+Do **not** ALTER `az` or `azal`. Copy `provider_directory/` into Analysis Scripts after pulling these changes.
+
+```
+python -m provider_directory.cli phase6
+python -m provider_directory.cli get 1952863797
+```
+
+`phase6` without `--slide` is safe to run now. Building `pd_stg_window_claim.idx_period` on ~49M rows can take a while on Galera; `--skip-staging-indexes` only adds the small `pd_provider` search indexes.
+
+If JSON shows `"slide_available": true`, a later usable month exists (warehouse max minus 2 months is past the current `window_end`). Then:
+
+```
+python -m provider_directory.cli phase6 --slide
+```
+
+`--slide` does **not** rescan the 11 months that stay in the window. It **does** rebuild Phase 3–5 from staging (locations cannot reuse stale `pd_stg_visit_site`; Phase 5 date/prior-wRVU caches are dropped). After a slide, later `phase2`–`phase5` runs use the window stored in `pd_refresh_state`.
+
+If the warehouse is still 202409, usable end stays 202407 and `--slide` is a no-op after indexes.

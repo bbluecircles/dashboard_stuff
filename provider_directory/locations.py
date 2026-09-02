@@ -181,9 +181,11 @@ def rebuild_locations(
     mart_db: str = MART_DB,
     claims_db: str = CLAIMS_DB,
     max_sites: int = MAX_PRACTICE_SITES,
+    reuse_visit_site: bool | None = None,
 ) -> dict:
     require_phase2_staging(conn, mart_db)
-    keep_visit_site = table_has_rows(conn, mart_db, "pd_stg_visit_site")
+    has_visit_site = table_has_rows(conn, mart_db, "pd_stg_visit_site")
+    keep_visit_site = has_visit_site if reuse_visit_site is None else bool(reuse_visit_site) and has_visit_site
     if keep_visit_site:
         drop_staging_tables(conn, mart_db, ("pd_stg_npi_sl",))
     else:

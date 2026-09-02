@@ -71,7 +71,8 @@ def test_cli_phase5():
 
 
 def test_pipeline_exports_phase5():
-    from provider_directory.pipeline import run_phase4, run_phase5
+    from provider_directory.pipeline import run_phase4, run_phase5, run_phase6
 
     assert callable(run_phase4)
     assert callable(run_phase5)
+    assert callable(run_phase6)

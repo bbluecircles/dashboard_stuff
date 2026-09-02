@@ -21,6 +21,7 @@ from provider_directory.cms.load import load_nppes, load_pdc_clinician, load_pdc
 from provider_directory.db import ensure_mart_database
 from provider_directory.locations import rebuild_locations
 from provider_directory.mart import overlay_cms
+from provider_directory.refresh import rebuild_refresh, resolve_window, upsert_refresh_state
 from provider_directory.schema import create_schema
 from provider_directory.settings import CMS_CACHE_DIR, MART_DB
 from provider_directory.spine import rebuild_spine
@@ -129,7 +130,21 @@ def run_phase1(
 def run_phase2(conn, *, mart_db: str = MART_DB) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
-    return rebuild_activity(conn, mart_db=mart_db)
+    window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
+    summary = rebuild_activity(
+        conn, mart_db=mart_db, window_start=window_start, window_end=window_end
+    )
+    upsert_refresh_state(
+        conn,
+        mart_db,
+        window_start=window_start,
+        window_end=window_end,
+        prior_window_start=prior_start,
+        prior_window_end=prior_end,
+        last_action="phase2",
+        notes="full window scan into pd_stg_window_claim",
+    )
+    return summary
 
 
 def run_phase3(conn, *, mart_db: str = MART_DB) -> dict:
@@ -141,10 +156,38 @@ def run_phase3(conn, *, mart_db: str = MART_DB) -> dict:
 def run_phase4(conn, *, mart_db: str = MART_DB) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
-    return rebuild_analytics(conn, mart_db=mart_db)
+    window_start, window_end, _prior_start, _prior_end = resolve_window(conn, mart_db)
+    return rebuild_analytics(
+        conn, mart_db=mart_db, window_start=window_start, window_end=window_end
+    )
 
 
 def run_phase5(conn, *, mart_db: str = MART_DB) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
-    return rebuild_complete(conn, mart_db=mart_db)
+    window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
+    return rebuild_complete(
+        conn,
+        mart_db=mart_db,
+        window_start=window_start,
+        window_end=window_end,
+        prior_start=prior_start,
+        prior_end=prior_end,
+    )
+
+
+def run_phase6(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    slide: bool = False,
+    skip_staging_indexes: bool = False,
+) -> dict:
+    ensure_mart_database(conn, mart_db)
+    create_schema(conn, mart_db)
+    return rebuild_refresh(
+        conn,
+        mart_db=mart_db,
+        slide=slide,
+        skip_staging_indexes=skip_staging_indexes,
+    )
