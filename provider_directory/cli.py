@@ -121,6 +121,7 @@ def _cmd_get(args: argparse.Namespace) -> int:
                 args.specialty,
                 args.active,
                 args.min_visits is not None,
+                args.in_system,
             ]
         )
         if searching:
@@ -132,6 +133,7 @@ def _cmd_get(args: argparse.Namespace) -> int:
                 active=True if args.active else None,
                 min_visits=args.min_visits,
                 limit=args.limit,
+                in_system=True if args.in_system else None,
             )
             print(result.model_dump_json(indent=2))
             return 0
@@ -223,6 +225,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--last-name")
     p.add_argument("--specialty")
     p.add_argument("--active", action="store_true", help="Only providers with activity in the frozen window")
+    p.add_argument(
+        "--in-system",
+        action="store_true",
+        dest="in_system",
+        help="Only NPIs with a CMS PDC facility affiliation (hospital CCN)",
+    )
     p.add_argument("--min-visits", type=int, dest="min_visits", help="Minimum visits_total")
     p.add_argument("--limit", type=int, default=25)
     p.set_defaults(func=_cmd_get)

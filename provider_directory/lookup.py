@@ -127,6 +127,7 @@ def search_providers(
     min_visits: int | None = None,
     limit: int = 25,
     offset: int = 0,
+    in_system: bool | None = None,
     mart_db: str = MART_DB,
 ) -> ProviderSpineList:
     clauses = ["1=1"]
@@ -147,6 +148,10 @@ def search_providers(
     if min_visits is not None:
         clauses.append("IFNULL(visits_total, 0) >= %s")
         params.append(min_visits)
+    if in_system is True:
+        clauses.append("in_system_provider = 1")
+    elif in_system is False:
+        clauses.append("(in_system_provider = 0 OR in_system_provider IS NULL)")
     where = " AND ".join(clauses)
     table = f"{quote_ident(mart_db)}.pd_provider"
     with conn.cursor() as cur:

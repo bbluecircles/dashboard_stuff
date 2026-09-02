@@ -201,6 +201,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         min_visits: int | None = Query(default=None, ge=0),
         limit: int = Query(default=25, ge=1, le=SEARCH_LIMIT_MAX),
         offset: int = Query(default=0, ge=0),
+        in_system: bool | None = None,
     ) -> ProviderSpineList:
         return search_providers(
             conn,
@@ -211,6 +212,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             min_visits=min_visits,
             limit=_clamp_limit(limit),
             offset=offset,
+            in_system=in_system,
         )
 
     @app.get("/v1/jobs", tags=["jobs"])

@@ -5,6 +5,16 @@ from __future__ import annotations
 from provider_directory.db import quote_ident
 from provider_directory.settings import GRAD_AGE_OFFSET, MARKET_STATE, MART_DB, MAX_ESTIMATED_AGE, MIN_GRAD_YEAR, REPORT_YEAR
 
+PROVIDER_BUCKETS = 16
+
+
+def network_ccn_sql(alias: str = "f") -> str:
+    """Stable customer_id for pd_network_npi: PDC CCN, else facility-type CCN."""
+    return (
+        f"LEFT(TRIM(COALESCE(NULLIF(TRIM({alias}.ccn), ''), "
+        f"NULLIF(TRIM({alias}.facility_type_ccn), ''))), 64)"
+    )
+
 
 def overlay_cms(
     conn,
@@ -139,5 +149,51 @@ def overlay_cms(
                 nppes_loaded_at = VALUES(nppes_loaded_at)
             """
         )
+        overlay_in_system(cur, conn, mart_db)
         cur.execute(f"UPDATE {mart}.pd_provider SET refreshed_at = NOW()")
     conn.commit()
+
+
+def overlay_in_system(cur, conn, mart_db: str = MART_DB) -> dict[str, int]:
+    """in_system_provider = has a CMS PDC facility affiliation (CCN / hospital).
+
+    pd_network_npi.customer_id is the CCN so a later UI can filter one hospital
+    without a Vue roster. Not a contracted-network flag.
+    """
+    mart = quote_ident(mart_db)
+    ccn = network_ccn_sql("f")
+    counts = {"network_rows": 0, "providers_flagged": 0}
+    cur.execute(f"TRUNCATE TABLE {mart}.pd_network_npi")
+    conn.commit()
+    insert_sql = f"""
+        INSERT INTO {mart}.pd_network_npi (npi, customer_id)
+        SELECT DISTINCT f.npi, {ccn}
+        FROM {mart}.cms_pdc_facility_affil f
+        INNER JOIN {mart}.pd_provider p ON p.npi = f.npi
+        WHERE {ccn} IS NOT NULL
+          AND {ccn} <> ''
+          AND MOD(f.npi, {PROVIDER_BUCKETS}) = %s
+    """
+    for bucket in range(PROVIDER_BUCKETS):
+        cur.execute(insert_sql, (bucket,))
+        n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        counts["network_rows"] += n
+        conn.commit()
+        print(f"overlay in_system network bucket {bucket}: {n} rows", flush=True)
+    flag_sql = f"""
+        UPDATE {mart}.pd_provider p
+        LEFT JOIN (
+            SELECT DISTINCT npi
+            FROM {mart}.cms_pdc_facility_affil
+            WHERE npi IS NOT NULL
+        ) f ON f.npi = p.npi
+        SET p.in_system_provider = IF(f.npi IS NOT NULL, 1, 0)
+        WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+    """
+    for bucket in range(PROVIDER_BUCKETS):
+        cur.execute(flag_sql, (bucket,))
+        n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        counts["providers_flagged"] += n
+        conn.commit()
+        print(f"overlay in_system flag bucket {bucket}: {n} rows", flush=True)
+    return counts

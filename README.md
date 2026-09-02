@@ -19,6 +19,15 @@ python -m provider_directory.cli get 1234567893
 
 `--download` pulls current CMS PDC CSVs (and the ~1.1 GB NPPES monthly zip unless `--skip-nppes`). Files land in `data/cms/` and are reused on the next run.
 
+`in_system_provider` is filled from PDC facility affiliations (hospital CCN), not a Vue roster. After Phase 1 has already loaded `cms_pdc_facility_affil`, refresh the flag without rebuilding the spine:
+
+```
+python -m provider_directory.cli overlay-cms
+python -m provider_directory.cli get 1952863797
+```
+
+Do **not** rerun `phase1` — that TRUNCATEs `pd_provider` and you would have to rerun 2–5.
+
 Same DB env as `db_snapshot.py`: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`. Optional: `PD_MART_DB` (default `az_pd`), `PD_CLAIMS_DB` (`az`), `PD_LOOKUP_DB` (`azal`).
 
 ## Phase 2
