@@ -17,6 +17,7 @@ from provider_directory.extras import (
     overlay_em,
     overlay_pos,
     pos_in_sql,
+    pos_mix_bucket_sql,
     px_in_sql,
     rebuild_extras,
 )
@@ -47,6 +48,7 @@ def test_schema_includes_extras():
     names = {name for name, _def in PD_PROVIDER_EXTRAS_COLUMNS}
     assert "group_size" in names
     assert "visits_percent_telehealth" in names
+    assert "visits_percent_inpatient" in names
     assert "open_payments_general_total" in names
     assert "sec_spec_1" in sql
     assert "cms_pdc_mips" in sql
@@ -118,6 +120,11 @@ def test_em_and_pos_sql_use_staging_not_pat_dt():
     assert "2" in tele and "10" in tele
     known = known_pos_sql("sl")
     assert "11" in known and "22" in known and "24" in known and "23" in known
+    assert "21" in known and "81" in known
+    mix = pos_mix_bucket_sql("sl")
+    assert "inpatient" in mix
+    assert "Independent Laboratory" in mix
+    assert "Short Term Acute Care Hospital" in mix
 
 
 def test_dataset_ids():

@@ -82,7 +82,9 @@ Top-level identity and activity (existing):
 | `visits_percent_asc` | POS 24 | |
 | `visits_percent_ed` | POS 23 | |
 | `visits_percent_telehealth` | POS 02 + 10 | Visit % without a `pat_dt` rescan |
-| `visits_percent_other_pos` | Everything else, including null POS | |
+| `visits_percent_inpatient` | POS 21, or site work_type short-term acute hospital | Sean Smith smoke test is mostly this |
+| `visits_percent_lab` | POS 81, or laboratory work_type | |
+| `visits_percent_other_pos` | Everything else, including null POS | Hide if the named buckets already sum to ~100 |
 | `mips_final_score` / `mips_quality_score` | PDC clinician overall MIPS | Prefer org PAC match, else max score |
 | `open_payments_year` | Program year summed | Latest complete CMS year unless `--year` |
 | `open_payments_general_total` | General (non-research) $ | Covered recipient NPI only |

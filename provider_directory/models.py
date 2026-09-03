@@ -157,6 +157,8 @@ class ProviderSpine(BaseModel):
     visits_percent_asc: float | None = None
     visits_percent_ed: float | None = None
     visits_percent_telehealth: float | None = None
+    visits_percent_inpatient: float | None = None
+    visits_percent_lab: float | None = None
     visits_percent_other_pos: float | None = None
     mips_final_score: float | None = None
     mips_quality_score: float | None = None

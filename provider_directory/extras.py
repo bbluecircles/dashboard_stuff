@@ -14,6 +14,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
+from provider_directory.analytics import work_type_case_sql
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -45,6 +46,8 @@ from provider_directory.settings import (
     POS_ASC,
     POS_ED,
     POS_HOPD,
+    POS_INPATIENT,
+    POS_LAB,
     POS_OFFICE,
     POS_TELEHEALTH,
 )
@@ -81,8 +84,33 @@ def pos_in_sql(alias: str, codes: tuple[int, ...]) -> str:
 
 
 def known_pos_sql(alias: str) -> str:
-    codes = POS_OFFICE + POS_HOPD + POS_ASC + POS_ED + POS_TELEHEALTH
+    codes = POS_OFFICE + POS_HOPD + POS_ASC + POS_ED + POS_TELEHEALTH + POS_INPATIENT + POS_LAB
     return f"{alias}.pos_type_code IN ({_in_sql(codes)})"
+
+
+def pos_mix_bucket_sql(sl: str = "sl") -> str:
+    """Named POS buckets, then the same work_type polish used on practice sites."""
+    wt = work_type_case_sql(sl)
+    return f"""
+        CASE
+            WHEN {pos_in_sql(sl, POS_OFFICE)} THEN 'office'
+            WHEN {pos_in_sql(sl, POS_HOPD)} THEN 'hopd'
+            WHEN {pos_in_sql(sl, POS_ASC)} THEN 'asc'
+            WHEN {pos_in_sql(sl, POS_ED)} THEN 'ed'
+            WHEN {pos_in_sql(sl, POS_TELEHEALTH)} THEN 'telehealth'
+            WHEN {pos_in_sql(sl, POS_INPATIENT)} THEN 'inpatient'
+            WHEN {pos_in_sql(sl, POS_LAB)} THEN 'lab'
+            WHEN ({wt}) IN ('Office', 'Single Specialty Group', 'Independent Clinic') THEN 'office'
+            WHEN ({wt}) IN ('Hospital Outpatient', 'Off Campus Outpatient Hospital') THEN 'hopd'
+            WHEN ({wt}) = 'Ambulatory Surgery Center' THEN 'asc'
+            WHEN ({wt}) = 'Emergency Department' THEN 'ed'
+            WHEN ({wt}) = 'Short Term Acute Care Hospital' THEN 'inpatient'
+            WHEN ({wt}) = 'Independent Laboratory'
+              OR LOWER(IFNULL({sl}.im_specialty_rollup, '')) LIKE CONCAT('%%', 'laborator', '%%')
+              THEN 'lab'
+            ELSE 'other'
+        END
+    """
 
 
 def percent_sql(num: str, den: str) -> str:
@@ -291,12 +319,7 @@ def overlay_pos(
 ) -> int:
     mart = quote_ident(mart_db)
     claims = quote_ident(claims_db)
-    office = pos_in_sql("sl", POS_OFFICE)
-    hopd = pos_in_sql("sl", POS_HOPD)
-    asc = pos_in_sql("sl", POS_ASC)
-    ed = pos_in_sql("sl", POS_ED)
-    tele = pos_in_sql("sl", POS_TELEHEALTH)
-    known = known_pos_sql("sl")
+    bucket = pos_mix_bucket_sql("sl")
     reset = f"""
         UPDATE {mart}.pd_provider
         SET
@@ -305,6 +328,8 @@ def overlay_pos(
             visits_percent_asc = NULL,
             visits_percent_ed = NULL,
             visits_percent_telehealth = NULL,
+            visits_percent_inpatient = NULL,
+            visits_percent_lab = NULL,
             visits_percent_other_pos = NULL
         WHERE MOD(npi, {PROVIDER_BUCKETS}) = %s
     """
@@ -312,18 +337,25 @@ def overlay_pos(
         UPDATE {mart}.pd_provider p
         INNER JOIN (
             SELECT
-                vs.rendering_npi AS npi,
+                mix.npi,
                 COUNT(*) AS visits,
-                SUM(CASE WHEN {office} THEN 1 ELSE 0 END) AS visits_office,
-                SUM(CASE WHEN {hopd} THEN 1 ELSE 0 END) AS visits_hopd,
-                SUM(CASE WHEN {asc} THEN 1 ELSE 0 END) AS visits_asc,
-                SUM(CASE WHEN {ed} THEN 1 ELSE 0 END) AS visits_ed,
-                SUM(CASE WHEN {tele} THEN 1 ELSE 0 END) AS visits_telehealth,
-                SUM(CASE WHEN {known} THEN 0 ELSE 1 END) AS visits_other_pos
-            FROM {mart}.pd_stg_visit_site vs
-            INNER JOIN {claims}.sl sl ON sl.sl_code = vs.sl_code
-            WHERE MOD(vs.rendering_npi, {PROVIDER_BUCKETS}) = %s
-            GROUP BY vs.rendering_npi
+                SUM(CASE WHEN mix.bucket = 'office' THEN 1 ELSE 0 END) AS visits_office,
+                SUM(CASE WHEN mix.bucket = 'hopd' THEN 1 ELSE 0 END) AS visits_hopd,
+                SUM(CASE WHEN mix.bucket = 'asc' THEN 1 ELSE 0 END) AS visits_asc,
+                SUM(CASE WHEN mix.bucket = 'ed' THEN 1 ELSE 0 END) AS visits_ed,
+                SUM(CASE WHEN mix.bucket = 'telehealth' THEN 1 ELSE 0 END) AS visits_telehealth,
+                SUM(CASE WHEN mix.bucket = 'inpatient' THEN 1 ELSE 0 END) AS visits_inpatient,
+                SUM(CASE WHEN mix.bucket = 'lab' THEN 1 ELSE 0 END) AS visits_lab,
+                SUM(CASE WHEN mix.bucket = 'other' THEN 1 ELSE 0 END) AS visits_other_pos
+            FROM (
+                SELECT
+                    vs.rendering_npi AS npi,
+                    {bucket} AS bucket
+                FROM {mart}.pd_stg_visit_site vs
+                INNER JOIN {claims}.sl sl ON sl.sl_code = vs.sl_code
+                WHERE MOD(vs.rendering_npi, {PROVIDER_BUCKETS}) = %s
+            ) mix
+            GROUP BY mix.npi
         ) x ON x.npi = p.npi
         SET
             p.visits_percent_office = {percent_sql("x.visits_office", "x.visits")},
@@ -331,14 +363,16 @@ def overlay_pos(
             p.visits_percent_asc = {percent_sql("x.visits_asc", "x.visits")},
             p.visits_percent_ed = {percent_sql("x.visits_ed", "x.visits")},
             p.visits_percent_telehealth = {percent_sql("x.visits_telehealth", "x.visits")},
+            p.visits_percent_inpatient = {percent_sql("x.visits_inpatient", "x.visits")},
+            p.visits_percent_lab = {percent_sql("x.visits_lab", "x.visits")},
             p.visits_percent_other_pos = {percent_sql("x.visits_other_pos", "x.visits")}
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
     """
     updated = 0
-    for bucket in range(PROVIDER_BUCKETS):
-        _run(cur, conn, reset, (bucket,))
-        updated += _run(cur, conn, fill, (bucket, bucket))
-        print(f"extras pos bucket {bucket}", flush=True)
+    for hash_bucket in range(PROVIDER_BUCKETS):
+        _run(cur, conn, reset, (hash_bucket,))
+        updated += _run(cur, conn, fill, (hash_bucket, hash_bucket))
+        print(f"extras pos bucket {hash_bucket}", flush=True)
     return updated
 
 

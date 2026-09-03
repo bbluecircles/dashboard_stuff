@@ -74,6 +74,8 @@ POS_HOPD = (19, 22)
 POS_ASC = (24,)
 POS_ED = (23,)
 POS_TELEHEALTH = (2, 10)
+POS_INPATIENT = (21,)
+POS_LAB = (81,)
 
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
 
