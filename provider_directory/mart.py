@@ -8,6 +8,17 @@ from provider_directory.settings import GRAD_AGE_OFFSET, MARKET_STATE, MART_DB, 
 PROVIDER_BUCKETS = 16
 
 
+def pdc_identity_rank_order_sql() -> str:
+    """Prefer AZ rows with school/grad year/gender/phone when collapsing PDC sites."""
+    return """
+        (UPPER(IFNULL(state, '')) = %s) DESC,
+        (med_sch IS NOT NULL AND TRIM(med_sch) <> '' AND UPPER(med_sch) <> 'OTHER') DESC,
+        (grd_yr IS NOT NULL) DESC,
+        (gender IN ('M', 'F')) DESC,
+        (phone IS NOT NULL AND TRIM(phone) <> '') DESC
+    """
+
+
 def network_ccn_sql(alias: str = "f") -> str:
     """Stable customer_id for pd_network_npi: PDC CCN, else facility-type CCN."""
     return (
@@ -46,12 +57,7 @@ def overlay_cms(
                         org_pac_id,
                         ROW_NUMBER() OVER (
                             PARTITION BY npi
-                            ORDER BY
-                                (UPPER(IFNULL(state, '')) = %s) DESC,
-                                (med_sch IS NOT NULL AND TRIM(med_sch) <> '' AND UPPER(med_sch) <> 'OTHER') DESC,
-                                (grd_yr IS NOT NULL) DESC,
-                                (gender IN ('M', 'F')) DESC,
-                                (phone IS NOT NULL AND TRIM(phone) <> '') DESC
+                            ORDER BY {pdc_identity_rank_order_sql()}
                         ) AS rn
                     FROM {mart}.cms_pdc_clinician
                 ) ranked

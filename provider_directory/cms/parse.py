@@ -17,6 +17,7 @@ from provider_directory.transforms import (
     normalize_row,
     nppes_primary_taxonomy,
     parse_int,
+    parse_money,
     parse_npi,
     pdc_identity_score,
 )
@@ -66,6 +67,10 @@ def parse_pdc_clinician_row(row: Mapping) -> dict | None:
         "med_sch": nonempty(first_present(row, "med_sch")),
         "grd_yr": parse_int(first_present(row, "grd_yr")),
         "pri_spec": nonempty(first_present(row, "pri_spec")),
+        "sec_spec_1": nonempty(first_present(row, "sec_spec_1")),
+        "sec_spec_2": nonempty(first_present(row, "sec_spec_2")),
+        "sec_spec_3": nonempty(first_present(row, "sec_spec_3")),
+        "sec_spec_4": nonempty(first_present(row, "sec_spec_4")),
         "telehlth": nonempty(first_present(row, "telehlth")),
         "org_pac_id": nonempty(first_present(row, "org_pac_id")),
         "num_org_mem": parse_int(first_present(row, "num_org_mem")),
@@ -207,3 +212,53 @@ def iter_nppes_from_zip(path: Path) -> Iterator[dict]:
 def iter_local_csv(path: Path) -> Iterator[dict]:
     with open_text(path) as handle:
         yield from iter_csv_rows(handle)
+
+
+def parse_mips_row(row: Mapping) -> dict | None:
+    npi = parse_npi(first_present(row, "npi"))
+    if npi is None:
+        return None
+    org = nonempty(first_present(row, "org_pac_id")) or ""
+    final_score = first_present(row, "final_mips_score", "final_score")
+    quality = first_present(row, "quality_mips_score", "quality_score")
+    parsed_final = parse_money(final_score)
+    if parsed_final is None:
+        parsed_final = parse_int(final_score)
+        parsed_final = float(parsed_final) if parsed_final is not None else None
+    if parsed_final is None:
+        return None
+    quality_score = parse_money(quality)
+    if quality_score is None:
+        quality_int = parse_int(quality)
+        quality_score = float(quality_int) if quality_int is not None else None
+    return {
+        "npi": npi,
+        "org_pac_id": org[:16],
+        "final_score": parsed_final,
+        "quality_score": quality_score,
+    }
+
+
+def parse_utilization_row(row: Mapping) -> dict | None:
+    npi = parse_npi(first_present(row, "npi"))
+    category = nonempty(first_present(row, "procedure_category"))
+    if npi is None or category is None:
+        return None
+    display = nonempty(first_present(row, "profile_display_indicator", "profile_display"))
+    return {
+        "npi": npi,
+        "procedure_category": category[:180],
+        "count_label": nonempty(first_present(row, "count", "count_label")),
+        "percentile": parse_int(first_present(row, "percentile")),
+        "profile_display": (display or "")[:1].upper() or None,
+    }
+
+
+def parse_open_payments_row(row: Mapping) -> dict | None:
+    npi = parse_npi(first_present(row, "covered_recipient_npi"))
+    if npi is None:
+        return None
+    amount = parse_money(first_present(row, "total_amount_of_payment_usdollars"))
+    if amount is None:
+        return None
+    return {"npi": npi, "amount": amount}

@@ -32,11 +32,19 @@ def test_pdc_csv_url_reads_nested_metastore(monkeypatch):
             }
 
     class FakeSession:
+        def __init__(self):
+            self.urls = []
+
         def get(self, url, timeout=60):
-            assert "mj5m-pzi6" in url
+            self.urls.append(url)
             return FakeResponse()
 
-    assert pdc_csv_url("mj5m-pzi6", session=FakeSession()).endswith("DAC_NationalDownloadableFile.csv")
+    session = FakeSession()
+    assert pdc_csv_url("mj5m-pzi6", session=session).endswith("DAC_NationalDownloadableFile.csv")
+    assert pdc_csv_url("a174-a962", session=session)
+    assert pdc_csv_url("n0yb-util", session=session)
+    assert any("a174-a962" in url for url in session.urls)
+    assert any("n0yb-util" in url for url in session.urls)
 
 
 def test_spine_sql_excludes_dummies_and_joins_azal():
@@ -56,3 +64,5 @@ def test_schema_has_locked_tables():
     assert "visits_total" in sql
     assert "utf8mb4_unicode_520_ci" in sql
     assert "pd_stg_visit" in sql
+    assert "cms_pdc_mips" in sql
+    assert "pd_provider_utilization" in sql

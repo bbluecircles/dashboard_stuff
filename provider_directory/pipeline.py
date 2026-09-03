@@ -176,6 +176,32 @@ def run_phase5(conn, *, mart_db: str = MART_DB) -> dict:
     )
 
 
+def run_extras(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    download: bool = False,
+    reload_pdc: bool = False,
+    skip_mips: bool = False,
+    skip_utilization: bool = False,
+    skip_open_payments: bool = False,
+    year: int | None = None,
+) -> dict:
+    from provider_directory.extras import rebuild_extras
+
+    ensure_mart_database(conn, mart_db)
+    return rebuild_extras(
+        conn,
+        mart_db=mart_db,
+        download=download,
+        reload_pdc=reload_pdc,
+        skip_mips=skip_mips,
+        skip_utilization=skip_utilization,
+        skip_open_payments=skip_open_payments,
+        year=year,
+    )
+
+
 def run_phase6(
     conn,
     *,

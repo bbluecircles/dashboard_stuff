@@ -11,8 +11,10 @@ from provider_directory.cms.parse import (
     keep_nppes_row,
     keep_pdc_clinician_row,
     parse_facility_row,
+    parse_mips_row,
     parse_nppes_row,
     parse_pdc_clinician_row,
+    parse_utilization_row,
 )
 from provider_directory.db import quote_ident
 from provider_directory.settings import MART_DB
@@ -32,6 +34,10 @@ CLINICIAN_COLS = (
     "med_sch",
     "grd_yr",
     "pri_spec",
+    "sec_spec_1",
+    "sec_spec_2",
+    "sec_spec_3",
+    "sec_spec_4",
     "telehlth",
     "org_pac_id",
     "num_org_mem",
@@ -189,3 +195,86 @@ def load_nppes(
                 yield parsed
 
     return _stream_insert(conn, sql, rows())
+
+
+MIPS_COLS = ("npi", "org_pac_id", "final_score", "quality_score")
+UTILIZATION_COLS = ("npi", "procedure_category", "count_label", "percentile", "profile_display")
+OPEN_PAYMENTS_COLS = ("npi", "program_year", "payment_kind", "total", "payment_count")
+
+
+def load_pdc_mips(
+    conn,
+    path: Path,
+    spine_npis: set[int] | None,
+    *,
+    mart_db: str = MART_DB,
+    truncate: bool = True,
+) -> int:
+    sql = _insert_sql(mart_db, "cms_pdc_mips", MIPS_COLS, replace=True)
+    if truncate:
+        with conn.cursor() as cur:
+            cur.execute(f"TRUNCATE TABLE {quote_ident(mart_db)}.cms_pdc_mips")
+        conn.commit()
+
+    seen: set[tuple[int, str]] = set()
+
+    def rows():
+        for raw in iter_local_csv(path):
+            parsed = parse_mips_row(raw)
+            if not parsed:
+                continue
+            if spine_npis is not None and parsed["npi"] not in spine_npis:
+                continue
+            key = (parsed["npi"], parsed["org_pac_id"])
+            if key in seen:
+                continue
+            seen.add(key)
+            yield parsed
+
+    return _stream_insert(conn, sql, rows())
+
+
+def load_pdc_utilization(
+    conn,
+    path: Path,
+    spine_npis: set[int] | None,
+    *,
+    mart_db: str = MART_DB,
+    truncate: bool = True,
+) -> int:
+    sql = _insert_sql(mart_db, "cms_pdc_utilization", UTILIZATION_COLS, replace=True)
+    if truncate:
+        with conn.cursor() as cur:
+            cur.execute(f"TRUNCATE TABLE {quote_ident(mart_db)}.cms_pdc_utilization")
+        conn.commit()
+
+    def rows():
+        for raw in iter_local_csv(path):
+            parsed = parse_utilization_row(raw)
+            if not parsed:
+                continue
+            if spine_npis is not None and parsed["npi"] not in spine_npis:
+                continue
+            yield parsed
+
+    return _stream_insert(conn, sql, rows())
+
+
+def replace_open_payments(
+    conn,
+    rows: Iterable[dict],
+    *,
+    mart_db: str = MART_DB,
+    program_year: int | None = None,
+) -> int:
+    sql = _insert_sql(mart_db, "cms_open_payments", OPEN_PAYMENTS_COLS, replace=True)
+    with conn.cursor() as cur:
+        if program_year is None:
+            cur.execute(f"TRUNCATE TABLE {quote_ident(mart_db)}.cms_open_payments")
+        else:
+            cur.execute(
+                f"DELETE FROM {quote_ident(mart_db)}.cms_open_payments WHERE program_year = %s",
+                (program_year,),
+            )
+    conn.commit()
+    return _stream_insert(conn, sql, rows)

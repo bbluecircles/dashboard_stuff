@@ -59,10 +59,21 @@ SEARCH_LIMIT_MAX = 100
 
 PDC_CLINICIAN_DATASET = "mj5m-pzi6"
 PDC_FACILITY_DATASET = "27ea-46a8"
+PDC_MIPS_DATASET = "a174-a962"
+PDC_UTILIZATION_DATASET = "n0yb-util"
 PDC_METASTORE = (
     "https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items/{dataset_id}"
 )
 NPPES_INDEX_URL = "https://download.cms.gov/nppes/NPI_Files.html"
+OPEN_PAYMENTS_DATASETS = "https://openpaymentsdata.cms.gov/api/1/metastore/schemas/dataset/items"
+MAX_UTILIZATION_CATEGORIES = 5
+NEW_PATIENT_PX = ("99202", "99203", "99204", "99205")
+ESTABLISHED_PX = ("99212", "99213", "99214", "99215")
+POS_OFFICE = (11,)
+POS_HOPD = (19, 22)
+POS_ASC = (24,)
+POS_ED = (23,)
+POS_TELEHEALTH = (2, 10)
 
 _IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
 

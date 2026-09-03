@@ -129,7 +129,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         version=__version__,
         description=(
             "Mart lookup for the .NET UI, plus background jobs for phase1–phase6. "
-            "Providers are served from az_pd, not az.pat_dt."
+            "Providers are served from az_pd, not az.pat_dt. Extras fields are null "
+            "until `python -m provider_directory.cli extras` has been run."
         ),
         docs_url=docs,
         redoc_url=None if docs is None else "/redoc",

@@ -41,6 +41,31 @@ def parse_int(value: Any) -> int | None:
         return None
 
 
+def parse_money(value: Any) -> float | None:
+    text = nonempty(value)
+    if text is None:
+        return None
+    cleaned = text.replace("$", "").replace(",", "").strip()
+    if cleaned == "":
+        return None
+    try:
+        return float(cleaned)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_yes_no(value: Any) -> int | None:
+    text = nonempty(value)
+    if text is None:
+        return None
+    folded = text.strip().upper()
+    if folded in {"Y", "YES", "TRUE", "1"}:
+        return 1
+    if folded in {"N", "NO", "FALSE", "0"}:
+        return 0
+    return None
+
+
 def parse_npi(value: Any) -> int | None:
     npi = parse_int(value)
     if npi is None or npi < NPI_MIN or npi > NPI_MAX:

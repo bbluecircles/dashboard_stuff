@@ -53,6 +53,17 @@ class ProviderReferral(BaseModel):
     claim_count: int | None = None
 
 
+class ProviderUtilization(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    npi: int
+    rk: int
+    procedure_category: str | None = None
+    count_label: str | None = None
+    percentile: int | None = None
+    profile_display: str | None = None
+
+
 class ProviderSpine(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -132,8 +143,31 @@ class ProviderSpine(BaseModel):
     wrvu_state_specialty_p75: float | None = None
     wrvu_state_specialty_npi_count: int | None = None
     wrvu_specialty_percentile: float | None = None
+    group_size: int | None = None
+    telehealth_offered: bool | None = None
+    secondary_specialty_1: str | None = None
+    secondary_specialty_2: str | None = None
+    secondary_specialty_3: str | None = None
+    secondary_specialty_4: str | None = None
+    visits_new_patient: int | None = None
+    visits_established: int | None = None
+    visits_percent_new_patient: float | None = None
+    visits_percent_office: float | None = None
+    visits_percent_hopd: float | None = None
+    visits_percent_asc: float | None = None
+    visits_percent_ed: float | None = None
+    visits_percent_telehealth: float | None = None
+    visits_percent_other_pos: float | None = None
+    mips_final_score: float | None = None
+    mips_quality_score: float | None = None
+    open_payments_year: int | None = None
+    open_payments_general_total: float | None = None
+    open_payments_research_total: float | None = None
+    open_payments_ownership_total: float | None = None
+    open_payments_count: int | None = None
     practices: list[ProviderPractice] = Field(default_factory=list)
     referrals: list[ProviderReferral] = Field(default_factory=list)
+    utilization: list[ProviderUtilization] = Field(default_factory=list)
 
 
 class ProviderSpineList(BaseModel):

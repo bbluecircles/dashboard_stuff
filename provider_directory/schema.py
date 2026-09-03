@@ -9,12 +9,16 @@ TABLES = (
     "cms_pdc_clinician",
     "cms_pdc_facility_affil",
     "cms_nppes_type1",
+    "cms_pdc_mips",
+    "cms_pdc_utilization",
+    "cms_open_payments",
     "pd_provider",
     "pd_npi_xwalk",
     "pd_network_npi",
     "pd_refresh_state",
     "pd_provider_practice",
     "pd_provider_referral",
+    "pd_provider_utilization",
     "pd_stg_window_claim",
     "pd_stg_visit",
     "pd_stg_panel_patient",
@@ -174,6 +178,38 @@ PD_PRACTICE_PHASE5_COLUMNS = (
     ("visits_percent_sunday", "DECIMAL(6,2) NULL"),
 )
 
+CMS_PDC_CLINICIAN_EXTRAS_COLUMNS = (
+    ("sec_spec_1", "VARCHAR(120) NULL"),
+    ("sec_spec_2", "VARCHAR(120) NULL"),
+    ("sec_spec_3", "VARCHAR(120) NULL"),
+    ("sec_spec_4", "VARCHAR(120) NULL"),
+)
+
+PD_PROVIDER_EXTRAS_COLUMNS = (
+    ("group_size", "INT NULL"),
+    ("telehealth_offered", "TINYINT NULL"),
+    ("secondary_specialty_1", "VARCHAR(120) NULL"),
+    ("secondary_specialty_2", "VARCHAR(120) NULL"),
+    ("secondary_specialty_3", "VARCHAR(120) NULL"),
+    ("secondary_specialty_4", "VARCHAR(120) NULL"),
+    ("visits_new_patient", "INT UNSIGNED NULL"),
+    ("visits_established", "INT UNSIGNED NULL"),
+    ("visits_percent_new_patient", "DECIMAL(6,2) NULL"),
+    ("visits_percent_office", "DECIMAL(6,2) NULL"),
+    ("visits_percent_hopd", "DECIMAL(6,2) NULL"),
+    ("visits_percent_asc", "DECIMAL(6,2) NULL"),
+    ("visits_percent_ed", "DECIMAL(6,2) NULL"),
+    ("visits_percent_telehealth", "DECIMAL(6,2) NULL"),
+    ("visits_percent_other_pos", "DECIMAL(6,2) NULL"),
+    ("mips_final_score", "DECIMAL(6,2) NULL"),
+    ("mips_quality_score", "DECIMAL(6,2) NULL"),
+    ("open_payments_year", "SMALLINT NULL"),
+    ("open_payments_general_total", "DECIMAL(14,2) NULL"),
+    ("open_payments_research_total", "DECIMAL(14,2) NULL"),
+    ("open_payments_ownership_total", "DECIMAL(14,2) NULL"),
+    ("open_payments_count", "INT UNSIGNED NULL"),
+)
+
 
 def ddl_statements(mart_db: str = MART_DB) -> list[str]:
     db = quote_ident(require_ident(mart_db, "mart database"))
@@ -192,6 +228,10 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             med_sch VARCHAR(150),
             grd_yr SMALLINT,
             pri_spec VARCHAR(120),
+            sec_spec_1 VARCHAR(120),
+            sec_spec_2 VARCHAR(120),
+            sec_spec_3 VARCHAR(120),
+            sec_spec_4 VARCHAR(120),
             telehlth VARCHAR(8),
             org_pac_id VARCHAR(16),
             num_org_mem INT,
@@ -318,6 +358,28 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             wrvu_state_specialty_p75 DECIMAL(14,2) NULL,
             wrvu_state_specialty_npi_count INT UNSIGNED NULL,
             wrvu_specialty_percentile DECIMAL(5,1) NULL,
+            group_size INT NULL,
+            telehealth_offered TINYINT NULL,
+            secondary_specialty_1 VARCHAR(120) NULL,
+            secondary_specialty_2 VARCHAR(120) NULL,
+            secondary_specialty_3 VARCHAR(120) NULL,
+            secondary_specialty_4 VARCHAR(120) NULL,
+            visits_new_patient INT UNSIGNED NULL,
+            visits_established INT UNSIGNED NULL,
+            visits_percent_new_patient DECIMAL(6,2) NULL,
+            visits_percent_office DECIMAL(6,2) NULL,
+            visits_percent_hopd DECIMAL(6,2) NULL,
+            visits_percent_asc DECIMAL(6,2) NULL,
+            visits_percent_ed DECIMAL(6,2) NULL,
+            visits_percent_telehealth DECIMAL(6,2) NULL,
+            visits_percent_other_pos DECIMAL(6,2) NULL,
+            mips_final_score DECIMAL(6,2) NULL,
+            mips_quality_score DECIMAL(6,2) NULL,
+            open_payments_year SMALLINT NULL,
+            open_payments_general_total DECIMAL(14,2) NULL,
+            open_payments_research_total DECIMAL(14,2) NULL,
+            open_payments_ownership_total DECIMAL(14,2) NULL,
+            open_payments_count INT UNSIGNED NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi),
             KEY idx_last_name (last_name),
@@ -325,6 +387,41 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_active (active_provider),
             KEY idx_active_visits (active_provider, visits_total),
             KEY idx_spec_visits (primary_specialty_code, visits_total)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.cms_pdc_mips (
+            npi BIGINT UNSIGNED NOT NULL,
+            org_pac_id VARCHAR(16) NOT NULL DEFAULT '',
+            final_score DECIMAL(6,2),
+            quality_score DECIMAL(6,2),
+            loaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, org_pac_id),
+            KEY idx_npi (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.cms_pdc_utilization (
+            npi BIGINT UNSIGNED NOT NULL,
+            procedure_category VARCHAR(180) NOT NULL,
+            count_label VARCHAR(32),
+            percentile SMALLINT,
+            profile_display CHAR(1),
+            loaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, procedure_category),
+            KEY idx_npi (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.cms_open_payments (
+            npi BIGINT UNSIGNED NOT NULL,
+            program_year SMALLINT NOT NULL,
+            payment_kind VARCHAR(16) NOT NULL,
+            total DECIMAL(14,2) NOT NULL DEFAULT 0,
+            payment_count INT UNSIGNED NOT NULL DEFAULT 0,
+            loaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, program_year, payment_kind),
+            KEY idx_npi (npi)
         ) {table_options()}
         """,
         f"""
@@ -542,6 +639,19 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         ) {table_options()}
         """,
         f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_provider_utilization (
+            npi BIGINT UNSIGNED NOT NULL,
+            rk TINYINT UNSIGNED NOT NULL,
+            procedure_category VARCHAR(180) NOT NULL,
+            count_label VARCHAR(32),
+            percentile SMALLINT,
+            profile_display CHAR(1),
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, rk),
+            KEY idx_npi (npi)
+        ) {table_options()}
+        """,
+        f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit_date (
             encounter_id BIGINT UNSIGNED NOT NULL,
             service_end_date DATE NOT NULL,
@@ -683,6 +793,21 @@ def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
         )
 
 
+def migrate_extras_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add cheap extras columns to existing pd_provider / cms_pdc_clinician."""
+    provider = f"{quote_ident(mart_db)}.pd_provider"
+    clinician = f"{quote_ident(mart_db)}.cms_pdc_clinician"
+    with conn.cursor() as cur:
+        for name, definition in CMS_PDC_CLINICIAN_EXTRAS_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {clinician} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
+        for name, definition in PD_PROVIDER_EXTRAS_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {provider} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
+
+
 def drop_phase2_derived(conn, mart_db: str = MART_DB) -> None:
     drop_staging_tables(conn, mart_db, PHASE2_DERIVED_TABLES)
 
@@ -816,4 +941,5 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     migrate_phase3_columns(conn, mart_db)
     migrate_phase4_columns(conn, mart_db)
     migrate_phase5_columns(conn, mart_db)
+    migrate_extras_columns(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

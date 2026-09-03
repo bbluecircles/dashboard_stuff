@@ -8,6 +8,8 @@ Examples:
   python -m provider_directory.cli phase4
   python -m provider_directory.cli phase5
   python -m provider_directory.cli phase6
+  python -m provider_directory.cli extras --skip-open-payments
+  python -m provider_directory.cli extras --download
   python -m provider_directory.cli serve
   python -m provider_directory.cli get --last-name Smith --limit 3
 """
@@ -21,7 +23,16 @@ import sys
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.locations import Phase2Required
 from provider_directory.lookup import get_provider, search_providers
-from provider_directory.pipeline import download_cms_files, run_phase1, run_phase2, run_phase3, run_phase4, run_phase5, run_phase6
+from provider_directory.pipeline import (
+    download_cms_files,
+    run_extras,
+    run_phase1,
+    run_phase2,
+    run_phase3,
+    run_phase4,
+    run_phase5,
+    run_phase6,
+)
 from provider_directory.schema import create_schema
 from provider_directory.spine import rebuild_spine
 from provider_directory.mart import overlay_cms
@@ -94,6 +105,21 @@ def _cmd_phase6(args: argparse.Namespace) -> int:
             conn,
             slide=args.slide,
             skip_staging_indexes=args.skip_staging_indexes,
+        )
+    print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
+def _cmd_extras(args: argparse.Namespace) -> int:
+    with get_connection(autocommit=False) as conn:
+        summary = run_extras(
+            conn,
+            download=args.download,
+            reload_pdc=args.reload_pdc,
+            skip_mips=args.skip_mips,
+            skip_utilization=args.skip_utilization,
+            skip_open_payments=args.skip_open_payments,
+            year=args.year,
         )
     print(json.dumps(summary, indent=2, default=str))
     return 0
@@ -211,6 +237,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Only add pd_provider search indexes; skip period_code indexes on 49M-row staging",
     )
     p.set_defaults(func=_cmd_phase6)
+
+    p = sub.add_parser(
+        "extras",
+        help="Cheap extras overlay (group size, POS mix, MIPS, Open Payments). Does not rescan pat_dt.",
+    )
+    p.add_argument(
+        "--download",
+        action="store_true",
+        help="Fetch MIPS, utilization, and Open Payments CSVs. Open Payments general file is huge.",
+    )
+    p.add_argument(
+        "--reload-pdc",
+        action="store_true",
+        help="TRUNCATE cms_pdc_clinician only and reload from data/cms so sec_spec_1–4 land. Not phase1.",
+    )
+    p.add_argument("--skip-mips", action="store_true")
+    p.add_argument("--skip-utilization", action="store_true")
+    p.add_argument("--skip-open-payments", action="store_true")
+    p.add_argument("--year", type=int, default=None, help="Open Payments program year (default: latest complete year)")
+    p.set_defaults(func=_cmd_extras)
 
     p = sub.add_parser(
         "serve",
