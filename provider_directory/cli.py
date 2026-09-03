@@ -245,7 +245,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--download",
         action="store_true",
-        help="Fetch MIPS, utilization, and Open Payments CSVs. Open Payments general file is huge.",
+        help="Fetch MIPS, utilization, and Open Payments CSVs into data/cms. Reuses cached files. Open Payments general file is huge.",
     )
     p.add_argument(
         "--reload-pdc",

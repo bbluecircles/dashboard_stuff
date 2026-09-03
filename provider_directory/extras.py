@@ -7,7 +7,7 @@ Payments, and Care Compare utilization onto the existing mart.
 
 from __future__ import annotations
 
-import io
+import re
 from collections import defaultdict
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -30,7 +30,7 @@ from provider_directory.cms.load import (
     load_spine_npis,
     replace_open_payments,
 )
-from provider_directory.cms.parse import iter_csv_rows, parse_open_payments_row
+from provider_directory.cms.parse import iter_local_csv, parse_open_payments_row
 from provider_directory.db import quote_ident
 from provider_directory.locations import table_has_rows
 from provider_directory.mart import PROVIDER_BUCKETS, pdc_identity_rank_order_sql
@@ -113,6 +113,15 @@ def pos_mix_bucket_sql(sl: str = "sl") -> str:
     """
 
 
+OPEN_PAYMENTS_KINDS = ("ownership", "research", "general")
+_OPEN_PAYMENTS_NAME = {
+    "ownership": "OWNRSHP",
+    "research": "RSRCH",
+    "general": "GNRL",
+}
+_PGYR_RE = re.compile(r"PGYR(\d{4})", re.I)
+
+
 def percent_sql(num: str, den: str) -> str:
     return f"ROUND(100 * {num} / NULLIF({den}, 0), 2)"
 
@@ -120,6 +129,44 @@ def percent_sql(num: str, den: str) -> str:
 def _filename_from_url(url: str, fallback: str) -> str:
     name = Path(unquote(urlparse(url).path)).name
     return name or fallback
+
+
+def open_payments_year_from_name(name: str) -> int | None:
+    match = _PGYR_RE.search(name)
+    return int(match.group(1)) if match else None
+
+
+def _download_if_missing(
+    url: str,
+    dest: Path,
+    *,
+    session: requests.Session,
+    label: str,
+    timeout: float | tuple[float, float] = (60, 600),
+) -> Path:
+    if dest.exists() and dest.stat().st_size > 0:
+        print(f"{label}: using cache {dest} ({dest.stat().st_size:,} bytes)", flush=True)
+        return dest
+    print(f"{label}: downloading {url}", flush=True)
+    path = download_file(url, dest, session=session, timeout=timeout)
+    print(f"{label}: wrote {path} ({path.stat().st_size:,} bytes)", flush=True)
+    return path
+
+
+def find_cached_open_payments(year: int | None = None) -> tuple[int | None, dict[str, Path]]:
+    by_year: dict[int, dict[str, Path]] = {}
+    for kind, token in _OPEN_PAYMENTS_NAME.items():
+        for path in CMS_CACHE_DIR.glob(f"*{token}*PGYR*.csv"):
+            program_year = open_payments_year_from_name(path.name)
+            if program_year is None or path.stat().st_size <= 0:
+                continue
+            by_year.setdefault(program_year, {})[kind] = path
+    if not by_year:
+        return None, {}
+    if year is not None and year in by_year:
+        return year, by_year[year]
+    chosen = max(by_year)
+    return chosen, by_year[chosen]
 
 
 def find_cached_extras() -> dict[str, Path]:
@@ -147,41 +194,49 @@ def download_extras_files(
     download_pdc: bool = False,
     year: int | None = None,
     session: requests.Session | None = None,
-) -> dict[str, Path | str | int]:
+) -> dict:
     http = session or requests.Session()
     CMS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    paths: dict[str, Path | str | int] = {}
+    paths: dict = {}
     if download_pdc:
         clinician_url = clinician_csv_url(session=http)
-        paths["clinician"] = download_file(
+        paths["clinician"] = _download_if_missing(
             clinician_url,
             cached_path("DAC_NationalDownloadableFile.csv"),
             session=http,
+            label="pdc clinician",
         )
     if not skip_mips:
         url = mips_csv_url(session=http)
-        paths["mips"] = download_file(
-            url, cached_path(_filename_from_url(url, "ec_score_file.csv")), session=http
+        paths["mips"] = _download_if_missing(
+            url,
+            cached_path(_filename_from_url(url, "ec_score_file.csv")),
+            session=http,
+            label="mips",
         )
     if not skip_utilization:
         url = utilization_csv_url(session=http)
-        paths["utilization"] = download_file(
-            url, cached_path("Utilization.csv"), session=http
+        paths["utilization"] = _download_if_missing(
+            url,
+            cached_path("Utilization.csv"),
+            session=http,
+            label="utilization",
         )
     if not skip_open_payments:
         program_year, urls = open_payments_detail_urls(year, session=http)
         paths["open_payments_year"] = program_year
-        paths["open_payments_urls"] = urls
+        files: dict[str, Path] = {}
+        for kind in OPEN_PAYMENTS_KINDS:
+            url = urls[kind]
+            dest = cached_path(_filename_from_url(url, f"OP_DTL_{kind}_PGYR{program_year}.csv"))
+            files[kind] = _download_if_missing(
+                url,
+                dest,
+                session=http,
+                label=f"open payments {kind}",
+            )
+        paths["open_payments_files"] = files
     return paths
-
-
-def iter_http_csv(url: str, session: requests.Session | None = None):
-    http = session or requests.Session()
-    with http.get(url, stream=True, timeout=(60, 600)) as response:
-        response.raise_for_status()
-        response.raw.decode_content = True
-        handle = io.TextIOWrapper(response.raw, encoding="utf-8-sig", errors="replace", newline="")
-        yield from iter_csv_rows(handle)
 
 
 def accumulate_open_payments(
@@ -491,21 +546,23 @@ def overlay_utilization(cur, conn, mart_db: str = MART_DB) -> int:
     return _run(cur, conn, sql)
 
 
-def _load_open_payments_from_urls(
+def _load_open_payments_from_paths(
     conn,
-    urls: dict[str, str],
+    files: dict[str, Path],
     spine_npis: set[int],
     program_year: int,
     *,
     mart_db: str = MART_DB,
-    session: requests.Session | None = None,
 ) -> int:
     totals: dict[int, dict[str, list[float]]] = defaultdict(dict)
-    http = session or requests.Session()
-    for kind, url in urls.items():
-        print(f"open payments streaming {kind} {url}", flush=True)
+    for kind in OPEN_PAYMENTS_KINDS:
+        path = files.get(kind)
+        if path is None or not path.exists():
+            print(f"open payments {kind}: no cached file", flush=True)
+            continue
+        print(f"open payments reading {kind} {path} ({path.stat().st_size:,} bytes)", flush=True)
         accumulate_open_payments(
-            iter_http_csv(url, session=http),
+            iter_local_csv(path),
             spine_npis,
             kind=kind,
             totals=totals,
@@ -529,10 +586,10 @@ def rebuild_extras(
     create_schema(conn, mart_db)
     skipped: list[str] = []
     loaded = {"clinician": 0, "mips": 0, "utilization": 0, "open_payments": 0}
-    downloaded: dict[str, str | int] = {}
+    downloaded: dict = {}
     overlays: dict[str, int] = {}
     open_payments_year: int | None = year
-    open_payments_urls: dict[str, str] | None = None
+    open_payments_files: dict[str, Path] | None = None
     if download:
         extras_paths = download_extras_files(
             skip_mips=skip_mips,
@@ -547,8 +604,9 @@ def rebuild_extras(
             elif key == "open_payments_year":
                 open_payments_year = int(value)
                 downloaded[key] = int(value)
-            elif key == "open_payments_urls" and isinstance(value, dict):
-                open_payments_urls = value
+            elif key == "open_payments_files" and isinstance(value, dict):
+                open_payments_files = value
+                downloaded[key] = {kind: str(path) for kind, path in value.items()}
 
     from provider_directory.pipeline import find_cached_cms
 
@@ -603,17 +661,32 @@ def rebuild_extras(
         cur.execute(f"UPDATE {quote_ident(mart_db)}.pd_provider SET refreshed_at = NOW()")
         conn.commit()
 
-    if open_payments_urls:
-        loaded["open_payments"] = _load_open_payments_from_urls(
-            conn, open_payments_urls, spine_npis, int(open_payments_year), mart_db=mart_db
-        )
-        with conn.cursor() as cur:
-            _session_timeouts(cur)
-            overlays["open_payments"] = overlay_open_payments(
-                cur, conn, mart_db=mart_db, program_year=open_payments_year
+    if not skip_open_payments and not open_payments_files:
+        cached_year, cached_files = find_cached_open_payments(open_payments_year)
+        if cached_files:
+            open_payments_files = cached_files
+            if open_payments_year is None:
+                open_payments_year = cached_year
+
+    if open_payments_files:
+        if open_payments_year is None:
+            for path in open_payments_files.values():
+                open_payments_year = open_payments_year_from_name(Path(path).name)
+                if open_payments_year is not None:
+                    break
+        if open_payments_year is None:
+            skipped.append("Open Payments files found but program year is unknown")
+        else:
+            loaded["open_payments"] = _load_open_payments_from_paths(
+                conn, open_payments_files, spine_npis, int(open_payments_year), mart_db=mart_db
             )
-            cur.execute(f"UPDATE {quote_ident(mart_db)}.pd_provider SET refreshed_at = NOW()")
-            conn.commit()
+            with conn.cursor() as cur:
+                _session_timeouts(cur)
+                overlays["open_payments"] = overlay_open_payments(
+                    cur, conn, mart_db=mart_db, program_year=open_payments_year
+                )
+                cur.execute(f"UPDATE {quote_ident(mart_db)}.pd_provider SET refreshed_at = NOW()")
+                conn.commit()
     elif not skip_open_payments and table_has_rows(conn, mart_db, "cms_open_payments"):
         with conn.cursor() as cur:
             overlays["open_payments"] = overlay_open_payments(

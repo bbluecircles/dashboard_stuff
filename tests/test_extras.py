@@ -11,9 +11,11 @@ from provider_directory.cms.parse import (
     parse_utilization_row,
 )
 from provider_directory.extras import (
+    _load_open_payments_from_paths,
     accumulate_open_payments,
     known_pos_sql,
     open_payments_insert_rows,
+    open_payments_year_from_name,
     overlay_em,
     overlay_pos,
     pos_in_sql,
@@ -214,7 +216,12 @@ def test_accumulate_open_payments_filters_spine():
     assert insert_rows[0]["payment_count"] == 2
 
 
-def test_rebuild_extras_never_mentions_pat_dt_scan():
+def test_open_payments_reads_cached_csv_not_http_wrapper():
+    assert open_payments_year_from_name("OP_DTL_GNRL_PGYR2025_P06302026_06032026.csv") == 2025
+    source = inspect.getsource(_load_open_payments_from_paths)
+    assert "iter_local_csv" in source
+    assert "iter_http_csv" not in source
+    assert "iter_http_csv" not in inspect.getsource(rebuild_extras)
     source = inspect.getsource(rebuild_extras)
     assert "Never scans pat_dt" in source
     assert "az.pat_dt" not in source

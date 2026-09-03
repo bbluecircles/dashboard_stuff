@@ -157,11 +157,18 @@ def nppes_monthly_zip_url(html: str | None = None, session: requests.Session | N
     return monthly[0]
 
 
-def download_file(url: str, dest: Path, *, session: requests.Session | None = None, chunk_mb: int = 1) -> Path:
+def download_file(
+    url: str,
+    dest: Path,
+    *,
+    session: requests.Session | None = None,
+    chunk_mb: int = 1,
+    timeout: float | tuple[float, float] = 120,
+) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
     http = session or requests.Session()
-    with http.get(url, stream=True, timeout=120) as response:
+    with http.get(url, stream=True, timeout=timeout) as response:
         response.raise_for_status()
         with tmp.open("wb") as handle:
             for chunk in response.iter_content(chunk_mb * 1024 * 1024):
