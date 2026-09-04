@@ -145,7 +145,8 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`. Hide a 
 
 When the warehouse or CMS publishes, run CLI/`scripts/*.ps1` — never phase buttons.
 
-- Claims month: `python -m provider_directory.cli sync --state AZ` (no-op unless `slide_available`; then slide + E/M/POS extras)
+- Claims month: `python -m provider_directory.cli sync --state AZ` (upserts new Type 1 NPIs from `{st}.physician`, then no-op unless `slide_available`; then slide + E/M/POS extras)
+- Roster only: `sync --state AZ --spine` (insert missing NPIs, refresh name/specialty, overlay CMS if any were inserted). Never truncates.
 - CMS identity: `sync --state AZ --cms`
 - Open Payments: `sync --state AZ --open-payments`
 - MIPS/utilization: `sync --state AZ --mips --utilization`

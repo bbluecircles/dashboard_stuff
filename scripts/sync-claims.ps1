@@ -4,8 +4,9 @@ param(
     [switch]$DryRun
 )
 
-# Warehouse clock: if az (or other state) has a new usable month, slide the 12-month window
-# and refresh E/M + POS. Does not phase1. Does not reread Open Payments.
+# Warehouse clock: upsert Type 1 NPIs from {st}.physician (never truncates),
+# then if a new usable month exists, slide the 12-month window and refresh E/M + POS.
+# Does not phase1. Does not reread Open Payments.
 $ErrorActionPreference = "Stop"
 $python = Join-Path $Root ".venv\Scripts\python.exe"
 if (-not (Test-Path $python)) {

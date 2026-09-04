@@ -46,6 +46,73 @@ def spine_select_sql(
     """
 
 
+def _spine_insert_columns() -> str:
+    return """
+                npi, first_name, middle_name, last_name, suffix, credential,
+                primary_specialty_code, primary_specialty_description, specialty_classification,
+                in_system_provider, name_source, refreshed_at
+    """
+
+
+def upsert_spine_insert_sql(
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+) -> str:
+    """Insert Type 1 NPIs missing from pd_provider. Never truncates."""
+    mart = quote_ident(mart_db)
+    return f"""
+        INSERT INTO {mart}.pd_provider (
+            {_spine_insert_columns()}
+        )
+        SELECT
+            src.npi,
+            src.first_name,
+            src.middle_name,
+            src.last_name,
+            src.suffix,
+            src.credential,
+            src.primary_specialty_code,
+            src.primary_specialty_description,
+            src.specialty_classification,
+            NULL,
+            'claims',
+            NOW()
+        FROM ({spine_select_sql(claims_db=claims_db, lookup_db=lookup_db)}) src
+        LEFT JOIN {mart}.pd_provider dest ON dest.npi = src.npi
+        WHERE dest.npi IS NULL
+    """
+
+
+def upsert_spine_update_sql(
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+) -> str:
+    """Refresh claims identity only. Leaves visits, wRVU, extras, in_system alone."""
+    mart = quote_ident(mart_db)
+    return f"""
+        UPDATE {mart}.pd_provider dest
+        INNER JOIN ({spine_select_sql(claims_db=claims_db, lookup_db=lookup_db)}) src
+            ON src.npi = dest.npi
+        SET
+            dest.first_name = COALESCE(src.first_name, dest.first_name),
+            dest.middle_name = COALESCE(src.middle_name, dest.middle_name),
+            dest.last_name = COALESCE(src.last_name, dest.last_name),
+            dest.suffix = COALESCE(src.suffix, dest.suffix),
+            dest.credential = COALESCE(src.credential, dest.credential),
+            dest.primary_specialty_code = COALESCE(src.primary_specialty_code, dest.primary_specialty_code),
+            dest.primary_specialty_description = COALESCE(
+                src.primary_specialty_description,
+                dest.primary_specialty_description
+            ),
+            dest.specialty_classification = COALESCE(src.specialty_classification, dest.specialty_classification),
+            dest.refreshed_at = NOW()
+    """
+
+
 def rebuild_spine(
     conn,
     *,
@@ -60,9 +127,7 @@ def rebuild_spine(
         cur.execute(
             f"""
             INSERT INTO {mart}.pd_provider (
-                npi, first_name, middle_name, last_name, suffix, credential,
-                primary_specialty_code, primary_specialty_description, specialty_classification,
-                in_system_provider, name_source, refreshed_at
+                {_spine_insert_columns()}
             )
             SELECT
                 src.npi,
@@ -83,3 +148,25 @@ def rebuild_spine(
         inserted = cur.rowcount
     conn.commit()
     return inserted
+
+
+def upsert_spine(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+) -> dict:
+    """Add new Type 1 NPIs and refresh name/specialty. Does not rebuild the spine."""
+    create_schema(conn, mart_db)
+    insert_sql = upsert_spine_insert_sql(mart_db=mart_db, claims_db=claims_db, lookup_db=lookup_db)
+    update_sql = upsert_spine_update_sql(mart_db=mart_db, claims_db=claims_db, lookup_db=lookup_db)
+    with conn.cursor() as cur:
+        cur.execute(insert_sql)
+        inserted = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        conn.commit()
+        cur.execute(update_sql)
+        updated = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        conn.commit()
+    print(f"spine upsert inserted={inserted} identity_updated={updated}", flush=True)
+    return {"inserted": inserted, "updated": updated, "truncated": False}

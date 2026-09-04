@@ -12,6 +12,7 @@ Examples:
   python -m provider_directory.cli get --state AZ 1952863797
   python -m provider_directory.cli sync --state AZ
   python -m provider_directory.cli sync --state AZ --dry-run
+  python -m provider_directory.cli sync --state AZ --spine
   python -m provider_directory.cli extras --download
   python -m provider_directory.cli serve
   python -m provider_directory.cli get --last-name Smith --limit 3
@@ -173,12 +174,13 @@ def _cmd_extras(args: argparse.Namespace) -> int:
 
 
 def _cmd_sync(args: argparse.Namespace) -> int:
-    other = args.cms or args.open_payments or args.mips or args.utilization
+    other = args.cms or args.open_payments or args.mips or args.utilization or args.spine
     claims = args.claims or not other
     with get_connection(autocommit=False) as conn:
         summary = run_sync(
             conn,
             claims=claims,
+            spine=args.spine,
             cms=args.cms,
             open_payments=args.open_payments,
             mips=args.mips,
@@ -262,7 +264,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "build-spine",
         parents=[state_parent],
-        help="Rebuild pd_provider from {st}.physician",
+        help="TRUNCATE pd_provider and reload from {st}.physician. Prefer sync --spine",
     )
     p.set_defaults(func=_cmd_build_spine)
 
@@ -372,12 +374,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "sync",
         parents=[state_parent],
-        help="Refresh clocks when new data lands. Never phase1. Default: claims month slide if available.",
+        help="Refresh clocks when new data lands. Never phase1. Default: upsert Type 1 roster, then slide if a new month exists.",
     )
     p.add_argument(
         "--claims",
         action="store_true",
-        help="Warehouse clock: phase6 --slide if a new usable month exists, then E/M + POS extras",
+        help="Warehouse clock: upsert spine, then phase6 --slide if a new usable month exists",
+    )
+    p.add_argument(
+        "--spine",
+        action="store_true",
+        help="Upsert Type 1 NPIs from {st}.physician (insert missing, refresh name/specialty). Never truncates. Implied by the claims clock.",
     )
     p.add_argument(
         "--cms",
