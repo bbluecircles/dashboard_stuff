@@ -86,22 +86,35 @@ On row select, close the modal and `GET /v1/providers/{npi}?state=`.
 - Top 3 lists stay top 3 (diagnoses, procedures, payers, referrals in and out). Practice sites stay top 5.
 - Weekend / after-hours is **UI-only**: `visits_percent_saturday` and `visits_percent_sunday` are already on the provider and each practice.
 
-## wRVU
+## RVU
 
-Numbers are **total-RVU scale**, not CMS work RVU. Cardiology mean vs median is badly skewed (mean ~1317, median ~8.73). **Prefer median / percentile** (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`) over `wrvu_average` / `wrvu_state_specialty_average`. Label copy is still TBD — do not call it “wRVU” as if it were physician work RVU until product names it.
+Label it **RVU** in the UI. Do not say “wRVU”. Numbers are total-RVU scale, not CMS physician work RVU. Cardiology mean vs median is badly skewed (mean ~1317, median ~8.73). Show **median / p25 / p75 / percentile** (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`). Do not lead with `wrvu_average` or `wrvu_state_specialty_average`. `wrvu_total` can sit as a supporting number next to visits.
 
-## Profile (`GET /v1/providers/{npi}`)
+## Profile layout (`GET /v1/providers/{npi}`)
 
-Same payload as `python -m provider_directory.cli get --state AZ {npi}`. Hide a section when every field in it is null.
+Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
 
-1. **Header** — name, credential, specialty, estimated age / school if present, in-system badge, primary org + parent, NPI.
-2. **Where they work** — top 5 sites: name, city, work type, visit share, phone if present. Map if lat/long exist. Weekend % on each site.
-3. **Volume** — visits, panel size, specialty median / p25 / p75 / percentile. Do not lead with `wrvu_average`.
-4. **What they do** — top 3 dx / px (names); POS mix (office / HOPD / ASC / ED / telehealth / inpatient / lab); new vs established only if E/M counts exist. Hide a POS bucket at 0% if the others already tell the story.
-5. **Who they see** — panel age bands + sex. Payer mix + top commercial parents. Hide a 0% extra payer.
-6. **Who they work with** — referrals in / out, top 3 each.
-7. **Access** — Mon–Sun including Sat/Sun.
-8. **CMS extras** — group size, telehealth offered, secondary specialties, MIPS, Open Payments (non-null kinds only; never `$0` for a missing kind), `utilization[]`. NPs often have this block empty.
+**Sticky chrome (not a tab)** — banner from `/v1/mart` (“as of {window_end}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, primary org + parent, NPI.
+
+**Five tabs**, not eight sections and not one long scroll. Default tab is Overview.
+
+| Tab | What’s on it |
+| --- | --- |
+| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, percentile. **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (names only — no share %). New vs established only if E/M counts exist. |
+| **Sites** | Top 5 as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. |
+| **Panel** | **Bars** for age bands and sex. **Bars** for payer mix (third-party / Medicaid / MA / FFS). Top 3 commercial parent **names** + percents. Hide a 0% extra payer. |
+| **Referrals** | Two **lists**: in and out, top 3 each (peer name, specialty, patient count). No network graph. |
+| **CMS** | Group size, telehealth offered, secondary specialties, MIPS, Open Payments (non-null kinds only; never `$0` for a missing kind), `utilization[]`. |
+
+**Hide the CMS tab** when group size, telehealth, secondary specialties, MIPS, Open Payments, and `utilization[]` are all null/empty. Sean Smith still has group size / telehealth / MIPS, so the tab stays. Many NPs will have a thin CMS tab (Open Payments only, or nothing).
+
+Hide any other block inside a tab when every field in it is null. Hide a POS bucket at 0% if the named buckets already tell the story.
+
+### Numbers vs bars
+
+- **Numbers** for counts and scores: visits, panel size, RVU total, percentile, MIPS, Open Payments dollars, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
+- **Bars** for mixes that sum toward 100%: POS, weekday, panel age, panel sex, payer mix. A simple horizontal stacked or small-multiples bar is enough. No chart library required if CSS bars are easier.
+- **Lists** for ranked names: dx, px, sites, referrals. Do not bar top dx/px; the API does not send visit-share for those.
 
 ### Extras fields (null means CMS has no row, not that extras never ran)
 
@@ -138,6 +151,7 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`. Hide a 
 - Catchment zips, claims-based specialty, attending vs operating, telehealth **modifier** visit %
 - Phase job controls
 - Editing mart tables
+- Map view / using `latitude` / `longitude` (sites are a list)
 - Geocoding beyond lat/long already on `practices`
 - Loading the entire spine in one HTTP call
 
