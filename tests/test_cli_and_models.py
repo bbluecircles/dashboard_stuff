@@ -1,4 +1,5 @@
 from provider_directory.cli import build_parser
+from provider_directory.lookup import _null_zero_open_payments
 from provider_directory.models import ProviderPractice, ProviderSpine
 
 
@@ -53,3 +54,18 @@ def test_provider_practice_nested_roundtrip():
     dumped = row.model_dump()
     assert dumped["practices"][0]["site_rank"] == 1
     assert dumped["practices"][0]["needs_geocode"] is False
+
+
+def test_null_zero_open_payments_hides_missing_kinds():
+    row = {
+        "open_payments_year": 2025,
+        "open_payments_general_total": 38.28,
+        "open_payments_research_total": 0.0,
+        "open_payments_ownership_total": 0,
+        "open_payments_count": 2,
+    }
+    _null_zero_open_payments(row)
+    assert row["open_payments_general_total"] == 38.28
+    assert row["open_payments_research_total"] is None
+    assert row["open_payments_ownership_total"] is None
+    assert row["open_payments_count"] == 2

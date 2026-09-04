@@ -167,10 +167,11 @@ python -m provider_directory.cli extras --skip-open-payments
 python -m provider_directory.cli extras --reload-pdc
 python -m provider_directory.cli extras --download
 python -m provider_directory.cli extras --skip-mips --skip-utilization --open-payments-kinds ownership
+python -m provider_directory.cli extras --open-payments-overlay-only
 python -m provider_directory.cli get 1952863797
 ```
 
-Default `extras` overlays group size, PDC telehealth Y/N, secondary specialties (if `sec_spec_*` already on `cms_pdc_clinician`), new vs established E/M from `pd_stg_visit.px`, and POS mix (office / HOPD / ASC / ED / telehealth POS 02+10 / inpatient POS 21 / lab POS 81) from `pd_stg_visit_site` + `az.sl`. `--reload-pdc` TRUNCATEs **only** `cms_pdc_clinician` and reloads the cached DAC CSV so `Sec_spec_1`–`4` land. `--download` fetches MIPS (`a174-a962`), Care Compare utilization (`n0yb-util`), and Open Payments CSVs into `data/cms` (latest complete program year; general file is huge; reruns reuse cached files). `--year 2024` pins Open Payments. `--skip-mips` / `--skip-utilization` / `--skip-open-payments` skip those files. `--open-payments-kinds ownership` re-parses only the ownership CSV (uses `Physician_NPI` and `Value_of_Interest`) without rereading the 9GB general file.
+Default `extras` overlays group size, PDC telehealth Y/N, secondary specialties (if `sec_spec_*` already on `cms_pdc_clinician`), new vs established E/M from `pd_stg_visit.px`, and POS mix (office / HOPD / ASC / ED / telehealth POS 02+10 / inpatient POS 21 / lab POS 81) from `pd_stg_visit_site` + `az.sl`. `--reload-pdc` TRUNCATEs **only** `cms_pdc_clinician` and reloads the cached DAC CSV so `Sec_spec_1`–`4` land. `--download` fetches MIPS (`a174-a962`), Care Compare utilization (`n0yb-util`), and Open Payments CSVs into `data/cms` (latest complete program year; general file is huge; reruns reuse cached files). `--year 2024` pins Open Payments. `--skip-mips` / `--skip-utilization` / `--skip-open-payments` skip those files. `--open-payments-kinds ownership` re-parses only the ownership CSV (uses `Physician_NPI` and `Value_of_Interest`) without rereading the 9GB general file. `--open-payments-overlay-only` rewrites `pd_provider` from `cms_open_payments` without reading CSVs. Missing Open Payments kinds are null, not `$0`.
 
 Weekend / after-hours is UI-only (`visits_percent_saturday` / `sunday` already exist). GET grows `group_size`, `telehealth_offered`, `secondary_specialty_*`, E/M and POS percents, `mips_*`, `open_payments_*`, and nested `utilization`.
 

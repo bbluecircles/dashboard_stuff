@@ -18,6 +18,7 @@ from provider_directory.extras import (
     open_payments_insert_rows,
     open_payments_year_from_name,
     overlay_em,
+    overlay_open_payments,
     overlay_pos,
     parse_open_payments_kinds,
     pos_in_sql,
@@ -47,6 +48,8 @@ def test_extras_cli_flags():
     assert args.year == 2024
     kinds = build_parser().parse_args(["extras", "--open-payments-kinds", "ownership"])
     assert kinds.open_payments_kinds == ("ownership",)
+    overlay_only = build_parser().parse_args(["extras", "--open-payments-overlay-only"])
+    assert overlay_only.open_payments_overlay_only is True
 
 
 def test_parse_open_payments_kinds():
@@ -262,3 +265,7 @@ def test_open_payments_reads_cached_csv_not_http_wrapper():
     assert "az.pat_dt" not in source
     assert "FROM az.pat_dt" not in inspect.getsource(overlay_em)
     assert "FROM az.pat_dt" not in inspect.getsource(overlay_pos)
+    fill = inspect.getsource(overlay_open_payments)
+    assert "THEN total ELSE 0 END" not in fill
+    assert "THEN total END" in fill
+    assert "open_payments_overlay_only" in inspect.getsource(rebuild_extras)

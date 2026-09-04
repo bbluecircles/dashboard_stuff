@@ -187,6 +187,7 @@ def run_extras(
     skip_open_payments: bool = False,
     year: int | None = None,
     open_payments_kinds: tuple[str, ...] | None = None,
+    open_payments_overlay_only: bool = False,
 ) -> dict:
     from provider_directory.extras import OPEN_PAYMENTS_KINDS, rebuild_extras
 
@@ -201,6 +202,7 @@ def run_extras(
         skip_open_payments=skip_open_payments,
         year=year,
         open_payments_kinds=open_payments_kinds or OPEN_PAYMENTS_KINDS,
+        open_payments_overlay_only=open_payments_overlay_only,
     )
 
 

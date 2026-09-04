@@ -129,6 +129,7 @@ def _cmd_extras(args: argparse.Namespace) -> int:
             skip_open_payments=args.skip_open_payments,
             year=args.year,
             open_payments_kinds=args.open_payments_kinds or OPEN_PAYMENTS_KINDS,
+            open_payments_overlay_only=args.open_payments_overlay_only,
         )
     print(json.dumps(summary, indent=2, default=str))
     return 0
@@ -271,6 +272,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Comma list: ownership,research,general. Default all. Use ownership to re-parse the 1MB file without reading the 9GB general file.",
     )
     p.add_argument("--year", type=int, default=None, help="Open Payments program year (default: latest complete year)")
+    p.add_argument(
+        "--open-payments-overlay-only",
+        action="store_true",
+        help="Rewrite pd_provider Open Payments from cms_open_payments. Does not read CSVs or rerun E/M, POS, MIPS.",
+    )
     p.set_defaults(func=_cmd_extras)
 
     p = sub.add_parser(

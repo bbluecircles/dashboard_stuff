@@ -22,10 +22,31 @@ from provider_directory.models import (
 from provider_directory.settings import MART_DB
 
 
+_OPEN_PAYMENTS_MONEY = (
+    "open_payments_general_total",
+    "open_payments_research_total",
+    "open_payments_ownership_total",
+)
+
+
 def _as_bool(row: dict, *flags: str) -> dict:
     for flag in flags:
         if row.get(flag) is not None:
             row[flag] = bool(row[flag])
+    return row
+
+
+def _null_zero_open_payments(row: dict) -> dict:
+    """Missing kinds overlay as 0; API/UI must treat that as null, not $0."""
+    for key in _OPEN_PAYMENTS_MONEY:
+        value = row.get(key)
+        if value is None:
+            continue
+        try:
+            if float(value) == 0:
+                row[key] = None
+        except (TypeError, ValueError):
+            pass
     return row
 
 
@@ -148,6 +169,7 @@ def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | N
     if not row:
         return None
     _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered")
+    _null_zero_open_payments(row)
     item = ProviderSpine.model_validate(row)
     return _attach_practices(conn, [item], mart_db=mart_db)[0]
 
@@ -205,5 +227,6 @@ def search_providers(
     items = []
     for row in rows:
         _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered")
+        _null_zero_open_payments(row)
         items.append(ProviderSpine.model_validate(row))
     return ProviderSpineList(items=_attach_practices(conn, items, mart_db=mart_db), total=total)

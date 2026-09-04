@@ -508,9 +508,9 @@ def overlay_open_payments(cur, conn, mart_db: str = MART_DB, program_year: int |
             SELECT
                 npi,
                 MAX(program_year) AS program_year,
-                SUM(CASE WHEN payment_kind = 'general' THEN total ELSE 0 END) AS general_total,
-                SUM(CASE WHEN payment_kind = 'research' THEN total ELSE 0 END) AS research_total,
-                SUM(CASE WHEN payment_kind = 'ownership' THEN total ELSE 0 END) AS ownership_total,
+                SUM(CASE WHEN payment_kind = 'general' THEN total END) AS general_total,
+                SUM(CASE WHEN payment_kind = 'research' THEN total END) AS research_total,
+                SUM(CASE WHEN payment_kind = 'ownership' THEN total END) AS ownership_total,
                 SUM(payment_count) AS payment_count
             FROM {mart}.cms_open_payments
             WHERE {year_filter}
@@ -601,6 +601,7 @@ def rebuild_extras(
     skip_open_payments: bool = False,
     year: int | None = None,
     open_payments_kinds: tuple[str, ...] = OPEN_PAYMENTS_KINDS,
+    open_payments_overlay_only: bool = False,
 ) -> dict:
     """Overlay extras onto pd_provider. Never truncates the spine. Never scans pat_dt."""
     create_schema(conn, mart_db)
@@ -610,6 +611,27 @@ def rebuild_extras(
     overlays: dict[str, int] = {}
     open_payments_year: int | None = year
     open_payments_files: dict[str, Path] | None = None
+    if open_payments_overlay_only:
+        with conn.cursor() as cur:
+            _session_timeouts(cur)
+            if table_has_rows(conn, mart_db, "cms_open_payments"):
+                overlays["open_payments"] = overlay_open_payments(
+                    cur, conn, mart_db=mart_db, program_year=year
+                )
+                cur.execute(f"UPDATE {quote_ident(mart_db)}.pd_provider SET refreshed_at = NOW()")
+                conn.commit()
+            else:
+                skipped.append("cms_open_payments empty — nothing to overlay")
+        return {
+            "mart_db": mart_db,
+            "loaded": loaded,
+            "overlays": overlays,
+            "skipped": skipped,
+            "downloaded": downloaded,
+            "open_payments_year": open_payments_year,
+            "open_payments_kinds": [],
+            "pat_dt": False,
+        }
     if download:
         extras_paths = download_extras_files(
             skip_mips=skip_mips,

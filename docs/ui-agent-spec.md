@@ -87,13 +87,13 @@ Top-level identity and activity (existing):
 | `visits_percent_other_pos` | Everything else, including null POS | Hide if the named buckets already sum to ~100 |
 | `mips_final_score` / `mips_quality_score` | PDC clinician overall MIPS | Prefer org PAC match, else max score |
 | `open_payments_year` | Program year summed | Latest complete CMS year unless `--year` |
-| `open_payments_general_total` | General (non-research) $ | Covered recipient NPI only |
-| `open_payments_research_total` | Research $ | |
-| `open_payments_ownership_total` | Ownership $ | Sum of `Value_of_Interest` (fallback: amount invested) for spine NPIs |
+| `open_payments_general_total` | General (non-research) $ | Covered recipient NPI only. Null if none; never show `$0` for a missing kind |
+| `open_payments_research_total` | Research $ | Null if this NPI has no research rows |
+| `open_payments_ownership_total` | Ownership $ | Sum of `Value_of_Interest` (fallback: amount invested). Null if none |
 | `open_payments_count` | Payment row count | |
-| `utilization[]` | Care Compare procedure categories | `rk`, `procedure_category`, `count_label` (may be `1-10`), `percentile` |
+| `utilization[]` | Care Compare procedure categories | `rk`, `procedure_category`, `count_label` (may be `1-10`), `percentile`. Often empty for NPs and low-volume NPIs |
 
-Null extras are expected before the extras overlay. Do not show “0” for missing MIPS or Open Payments.
+Null extras are expected before the extras overlay **and** after it when CMS has no row. Do not show “0” for missing MIPS or Open Payments kinds.
 
 ## Search
 
@@ -101,7 +101,9 @@ Null extras are expected before the extras overlay. Do not show “0” for miss
 
 Returns `{ "items": [ ...same spine fields... ], "total": N }`. Items include nested `practices`, `referrals`, and `utilization`. Sort is `visits_total` desc, then `panel_size`, then name.
 
-Smoke NPI: **Sean Smith `1952863797`**. Expect `in_system_provider: true`, Mayo practice, small visit count, phones may be null.
+Smoke NPI: **Sean Smith `1952863797`**. Expect `in_system_provider: true`, Mayo practice, small visit count, phones may be null. Open Payments and `utilization[]` are null for this NPI (CMS has no 2025 payments).
+
+Open Payments smoke: **Lori Schott `1609236967`**. Expect `open_payments_year: 2025`, `open_payments_general_total` about `$38`, research/ownership **null** (not `0.0`), `open_payments_count: 2`. High OTP visit volume; PDC extras (group size, MIPS, utilization) may be null because this is an NP.
 
 ## Out of v1 UI
 
@@ -115,9 +117,9 @@ Smoke NPI: **Sean Smith `1952863797`**. Expect `in_system_provider: true`, Mayo 
 Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`, `pip install -r requirements.txt` if needed, restart NSSM. Then:
 
 ```
-python -m provider_directory.cli extras --skip-open-payments
-python -m provider_directory.cli extras --skip-mips --skip-utilization --open-payments-kinds ownership
+python -m provider_directory.cli extras --open-payments-overlay-only
+python -m provider_directory.cli get 1609236967
 python -m provider_directory.cli get 1952863797
 ```
 
-`--skip-open-payments` overlays group size, telehealth Y/N, secondary specialties (after `--reload-pdc` if those columns were never loaded), E/M, POS mix, and MIPS/utilization if those CSVs are already in `data/cms`. Open Payments `--download` streams large CMS CSVs (general file is huge). `--open-payments-kinds ownership` re-parses only the cached ownership file without reading general/research. Never `phase1`.
+`--skip-open-payments` overlays group size, telehealth Y/N, secondary specialties (after `--reload-pdc` if those columns were never loaded), E/M, POS mix, and MIPS/utilization if those CSVs are already in `data/cms`. Open Payments `--download` streams large CMS CSVs (general file is huge). `--open-payments-kinds ownership` re-parses only the cached ownership file without reading general/research. `--open-payments-overlay-only` rewrites Open Payments columns from `cms_open_payments` without reading CSVs. Never `phase1`.
