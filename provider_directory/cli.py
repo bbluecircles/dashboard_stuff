@@ -23,6 +23,7 @@ import sys
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.locations import Phase2Required
 from provider_directory.lookup import get_provider, search_providers
+from provider_directory.extras import OPEN_PAYMENTS_KINDS, parse_open_payments_kinds
 from provider_directory.pipeline import (
     download_cms_files,
     run_extras,
@@ -110,6 +111,13 @@ def _cmd_phase6(args: argparse.Namespace) -> int:
     return 0
 
 
+def _open_payments_kinds_type(raw: str) -> tuple[str, ...]:
+    try:
+        return parse_open_payments_kinds(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def _cmd_extras(args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
         summary = run_extras(
@@ -120,6 +128,7 @@ def _cmd_extras(args: argparse.Namespace) -> int:
             skip_utilization=args.skip_utilization,
             skip_open_payments=args.skip_open_payments,
             year=args.year,
+            open_payments_kinds=args.open_payments_kinds or OPEN_PAYMENTS_KINDS,
         )
     print(json.dumps(summary, indent=2, default=str))
     return 0
@@ -255,6 +264,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skip-mips", action="store_true")
     p.add_argument("--skip-utilization", action="store_true")
     p.add_argument("--skip-open-payments", action="store_true")
+    p.add_argument(
+        "--open-payments-kinds",
+        type=_open_payments_kinds_type,
+        default=None,
+        help="Comma list: ownership,research,general. Default all. Use ownership to re-parse the 1MB file without reading the 9GB general file.",
+    )
     p.add_argument("--year", type=int, default=None, help="Open Payments program year (default: latest complete year)")
     p.set_defaults(func=_cmd_extras)
 

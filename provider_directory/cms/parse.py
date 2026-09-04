@@ -255,10 +255,17 @@ def parse_utilization_row(row: Mapping) -> dict | None:
 
 
 def parse_open_payments_row(row: Mapping) -> dict | None:
-    npi = parse_npi(first_present(row, "covered_recipient_npi"))
+    npi = parse_npi(first_present(row, "covered_recipient_npi", "physician_npi"))
     if npi is None:
         return None
-    amount = parse_money(first_present(row, "total_amount_of_payment_usdollars"))
+    amount = parse_money(
+        first_present(
+            row,
+            "total_amount_of_payment_usdollars",
+            "value_of_interest",
+            "total_amount_invested_usdollars",
+        )
+    )
     if amount is None:
         return None
     return {"npi": npi, "amount": amount}

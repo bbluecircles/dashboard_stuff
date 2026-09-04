@@ -11,6 +11,7 @@ from provider_directory.cms.parse import (
     parse_utilization_row,
 )
 from provider_directory.extras import (
+    OPEN_PAYMENTS_KINDS,
     _load_open_payments_from_paths,
     accumulate_open_payments,
     known_pos_sql,
@@ -18,6 +19,7 @@ from provider_directory.extras import (
     open_payments_year_from_name,
     overlay_em,
     overlay_pos,
+    parse_open_payments_kinds,
     pos_in_sql,
     pos_mix_bucket_sql,
     px_in_sql,
@@ -43,6 +45,19 @@ def test_extras_cli_flags():
     assert args.reload_pdc is True
     assert args.skip_open_payments is True
     assert args.year == 2024
+    kinds = build_parser().parse_args(["extras", "--open-payments-kinds", "ownership"])
+    assert kinds.open_payments_kinds == ("ownership",)
+
+
+def test_parse_open_payments_kinds():
+    assert parse_open_payments_kinds(None) == OPEN_PAYMENTS_KINDS
+    assert parse_open_payments_kinds("ownership") == ("ownership",)
+    assert parse_open_payments_kinds("ownership, general") == ("ownership", "general")
+    try:
+        parse_open_payments_kinds("bonus")
+        assert False, "expected ValueError"
+    except ValueError:
+        pass
 
 
 def test_schema_includes_extras():
@@ -98,6 +113,18 @@ def test_parse_mips_utilization_open_payments():
     )
     assert pay["amount"] == 1234.5
     assert parse_open_payments_row({"covered_recipient_npi": "", "total_amount_of_payment_usdollars": "10"}) is None
+    ownership = parse_open_payments_row(
+        {
+            "physician_npi": "1234567893",
+            "value_of_interest": "25000.00",
+            "total_amount_invested_usdollars": "100.00",
+        }
+    )
+    assert ownership == {"npi": 1234567893, "amount": 25000.0}
+    invested_only = parse_open_payments_row(
+        {"physician_npi": "1234567893", "total_amount_invested_usdollars": "100.00"}
+    )
+    assert invested_only["amount"] == 100.0
 
 
 def test_money_and_yes_no():
@@ -210,6 +237,14 @@ def test_accumulate_open_payments_filters_spine():
     assert kept == 2
     assert totals[1234567893]["general"][0] == 12.5
     assert 1111111112 not in totals
+    ownership_rows = [
+        {"physician_npi": "1234567893", "value_of_interest": "5000"},
+    ]
+    kept_own = accumulate_open_payments(
+        ownership_rows, {1234567893}, kind="ownership", totals=totals
+    )
+    assert kept_own == 1
+    assert totals[1234567893]["ownership"][0] == 5000.0
     insert_rows = open_payments_insert_rows(totals, 2024)
     assert insert_rows[0]["payment_kind"] == "general"
     assert insert_rows[0]["total"] == 12.5

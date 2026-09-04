@@ -89,7 +89,7 @@ Top-level identity and activity (existing):
 | `open_payments_year` | Program year summed | Latest complete CMS year unless `--year` |
 | `open_payments_general_total` | General (non-research) $ | Covered recipient NPI only |
 | `open_payments_research_total` | Research $ | |
-| `open_payments_ownership_total` | Ownership $ | |
+| `open_payments_ownership_total` | Ownership $ | Sum of `Value_of_Interest` (fallback: amount invested) for spine NPIs |
 | `open_payments_count` | Payment row count | |
 | `utilization[]` | Care Compare procedure categories | `rk`, `procedure_category`, `count_label` (may be `1-10`), `percentile` |
 
@@ -116,7 +116,8 @@ Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`, `pi
 
 ```
 python -m provider_directory.cli extras --skip-open-payments
+python -m provider_directory.cli extras --skip-mips --skip-utilization --open-payments-kinds ownership
 python -m provider_directory.cli get 1952863797
 ```
 
-`--skip-open-payments` overlays group size, telehealth Y/N, secondary specialties (after `--reload-pdc` if those columns were never loaded), E/M, POS mix, and MIPS/utilization if those CSVs are already in `data/cms`. Open Payments `--download` streams large CMS CSVs (general file is huge). Never `phase1`.
+`--skip-open-payments` overlays group size, telehealth Y/N, secondary specialties (after `--reload-pdc` if those columns were never loaded), E/M, POS mix, and MIPS/utilization if those CSVs are already in `data/cms`. Open Payments `--download` streams large CMS CSVs (general file is huge). `--open-payments-kinds ownership` re-parses only the cached ownership file without reading general/research. Never `phase1`.

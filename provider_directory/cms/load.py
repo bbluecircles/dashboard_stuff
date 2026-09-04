@@ -266,10 +266,25 @@ def replace_open_payments(
     *,
     mart_db: str = MART_DB,
     program_year: int | None = None,
+    kinds: tuple[str, ...] | None = None,
 ) -> int:
     sql = _insert_sql(mart_db, "cms_open_payments", OPEN_PAYMENTS_COLS, replace=True)
     with conn.cursor() as cur:
-        if program_year is None:
+        if kinds:
+            placeholders = ", ".join(["%s"] * len(kinds))
+            if program_year is None:
+                cur.execute(
+                    f"DELETE FROM {quote_ident(mart_db)}.cms_open_payments "
+                    f"WHERE payment_kind IN ({placeholders})",
+                    kinds,
+                )
+            else:
+                cur.execute(
+                    f"DELETE FROM {quote_ident(mart_db)}.cms_open_payments "
+                    f"WHERE program_year = %s AND payment_kind IN ({placeholders})",
+                    (program_year, *kinds),
+                )
+        elif program_year is None:
             cur.execute(f"TRUNCATE TABLE {quote_ident(mart_db)}.cms_open_payments")
         else:
             cur.execute(

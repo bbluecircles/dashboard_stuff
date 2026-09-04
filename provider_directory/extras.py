@@ -114,6 +114,18 @@ def pos_mix_bucket_sql(sl: str = "sl") -> str:
 
 
 OPEN_PAYMENTS_KINDS = ("ownership", "research", "general")
+
+
+def parse_open_payments_kinds(raw: str | None) -> tuple[str, ...]:
+    if not raw:
+        return OPEN_PAYMENTS_KINDS
+    kinds = tuple(part.strip().lower() for part in raw.split(",") if part.strip())
+    unknown = [kind for kind in kinds if kind not in OPEN_PAYMENTS_KINDS]
+    if unknown:
+        raise ValueError(f"Unknown Open Payments kind: {', '.join(unknown)}")
+    return kinds or OPEN_PAYMENTS_KINDS
+
+
 _OPEN_PAYMENTS_NAME = {
     "ownership": "OWNRSHP",
     "research": "RSRCH",
@@ -553,9 +565,11 @@ def _load_open_payments_from_paths(
     program_year: int,
     *,
     mart_db: str = MART_DB,
+    kinds: tuple[str, ...] = OPEN_PAYMENTS_KINDS,
 ) -> int:
     totals: dict[int, dict[str, list[float]]] = defaultdict(dict)
-    for kind in OPEN_PAYMENTS_KINDS:
+    loaded_kinds: list[str] = []
+    for kind in kinds:
         path = files.get(kind)
         if path is None or not path.exists():
             print(f"open payments {kind}: no cached file", flush=True)
@@ -567,8 +581,13 @@ def _load_open_payments_from_paths(
             kind=kind,
             totals=totals,
         )
+        loaded_kinds.append(kind)
+    if not loaded_kinds:
+        return 0
     rows = open_payments_insert_rows(totals, program_year)
-    return replace_open_payments(conn, rows, mart_db=mart_db, program_year=program_year)
+    return replace_open_payments(
+        conn, rows, mart_db=mart_db, program_year=program_year, kinds=tuple(loaded_kinds)
+    )
 
 
 def rebuild_extras(
@@ -581,6 +600,7 @@ def rebuild_extras(
     skip_utilization: bool = False,
     skip_open_payments: bool = False,
     year: int | None = None,
+    open_payments_kinds: tuple[str, ...] = OPEN_PAYMENTS_KINDS,
 ) -> dict:
     """Overlay extras onto pd_provider. Never truncates the spine. Never scans pat_dt."""
     create_schema(conn, mart_db)
@@ -678,7 +698,12 @@ def rebuild_extras(
             skipped.append("Open Payments files found but program year is unknown")
         else:
             loaded["open_payments"] = _load_open_payments_from_paths(
-                conn, open_payments_files, spine_npis, int(open_payments_year), mart_db=mart_db
+                conn,
+                open_payments_files,
+                spine_npis,
+                int(open_payments_year),
+                mart_db=mart_db,
+                kinds=open_payments_kinds,
             )
             with conn.cursor() as cur:
                 _session_timeouts(cur)
@@ -705,5 +730,6 @@ def rebuild_extras(
         "skipped": skipped,
         "downloaded": downloaded,
         "open_payments_year": open_payments_year,
+        "open_payments_kinds": list(open_payments_kinds),
         "pat_dt": False,
     }

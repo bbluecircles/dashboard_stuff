@@ -186,8 +186,9 @@ def run_extras(
     skip_utilization: bool = False,
     skip_open_payments: bool = False,
     year: int | None = None,
+    open_payments_kinds: tuple[str, ...] | None = None,
 ) -> dict:
-    from provider_directory.extras import rebuild_extras
+    from provider_directory.extras import OPEN_PAYMENTS_KINDS, rebuild_extras
 
     ensure_mart_database(conn, mart_db)
     return rebuild_extras(
@@ -199,6 +200,7 @@ def run_extras(
         skip_utilization=skip_utilization,
         skip_open_payments=skip_open_payments,
         year=year,
+        open_payments_kinds=open_payments_kinds or OPEN_PAYMENTS_KINDS,
     )
 
 
