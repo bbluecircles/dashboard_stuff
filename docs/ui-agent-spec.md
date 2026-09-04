@@ -141,6 +141,17 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`. Hide a 
 - Geocoding beyond lat/long already on `practices`
 - Loading the entire spine in one HTTP call
 
+## New data (ops only, not the UI)
+
+When the warehouse or CMS publishes, run CLI/`scripts/*.ps1` — never phase buttons.
+
+- Claims month: `python -m provider_directory.cli sync --state AZ` (no-op unless `slide_available`; then slide + E/M/POS extras)
+- CMS identity: `sync --state AZ --cms`
+- Open Payments: `sync --state AZ --open-payments`
+- MIPS/utilization: `sync --state AZ --mips --utilization`
+
+`sync --dry-run` prints the plan. Never `phase1`.
+
 ## After code drops
 
 Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`, restart NSSM. Then:

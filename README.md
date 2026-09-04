@@ -177,3 +177,17 @@ Weekend / after-hours is UI-only (`visits_percent_saturday` / `sunday` already e
 
 .NET UI spec: `docs/ui-agent-spec.md`.
 
+## When new data lands
+
+Do **not** `phase1`. Three clocks, one mart per `--state`. Check first with `--dry-run`.
+
+| Clock | When | Command |
+| --- | --- | --- |
+| Claims | Warehouse has a new month past the 2-month lag (`slide_available`) | `python -m provider_directory.cli sync --state AZ` or `scripts/sync-claims.ps1` |
+| CMS identity | New DAC / NPPES already in `data/cms` | `sync --state AZ --cms` (`--reload-pdc` only if clinician DAC must be reloaded) |
+| Open Payments | CMS publish (~June / January) | `sync --state AZ --open-payments` (reuses cache; general file is huge) |
+| MIPS / utilization | Care Compare yearly | `sync --state AZ --mips --utilization` |
+
+Default `sync` is the claims clock: no-op if the window is already current; otherwise `phase6 --slide` then extras for E/M + POS only (does not reread Open Payments). Copy `scripts/` into Analysis Scripts if you want Task Scheduler to call the `.ps1` files. UI still has no phase buttons.
+
+

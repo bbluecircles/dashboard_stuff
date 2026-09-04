@@ -10,6 +10,8 @@ Examples:
   python -m provider_directory.cli phase6
   python -m provider_directory.cli extras --state AZ --skip-open-payments
   python -m provider_directory.cli get --state AZ 1952863797
+  python -m provider_directory.cli sync --state AZ
+  python -m provider_directory.cli sync --state AZ --dry-run
   python -m provider_directory.cli extras --download
   python -m provider_directory.cli serve
   python -m provider_directory.cli get --last-name Smith --limit 3
@@ -38,6 +40,7 @@ from provider_directory.pipeline import (
 from provider_directory.schema import create_schema
 from provider_directory.settings import MARKET_STATE, Market, market_for_state, parse_state
 from provider_directory.spine import rebuild_spine
+from provider_directory.sync import run_sync
 from provider_directory.mart import overlay_cms
 
 
@@ -163,6 +166,26 @@ def _cmd_extras(args: argparse.Namespace) -> int:
             year=args.year,
             open_payments_kinds=args.open_payments_kinds or OPEN_PAYMENTS_KINDS,
             open_payments_overlay_only=args.open_payments_overlay_only,
+            **_market_kwargs(args),
+        )
+    print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
+def _cmd_sync(args: argparse.Namespace) -> int:
+    other = args.cms or args.open_payments or args.mips or args.utilization
+    claims = args.claims or not other
+    with get_connection(autocommit=False) as conn:
+        summary = run_sync(
+            conn,
+            claims=claims,
+            cms=args.cms,
+            open_payments=args.open_payments,
+            mips=args.mips,
+            utilization=args.utilization,
+            reload_pdc=args.reload_pdc,
+            skip_staging_indexes=args.skip_staging_indexes,
+            dry_run=args.dry_run,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
@@ -345,6 +368,53 @@ def build_parser() -> argparse.ArgumentParser:
         help="Rewrite pd_provider Open Payments from cms_open_payments. Does not read CSVs or rerun E/M, POS, MIPS.",
     )
     p.set_defaults(func=_cmd_extras)
+
+    p = sub.add_parser(
+        "sync",
+        parents=[state_parent],
+        help="Refresh clocks when new data lands. Never phase1. Default: claims month slide if available.",
+    )
+    p.add_argument(
+        "--claims",
+        action="store_true",
+        help="Warehouse clock: phase6 --slide if a new usable month exists, then E/M + POS extras",
+    )
+    p.add_argument(
+        "--cms",
+        action="store_true",
+        help="CMS identity clock: overlay-cms from data/cms (optional --reload-pdc)",
+    )
+    p.add_argument(
+        "--open-payments",
+        action="store_true",
+        help="Download/parse Open Payments into the mart. Reuses cache; general file is huge.",
+    )
+    p.add_argument(
+        "--mips",
+        action="store_true",
+        help="Download/load Care Compare MIPS scores",
+    )
+    p.add_argument(
+        "--utilization",
+        action="store_true",
+        help="Download/load Care Compare utilization categories",
+    )
+    p.add_argument(
+        "--reload-pdc",
+        action="store_true",
+        help="With --cms, TRUNCATE cms_pdc_clinician and reload DAC so sec_spec_* land",
+    )
+    p.add_argument(
+        "--skip-staging-indexes",
+        action="store_true",
+        help="Pass through to phase6 if a slide runs",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the window plan and what would run; do not write the mart",
+    )
+    p.set_defaults(func=_cmd_sync)
 
     p = sub.add_parser(
         "serve",
