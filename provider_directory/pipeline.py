@@ -23,7 +23,7 @@ from provider_directory.locations import rebuild_locations
 from provider_directory.mart import overlay_cms
 from provider_directory.refresh import rebuild_refresh, resolve_window, upsert_refresh_state
 from provider_directory.schema import create_schema
-from provider_directory.settings import CMS_CACHE_DIR, MART_DB
+from provider_directory.settings import CMS_CACHE_DIR, MART_DB, CLAIMS_DB, LOOKUP_DB, MARKET_STATE
 from provider_directory.spine import rebuild_spine
 
 CLINICIAN_CSV = "DAC_NationalDownloadableFile.csv"
@@ -89,13 +89,16 @@ def run_phase1(
     conn,
     *,
     mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
     download: bool = False,
     skip_pdc: bool = False,
     skip_nppes: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
-    spine_rows = rebuild_spine(conn, mart_db=mart_db)
+    spine_rows = rebuild_spine(conn, mart_db=mart_db, claims_db=claims_db, lookup_db=lookup_db)
     spine_npis = load_spine_npis(conn, mart_db=mart_db)
 
     if download:
@@ -117,9 +120,12 @@ def run_phase1(
     elif not skip_nppes:
         skipped.append("NPPES zip not in data/cms — pass --download (this file is ~1.1 GB)")
 
-    overlay_cms(conn, mart_db=mart_db)
+    overlay_cms(conn, mart_db=mart_db, market_state=market_state)
     return {
         "mart_db": mart_db,
+        "claims_db": claims_db,
+        "lookup_db": lookup_db,
+        "state": market_state,
         "spine_rows": spine_rows,
         "loaded": loaded,
         "skipped": skipped,
@@ -127,12 +133,24 @@ def run_phase1(
     }
 
 
-def run_phase2(conn, *, mart_db: str = MART_DB) -> dict:
+def run_phase2(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
+) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
     summary = rebuild_activity(
-        conn, mart_db=mart_db, window_start=window_start, window_end=window_end
+        conn,
+        mart_db=mart_db,
+        claims_db=claims_db,
+        lookup_db=lookup_db,
+        window_start=window_start,
+        window_end=window_end,
     )
     upsert_refresh_state(
         conn,
@@ -144,42 +162,80 @@ def run_phase2(conn, *, mart_db: str = MART_DB) -> dict:
         last_action="phase2",
         notes="full window scan into pd_stg_window_claim",
     )
+    summary["state"] = market_state
     return summary
 
 
-def run_phase3(conn, *, mart_db: str = MART_DB) -> dict:
+def run_phase3(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
+) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
-    return rebuild_locations(conn, mart_db=mart_db)
+    summary = rebuild_locations(conn, mart_db=mart_db, claims_db=claims_db)
+    summary["state"] = market_state
+    return summary
 
 
-def run_phase4(conn, *, mart_db: str = MART_DB) -> dict:
+def run_phase4(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
+) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, _prior_start, _prior_end = resolve_window(conn, mart_db)
-    return rebuild_analytics(
-        conn, mart_db=mart_db, window_start=window_start, window_end=window_end
+    summary = rebuild_analytics(
+        conn,
+        mart_db=mart_db,
+        claims_db=claims_db,
+        lookup_db=lookup_db,
+        window_start=window_start,
+        window_end=window_end,
     )
+    summary["state"] = market_state
+    return summary
 
 
-def run_phase5(conn, *, mart_db: str = MART_DB) -> dict:
+def run_phase5(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
+) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
-    return rebuild_complete(
+    summary = rebuild_complete(
         conn,
         mart_db=mart_db,
+        claims_db=claims_db,
+        lookup_db=lookup_db,
         window_start=window_start,
         window_end=window_end,
         prior_start=prior_start,
         prior_end=prior_end,
     )
+    summary["state"] = market_state
+    return summary
 
 
 def run_extras(
     conn,
     *,
     mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
     download: bool = False,
     reload_pdc: bool = False,
     skip_mips: bool = False,
@@ -192,9 +248,11 @@ def run_extras(
     from provider_directory.extras import OPEN_PAYMENTS_KINDS, rebuild_extras
 
     ensure_mart_database(conn, mart_db)
-    return rebuild_extras(
+    summary = rebuild_extras(
         conn,
         mart_db=mart_db,
+        claims_db=claims_db,
+        market_state=market_state,
         download=download,
         reload_pdc=reload_pdc,
         skip_mips=skip_mips,
@@ -204,20 +262,31 @@ def run_extras(
         open_payments_kinds=open_payments_kinds or OPEN_PAYMENTS_KINDS,
         open_payments_overlay_only=open_payments_overlay_only,
     )
+    summary["state"] = market_state
+    summary["claims_db"] = claims_db
+    summary["lookup_db"] = lookup_db
+    return summary
 
 
 def run_phase6(
     conn,
     *,
     mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    market_state: str = MARKET_STATE,
     slide: bool = False,
     skip_staging_indexes: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
-    return rebuild_refresh(
+    summary = rebuild_refresh(
         conn,
         mart_db=mart_db,
+        claims_db=claims_db,
         slide=slide,
         skip_staging_indexes=skip_staging_indexes,
     )
+    summary["state"] = market_state
+    summary["lookup_db"] = lookup_db
+    return summary

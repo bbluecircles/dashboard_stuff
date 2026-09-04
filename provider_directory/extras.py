@@ -602,6 +602,8 @@ def rebuild_extras(
     year: int | None = None,
     open_payments_kinds: tuple[str, ...] = OPEN_PAYMENTS_KINDS,
     open_payments_overlay_only: bool = False,
+    claims_db: str = CLAIMS_DB,
+    market_state: str = MARKET_STATE,
 ) -> dict:
     """Overlay extras onto pd_provider. Never truncates the spine. Never scans pat_dt."""
     create_schema(conn, mart_db)
@@ -685,7 +687,9 @@ def rebuild_extras(
     with conn.cursor() as cur:
         _session_timeouts(cur)
         if table_has_rows(conn, mart_db, "cms_pdc_clinician"):
-            overlays["pdc"] = overlay_pdc_extras(cur, conn, mart_db=mart_db)
+            overlays["pdc"] = overlay_pdc_extras(
+                cur, conn, mart_db=mart_db, market_state=market_state
+            )
         else:
             skipped.append("cms_pdc_clinician empty — skip group size / telehealth / sec spec")
         if table_has_rows(conn, mart_db, "pd_stg_visit"):
@@ -693,7 +697,9 @@ def rebuild_extras(
         else:
             skipped.append("pd_stg_visit empty — skip new vs established")
         if table_has_rows(conn, mart_db, "pd_stg_visit_site"):
-            overlays["pos"] = overlay_pos(cur, conn, mart_db=mart_db)
+            overlays["pos"] = overlay_pos(
+                cur, conn, mart_db=mart_db, claims_db=claims_db
+            )
         else:
             skipped.append("pd_stg_visit_site empty — skip POS mix")
         if not skip_mips and table_has_rows(conn, mart_db, "cms_pdc_mips"):

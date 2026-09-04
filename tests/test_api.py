@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from provider_directory.api import create_app, db_conn
 from provider_directory.jobs import PHASES, JobRunner
-from provider_directory.models import ProviderSpine, ProviderSpineList
+from provider_directory.models import ProviderDumpList, ProviderDumpRow, ProviderSpine
 
 
 @contextmanager
@@ -72,10 +72,19 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     def fake_search(conn, **kwargs):
         assert kwargs["last_name"] == "Smith"
         assert kwargs["offset"] == 0
-        return ProviderSpineList(items=[row], total=1)
+        assert kwargs["state"] == "AZ"
+        assert kwargs["mart_db"] == "az_pd"
+        return ProviderDumpList(
+            state="AZ",
+            mart_db="az_pd",
+            items=[ProviderDumpRow(npi=1952863797, last_name="Smith", visits_total=6)],
+            total=1,
+            limit=50,
+            offset=0,
+        )
 
     monkeypatch.setattr("provider_directory.api.get_provider", fake_get)
-    monkeypatch.setattr("provider_directory.api.search_providers", fake_search)
+    monkeypatch.setattr("provider_directory.api.list_providers", fake_search)
 
     missing = client.get("/v1/providers/1234567893")
     assert missing.status_code == 404
@@ -83,9 +92,12 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     assert found.status_code == 200
     assert found.json()["last_name"] == "Smith"
     assert found.json()["practices"] == []
-    listed = client.get("/v1/providers", params={"last_name": "Smith", "active": True})
+    listed = client.get("/v1/providers", params={"state": "AZ", "last_name": "Smith", "active": True})
     assert listed.status_code == 200
     assert listed.json()["total"] == 1
+    assert listed.json()["state"] == "AZ"
+    assert "practices" not in listed.json()["items"][0]
+    assert client.get("/v1/providers", params={"state": "Arizona"}).status_code == 422
 
 
 def test_mart_status(tmp_path, monkeypatch):
@@ -113,6 +125,8 @@ def test_mart_status(tmp_path, monkeypatch):
     assert body["window_end"] == 202407
     assert body["get_reads_mart_only"] is True
     assert body["warehouse_max_period"] == 202409
+    assert body["state"] == "AZ"
+    assert body["mart_db"] == "az_pd"
 
 
 def test_phase_job_202_and_unknown_phase(tmp_path, monkeypatch):

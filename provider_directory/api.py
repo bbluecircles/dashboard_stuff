@@ -1,7 +1,7 @@
 """HTTP API for the .NET app. Calls the same functions as the CLI.
 
-Lookup routes read az_pd only. Phase routes enqueue a background job so
-IIS/NSSM HTTP timeouts do not kill a 12-month rebuild.
+Lookup routes take state= (AZ → az_pd). Phase routes enqueue a background
+job so IIS/NSSM HTTP timeouts do not kill a 12-month rebuild.
 """
 
 from __future__ import annotations
@@ -19,16 +19,18 @@ from pydantic import BaseModel, Field
 from provider_directory import __version__
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.jobs import PHASES, JobConflict, JobRunner
-from provider_directory.lookup import get_provider, search_providers
-from provider_directory.models import ProviderSpine, ProviderSpineList
+from provider_directory.lookup import get_provider, list_providers
+from provider_directory.models import ProviderDumpList, ProviderSpine
 from provider_directory.refresh import read_refresh_state, resolve_window, warehouse_max_period
 from provider_directory.settings import (
     API_HOST,
     API_PORT,
-    MART_DB,
+    DUMP_PAGE_DEFAULT,
+    MARKET_STATE,
     NPI_MAX,
     NPI_MIN,
     SEARCH_LIMIT_MAX,
+    market_for_state,
 )
 
 
@@ -72,7 +74,10 @@ class HealthResponse(BaseModel):
 
 
 class MartStatus(BaseModel):
+    state: str
     mart_db: str
+    claims_db: str
+    lookup_db: str
     window_start: int
     window_end: int
     prior_window_start: int
@@ -86,6 +91,7 @@ class MartStatus(BaseModel):
 
 
 class JobRequest(BaseModel):
+    state: str = MARKET_STATE
     download: bool = False
     skip_pdc: bool = False
     skip_nppes: bool = False
@@ -101,19 +107,35 @@ class JobAccepted(BaseModel):
     created_at: str | None = None
 
 
+def _market_or_422(state: str):
+    try:
+        return market_for_state(state)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
 def _job_params(phase: str, body: JobRequest) -> dict:
+    market = _market_or_422(body.state)
+    shared = {
+        "mart_db": market.mart_db,
+        "claims_db": market.claims_db,
+        "lookup_db": market.lookup_db,
+        "market_state": market.state,
+    }
     if phase == "phase1":
         return {
+            **shared,
             "download": body.download,
             "skip_pdc": body.skip_pdc,
             "skip_nppes": body.skip_nppes,
         }
     if phase == "phase6":
         return {
+            **shared,
             "slide": body.slide,
             "skip_staging_indexes": body.skip_staging_indexes,
         }
-    return {}
+    return shared
 
 
 def _clamp_limit(limit: int) -> int:
@@ -125,12 +147,12 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
     docs = None if os.environ.get("PD_API_DOCS", "1") == "0" else "/docs"
 
     app = FastAPI(
-        title="Arizona provider directory",
+        title="Provider directory",
         version=__version__,
         description=(
-            "Mart lookup for the .NET UI, plus background jobs for phase1–phase6. "
-            "Providers are served from az_pd, not az.pat_dt. Extras fields are null "
-            "until `python -m provider_directory.cli extras` has been run."
+            "Mart lookup for the .NET UI. Pass state=AZ (or TX, …) to select "
+            "{st}_pd. List endpoint is a paged dump for the picker table; "
+            "GET /v1/providers/{npi} is the full profile. Never reads pat_dt."
         ),
         docs_url=docs,
         redoc_url=None if docs is None else "/redoc",
@@ -158,23 +180,32 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         _: Annotated[None, Depends(require_api_key)],
         conn=Depends(db_conn),
         job_runner: JobRunner = Depends(jobs),
+        state: str = Query(default=MARKET_STATE),
     ) -> MartStatus:
-        window_start, window_end, prior_start, prior_end = resolve_window(conn)
-        state = read_refresh_state(conn) or {}
-        warehouse_max, warehouse_source = warehouse_max_period(conn)
-        slide = state.get("slide_available")
+        market = _market_or_422(state)
+        window_start, window_end, prior_start, prior_end = resolve_window(
+            conn, mart_db=market.mart_db
+        )
+        refresh = read_refresh_state(conn, mart_db=market.mart_db) or {}
+        warehouse_max, warehouse_source = warehouse_max_period(
+            conn, claims_db=market.claims_db
+        )
+        slide = refresh.get("slide_available")
         return MartStatus(
-            mart_db=MART_DB,
+            state=market.state,
+            mart_db=market.mart_db,
+            claims_db=market.claims_db,
+            lookup_db=market.lookup_db,
             window_start=window_start,
             window_end=window_end,
             prior_window_start=prior_start,
             prior_window_end=prior_end,
             warehouse_max_period=warehouse_max
             if warehouse_max is not None
-            else state.get("warehouse_max_period"),
-            warehouse_source=warehouse_source or state.get("warehouse_source"),
+            else refresh.get("warehouse_max_period"),
+            warehouse_source=warehouse_source or refresh.get("warehouse_source"),
             slide_available=bool(slide) if slide is not None else None,
-            last_action=state.get("last_action"),
+            last_action=refresh.get("last_action"),
             current_job=job_runner.current(),
         )
 
@@ -183,28 +214,35 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         npi: int,
         _: Annotated[None, Depends(require_api_key)],
         conn=Depends(db_conn),
+        state: str = Query(default=MARKET_STATE),
     ) -> ProviderSpine:
         if npi < NPI_MIN or npi > NPI_MAX:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "NPI must be 10 digits")
-        row = get_provider(conn, npi)
+        market = _market_or_422(state)
+        row = get_provider(conn, npi, mart_db=market.mart_db)
         if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"NPI {npi} not in pd_provider")
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"NPI {npi} not in {market.mart_db}.pd_provider",
+            )
         return row
 
-    @app.get("/v1/providers", response_model=ProviderSpineList, tags=["providers"])
+    @app.get("/v1/providers", response_model=ProviderDumpList, tags=["providers"])
     def provider_search(
         _: Annotated[None, Depends(require_api_key)],
         conn=Depends(db_conn),
+        state: str = Query(default=MARKET_STATE),
         last_name: str | None = None,
         npi: int | None = None,
         specialty: str | None = None,
         active: bool | None = None,
         min_visits: int | None = Query(default=None, ge=0),
-        limit: int = Query(default=25, ge=1, le=SEARCH_LIMIT_MAX),
+        limit: int = Query(default=DUMP_PAGE_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX),
         offset: int = Query(default=0, ge=0),
         in_system: bool | None = None,
-    ) -> ProviderSpineList:
-        return search_providers(
+    ) -> ProviderDumpList:
+        market = _market_or_422(state)
+        return list_providers(
             conn,
             last_name=last_name,
             npi=npi,
@@ -214,6 +252,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             limit=_clamp_limit(limit),
             offset=offset,
             in_system=in_system,
+            mart_db=market.mart_db,
+            state=market.state,
         )
 
     @app.get("/v1/jobs", tags=["jobs"])

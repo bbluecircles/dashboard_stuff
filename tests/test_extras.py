@@ -46,6 +46,7 @@ def test_extras_cli_flags():
     assert args.reload_pdc is True
     assert args.skip_open_payments is True
     assert args.year == 2024
+    assert args.state == "AZ"
     kinds = build_parser().parse_args(["extras", "--open-payments-kinds", "ownership"])
     assert kinds.open_payments_kinds == ("ownership",)
     overlay_only = build_parser().parse_args(["extras", "--open-payments-overlay-only"])

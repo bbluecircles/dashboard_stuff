@@ -12,6 +12,9 @@ def test_cli_get_active_and_min_visits():
     assert args.limit == 5
     args = build_parser().parse_args(["get", "--last-name", "Smith", "--in-system"])
     assert args.in_system is True
+    tx = build_parser().parse_args(["get", "--state", "TX", "1609236967"])
+    assert tx.state == "TX"
+    assert tx.npi == 1609236967
 
 
 def test_provider_spine_model_roundtrip():

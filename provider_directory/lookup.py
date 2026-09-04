@@ -13,6 +13,8 @@ import pymysql
 
 from provider_directory.db import quote_ident
 from provider_directory.models import (
+    ProviderDumpList,
+    ProviderDumpRow,
     ProviderPractice,
     ProviderReferral,
     ProviderSpine,
@@ -230,3 +232,91 @@ def search_providers(
         _null_zero_open_payments(row)
         items.append(ProviderSpine.model_validate(row))
     return ProviderSpineList(items=_attach_practices(conn, items, mart_db=mart_db), total=total)
+
+
+def list_providers(
+    conn,
+    *,
+    last_name: str | None = None,
+    npi: int | None = None,
+    specialty: str | None = None,
+    active: bool | None = None,
+    min_visits: int | None = None,
+    limit: int = 25,
+    offset: int = 0,
+    in_system: bool | None = None,
+    mart_db: str = MART_DB,
+    state: str | None = None,
+) -> ProviderDumpList:
+    """Paged dump for the picker table. Does not attach nested practices/referrals."""
+    clauses = ["1=1"]
+    params: list = []
+    if npi is not None:
+        clauses.append("p.npi = %s")
+        params.append(npi)
+    if last_name:
+        clauses.append("p.last_name LIKE %s")
+        params.append(last_name.strip() + "%")
+    if specialty:
+        clauses.append(
+            "(p.primary_specialty_code = %s OR p.primary_specialty_description LIKE %s)"
+        )
+        params.extend([specialty, f"%{specialty}%"])
+    if active is True:
+        clauses.append("p.active_provider = 1")
+    elif active is False:
+        clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
+    if min_visits is not None:
+        clauses.append("IFNULL(p.visits_total, 0) >= %s")
+        params.append(min_visits)
+    if in_system is True:
+        clauses.append("p.in_system_provider = 1")
+    elif in_system is False:
+        clauses.append("(p.in_system_provider = 0 OR p.in_system_provider IS NULL)")
+    where = " AND ".join(clauses)
+    mart = quote_ident(mart_db)
+    provider = f"{mart}.pd_provider p"
+    practice = f"{mart}.pd_provider_practice"
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) AS n FROM {provider} WHERE {where}", params)
+        total = int(cur.fetchone()["n"])
+        cur.execute(
+            f"""
+            SELECT
+                p.npi,
+                p.first_name,
+                p.middle_name,
+                p.last_name,
+                p.credential,
+                p.primary_specialty_code,
+                p.primary_specialty_description,
+                p.primary_organization_name,
+                p.visits_total,
+                p.panel_size,
+                p.in_system_provider,
+                p.active_provider,
+                pr.name AS practice_name,
+                pr.city,
+                pr.state
+            FROM {provider}
+            LEFT JOIN {practice} pr ON pr.npi = p.npi AND pr.site_rank = 1
+            WHERE {where}
+            ORDER BY IFNULL(p.visits_total, 0) DESC, IFNULL(p.panel_size, 0) DESC,
+                p.last_name, p.first_name, p.npi
+            LIMIT %s OFFSET %s
+            """,
+            [*params, limit, offset],
+        )
+        rows = cur.fetchall()
+    items = []
+    for row in rows:
+        _as_bool(row, "in_system_provider", "active_provider")
+        items.append(ProviderDumpRow.model_validate(row))
+    return ProviderDumpList(
+        state=(state or "").upper() or mart_db.split("_")[0].upper(),
+        mart_db=mart_db,
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

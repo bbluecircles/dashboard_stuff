@@ -175,3 +175,34 @@ class ProviderSpine(BaseModel):
 class ProviderSpineList(BaseModel):
     items: list[ProviderSpine] = Field(default_factory=list)
     total: int = 0
+
+
+class ProviderDumpRow(BaseModel):
+    """One row in the provider-picker dump. No nested practices/referrals."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    npi: int
+    first_name: str | None = None
+    middle_name: str | None = None
+    last_name: str | None = None
+    credential: str | None = None
+    primary_specialty_code: str | None = None
+    primary_specialty_description: str | None = None
+    primary_organization_name: str | None = None
+    practice_name: str | None = None
+    city: str | None = None
+    state: str | None = None
+    visits_total: int | None = None
+    panel_size: int | None = None
+    in_system_provider: bool | None = None
+    active_provider: bool | None = None
+
+
+class ProviderDumpList(BaseModel):
+    state: str
+    mart_db: str
+    items: list[ProviderDumpRow] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 0
+    offset: int = 0
