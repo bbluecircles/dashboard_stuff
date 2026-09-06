@@ -216,24 +216,34 @@ def _cmd_get(args: argparse.Namespace) -> int:
             [
                 args.last_name,
                 args.specialty,
+                args.organization,
+                args.city,
                 args.active,
                 args.min_visits is not None,
+                args.max_visits is not None,
                 args.in_system,
             ]
         )
         if searching:
-            result = list_providers(
-                conn,
-                last_name=args.last_name,
-                npi=args.npi,
-                specialty=args.specialty,
-                active=True if args.active else None,
-                min_visits=args.min_visits,
-                limit=args.limit,
-                in_system=True if args.in_system else None,
-                mart_db=market.mart_db,
-                state=market.state,
-            )
+            try:
+                result = list_providers(
+                    conn,
+                    last_name=args.last_name,
+                    npi=args.npi,
+                    specialty=args.specialty,
+                    organization=args.organization,
+                    city=args.city,
+                    active=True if args.active else None,
+                    min_visits=args.min_visits,
+                    max_visits=args.max_visits,
+                    limit=args.limit,
+                    in_system=True if args.in_system else None,
+                    mart_db=market.mart_db,
+                    state=market.state,
+                )
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
             print(result.model_dump_json(indent=2))
             return 0
         if args.npi is None:
@@ -436,6 +446,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("npi", nargs="?", type=int)
     p.add_argument("--last-name")
     p.add_argument("--specialty")
+    p.add_argument(
+        "--organization",
+        help="Contains match on primary_organization_name",
+    )
+    p.add_argument("--city", help="Contains match on primary practice city (site_rank 1)")
     p.add_argument("--active", action="store_true", help="Only providers with activity in the frozen window")
     p.add_argument(
         "--in-system",
@@ -444,6 +459,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Only NPIs with a CMS PDC facility affiliation (hospital CCN)",
     )
     p.add_argument("--min-visits", type=int, dest="min_visits", help="Minimum visits_total")
+    p.add_argument("--max-visits", type=int, dest="max_visits", help="Maximum visits_total")
     p.add_argument("--limit", type=int, default=25)
     p.set_defaults(func=_cmd_get)
     return parser

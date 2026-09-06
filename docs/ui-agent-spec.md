@@ -51,8 +51,8 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 
 - Virtualize the grid (or page 50–100 rows). Request the next page as the user scrolls.
 - `limit` default 50, max 500. Use `offset` + `total` from the response.
-- Default `min_visits=1` so referring-only NPIs (`visits_total = 0`) are out unless the user clears it.
-- Optional filters still work on the dump: `last_name`, `specialty`, `active`, `in_system`.
+- Default `min_visits=1` so referring-only NPIs (`visits_total = 0`) are out unless the user clears it. Optional `max_visits` is an upper bound. Exact visit count is `min_visits` = `max_visits`; do not add a separate equals control.
+- Optional filters: `last_name`, `specialty`, `organization` (contains on `primary_organization_name`), `city` (contains on primary practice city, site_rank 1), `active`, `in_system`, `min_visits`, `max_visits`.
 - Sort is server-side: `visits_total` desc, then `panel_size`, then name. Do not re-sort 500k in memory.
 - List rows are **slim**. No `practices[]`, `referrals[]`, or `utilization[]`. Load those only on the selected NPI.
 

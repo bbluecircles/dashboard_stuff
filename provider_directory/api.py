@@ -235,26 +235,40 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         last_name: str | None = None,
         npi: int | None = None,
         specialty: str | None = None,
+        organization: str | None = None,
+        city: str | None = None,
         active: bool | None = None,
         min_visits: int | None = Query(default=None, ge=0),
+        max_visits: int | None = Query(default=None, ge=0),
         limit: int = Query(default=DUMP_PAGE_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX),
         offset: int = Query(default=0, ge=0),
         in_system: bool | None = None,
     ) -> ProviderDumpList:
         market = _market_or_422(state)
-        return list_providers(
-            conn,
-            last_name=last_name,
-            npi=npi,
-            specialty=specialty,
-            active=active,
-            min_visits=min_visits,
-            limit=_clamp_limit(limit),
-            offset=offset,
-            in_system=in_system,
-            mart_db=market.mart_db,
-            state=market.state,
-        )
+        if min_visits is not None and max_visits is not None and min_visits > max_visits:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "min_visits cannot exceed max_visits",
+            )
+        try:
+            return list_providers(
+                conn,
+                last_name=last_name,
+                npi=npi,
+                specialty=specialty,
+                organization=organization,
+                city=city,
+                active=active,
+                min_visits=min_visits,
+                max_visits=max_visits,
+                limit=_clamp_limit(limit),
+                offset=offset,
+                in_system=in_system,
+                mart_db=market.mart_db,
+                state=market.state,
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
     @app.get("/v1/jobs", tags=["jobs"])
     def jobs_list(

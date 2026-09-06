@@ -99,6 +99,28 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     assert "practices" not in listed.json()["items"][0]
     assert client.get("/v1/providers", params={"state": "Arizona"}).status_code == 422
 
+    def fake_filtered(conn, **kwargs):
+        assert kwargs["organization"] == "Mayo"
+        assert kwargs["city"] == "Phoenix"
+        assert kwargs["min_visits"] == 1
+        assert kwargs["max_visits"] == 20
+        return ProviderDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_providers", fake_filtered)
+    filtered = client.get(
+        "/v1/providers",
+        params={
+            "state": "AZ",
+            "organization": "Mayo",
+            "city": "Phoenix",
+            "min_visits": 1,
+            "max_visits": 20,
+        },
+    )
+    assert filtered.status_code == 200
+    bad_range = client.get("/v1/providers", params={"min_visits": 50, "max_visits": 10})
+    assert bad_range.status_code == 422
+
 
 def test_mart_status(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)

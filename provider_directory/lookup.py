@@ -176,6 +176,54 @@ def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | N
     return _attach_practices(conn, [item], mart_db=mart_db)[0]
 
 
+def _provider_filter_clauses(
+    *,
+    prefix: str = "",
+    last_name: str | None = None,
+    npi: int | None = None,
+    specialty: str | None = None,
+    active: bool | None = None,
+    min_visits: int | None = None,
+    max_visits: int | None = None,
+    in_system: bool | None = None,
+    organization: str | None = None,
+) -> tuple[list[str], list]:
+    if min_visits is not None and max_visits is not None and min_visits > max_visits:
+        raise ValueError("min_visits cannot exceed max_visits")
+    p = prefix
+    clauses = ["1=1"]
+    params: list = []
+    if npi is not None:
+        clauses.append(f"{p}npi = %s")
+        params.append(npi)
+    if last_name:
+        clauses.append(f"{p}last_name LIKE %s")
+        params.append(last_name.strip() + "%")
+    if specialty:
+        clauses.append(
+            f"({p}primary_specialty_code = %s OR {p}primary_specialty_description LIKE %s)"
+        )
+        params.extend([specialty, f"%{specialty.strip()}%"])
+    if active is True:
+        clauses.append(f"{p}active_provider = 1")
+    elif active is False:
+        clauses.append(f"({p}active_provider = 0 OR {p}active_provider IS NULL)")
+    if min_visits is not None:
+        clauses.append(f"IFNULL({p}visits_total, 0) >= %s")
+        params.append(min_visits)
+    if max_visits is not None:
+        clauses.append(f"IFNULL({p}visits_total, 0) <= %s")
+        params.append(max_visits)
+    if in_system is True:
+        clauses.append(f"{p}in_system_provider = 1")
+    elif in_system is False:
+        clauses.append(f"({p}in_system_provider = 0 OR {p}in_system_provider IS NULL)")
+    if organization and organization.strip():
+        clauses.append(f"{p}primary_organization_name LIKE %s")
+        params.append(f"%{organization.strip()}%")
+    return clauses, params
+
+
 def search_providers(
     conn,
     *,
@@ -184,33 +232,23 @@ def search_providers(
     specialty: str | None = None,
     active: bool | None = None,
     min_visits: int | None = None,
+    max_visits: int | None = None,
     limit: int = 25,
     offset: int = 0,
     in_system: bool | None = None,
+    organization: str | None = None,
     mart_db: str = MART_DB,
 ) -> ProviderSpineList:
-    clauses = ["1=1"]
-    params: list = []
-    if npi is not None:
-        clauses.append("npi = %s")
-        params.append(npi)
-    if last_name:
-        clauses.append("last_name LIKE %s")
-        params.append(last_name.strip() + "%")
-    if specialty:
-        clauses.append("(primary_specialty_code = %s OR primary_specialty_description LIKE %s)")
-        params.extend([specialty, f"%{specialty}%"])
-    if active is True:
-        clauses.append("active_provider = 1")
-    elif active is False:
-        clauses.append("(active_provider = 0 OR active_provider IS NULL)")
-    if min_visits is not None:
-        clauses.append("IFNULL(visits_total, 0) >= %s")
-        params.append(min_visits)
-    if in_system is True:
-        clauses.append("in_system_provider = 1")
-    elif in_system is False:
-        clauses.append("(in_system_provider = 0 OR in_system_provider IS NULL)")
+    clauses, params = _provider_filter_clauses(
+        last_name=last_name,
+        npi=npi,
+        specialty=specialty,
+        active=active,
+        min_visits=min_visits,
+        max_visits=max_visits,
+        in_system=in_system,
+        organization=organization,
+    )
     where = " AND ".join(clauses)
     table = f"{quote_ident(mart_db)}.pd_provider"
     with conn.cursor() as cur:
@@ -242,43 +280,39 @@ def list_providers(
     specialty: str | None = None,
     active: bool | None = None,
     min_visits: int | None = None,
+    max_visits: int | None = None,
     limit: int = 25,
     offset: int = 0,
     in_system: bool | None = None,
+    organization: str | None = None,
+    city: str | None = None,
     mart_db: str = MART_DB,
     state: str | None = None,
 ) -> ProviderDumpList:
     """Paged dump for the picker table. Does not attach nested practices/referrals."""
-    clauses = ["1=1"]
-    params: list = []
-    if npi is not None:
-        clauses.append("p.npi = %s")
-        params.append(npi)
-    if last_name:
-        clauses.append("p.last_name LIKE %s")
-        params.append(last_name.strip() + "%")
-    if specialty:
-        clauses.append(
-            "(p.primary_specialty_code = %s OR p.primary_specialty_description LIKE %s)"
-        )
-        params.extend([specialty, f"%{specialty}%"])
-    if active is True:
-        clauses.append("p.active_provider = 1")
-    elif active is False:
-        clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
-    if min_visits is not None:
-        clauses.append("IFNULL(p.visits_total, 0) >= %s")
-        params.append(min_visits)
-    if in_system is True:
-        clauses.append("p.in_system_provider = 1")
-    elif in_system is False:
-        clauses.append("(p.in_system_provider = 0 OR p.in_system_provider IS NULL)")
+    clauses, params = _provider_filter_clauses(
+        prefix="p.",
+        last_name=last_name,
+        npi=npi,
+        specialty=specialty,
+        active=active,
+        min_visits=min_visits,
+        max_visits=max_visits,
+        in_system=in_system,
+        organization=organization,
+    )
+    city_term = city.strip() if city else ""
+    if city_term:
+        clauses.append("pr.city LIKE %s")
+        params.append(f"%{city_term}%")
     where = " AND ".join(clauses)
     mart = quote_ident(mart_db)
     provider = f"{mart}.pd_provider p"
     practice = f"{mart}.pd_provider_practice"
+    join_sql = f"LEFT JOIN {practice} pr ON pr.npi = p.npi AND pr.site_rank = 1"
+    count_from = f"{provider} {join_sql}" if city_term else provider
     with conn.cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) AS n FROM {provider} WHERE {where}", params)
+        cur.execute(f"SELECT COUNT(*) AS n FROM {count_from} WHERE {where}", params)
         total = int(cur.fetchone()["n"])
         cur.execute(
             f"""
@@ -299,7 +333,7 @@ def list_providers(
                 pr.city,
                 pr.state
             FROM {provider}
-            LEFT JOIN {practice} pr ON pr.npi = p.npi AND pr.site_rank = 1
+            {join_sql}
             WHERE {where}
             ORDER BY IFNULL(p.visits_total, 0) DESC, IFNULL(p.panel_size, 0) DESC,
                 p.last_name, p.first_name, p.npi
