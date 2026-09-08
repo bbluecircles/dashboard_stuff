@@ -29,6 +29,7 @@ def test_list_providers_joins_primary_site_only():
     assert "pd_provider_practice" in source
     assert "_attach_practices" not in source
     assert "pr.city LIKE" in source
+    assert "p.gender" in source
     filters = inspect.getsource(_provider_filter_clauses)
     assert "primary_organization_name LIKE" in filters
     assert "visits_total, 0) <= %s" in filters

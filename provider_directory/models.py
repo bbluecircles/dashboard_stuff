@@ -187,6 +187,7 @@ class ProviderDumpRow(BaseModel):
     middle_name: str | None = None
     last_name: str | None = None
     credential: str | None = None
+    gender: str | None = None
     primary_specialty_code: str | None = None
     primary_specialty_description: str | None = None
     primary_organization_name: str | None = None

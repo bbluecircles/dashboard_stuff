@@ -61,6 +61,7 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 | JSON | Table column |
 | --- | --- |
 | `last_name`, `first_name`, `credential` | Name |
+| `gender` | Provider gender (`M` / `F`; null if no PDC/NPPES row). Not patient panel sex. |
 | `primary_specialty_description` | Specialty |
 | `primary_organization_name` | Organization |
 | `city` / `state` | Primary practice city (site_rank 1; may be null) |

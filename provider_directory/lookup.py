@@ -322,6 +322,7 @@ def list_providers(
                 p.middle_name,
                 p.last_name,
                 p.credential,
+                p.gender,
                 p.primary_specialty_code,
                 p.primary_specialty_description,
                 p.primary_organization_name,

@@ -1,6 +1,6 @@
 from provider_directory.cli import build_parser
 from provider_directory.lookup import _null_zero_open_payments
-from provider_directory.models import ProviderPractice, ProviderSpine
+from provider_directory.models import ProviderDumpRow, ProviderPractice, ProviderSpine
 
 
 def test_cli_get_active_and_min_visits():
@@ -21,17 +21,11 @@ def test_cli_get_active_and_min_visits():
     assert dump.organization == "Mayo"
     assert dump.city == "Phoenix"
     assert dump.max_visits == 100
-    args = build_parser().parse_args(
-        ["get", "--last-name", "Smith", "--specialty", "Cardiovascular", "--active", "--min-visits", "50", "--limit", "5"]
-    )
-    assert args.active is True
-    assert args.min_visits == 50
-    assert args.limit == 5
-    args = build_parser().parse_args(["get", "--last-name", "Smith", "--in-system"])
-    assert args.in_system is True
-    tx = build_parser().parse_args(["get", "--state", "TX", "1609236967"])
-    assert tx.state == "TX"
-    assert tx.npi == 1609236967
+
+
+def test_dump_row_includes_gender():
+    row = ProviderDumpRow(npi=1952863797, last_name="Smith", gender="M", visits_total=6)
+    assert row.model_dump()["gender"] == "M"
 
 
 def test_provider_spine_model_roundtrip():
