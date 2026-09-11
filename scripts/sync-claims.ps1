@@ -1,19 +1,18 @@
 param(
     [string]$State = "AZ",
     [string]$Root = "C:\Users\jluna\Documents\Analysis Scripts",
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$SkipStagingIndexes
 )
 
-# Warehouse clock: upsert Type 1 NPIs from {st}.physician (never truncates),
-# then if a new usable month exists, slide the 12-month window and refresh E/M + POS.
-# Does not phase1. Does not reread Open Payments.
+# Trilliant claims clock: {st}.period / pat_dt grew a month.
+# Upsert Type 1 NPIs, then slide the 12-month window if warehouse max minus
+# 2 months is past the mart window_end. Never phase1.
 $ErrorActionPreference = "Stop"
-$python = Join-Path $Root ".venv\Scripts\python.exe"
-if (-not (Test-Path $python)) {
-    throw "Python venv not found at $python"
-}
-Set-Location $Root
-$syncArgs = @("-m", "provider_directory.cli", "sync", "--state", $State)
-if ($DryRun) { $syncArgs += "--dry-run" }
-& $python @syncArgs
+& (Join-Path $PSScriptRoot "pd-sync.ps1") `
+    -Change WindowSlide `
+    -State $State `
+    -Root $Root `
+    -DryRun:$DryRun `
+    -SkipStagingIndexes:$SkipStagingIndexes
 exit $LASTEXITCODE

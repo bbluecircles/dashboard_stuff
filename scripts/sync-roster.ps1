@@ -4,10 +4,10 @@ param(
     [switch]$DryRun
 )
 
-# CMS Open Payments (Sunshine Act). Not claims period_code. Do not run next to a window slide.
+# Trilliant {st}.physician grew. Insert missing Type 1s, refresh name/specialty. Never truncates. Does not slide.
 $ErrorActionPreference = "Stop"
 & (Join-Path $PSScriptRoot "pd-sync.ps1") `
-    -Change OpenPayments `
+    -Change PhysicianRoster `
     -State $State `
     -Root $Root `
     -DryRun:$DryRun

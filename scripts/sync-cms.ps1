@@ -2,19 +2,18 @@ param(
     [string]$State = "AZ",
     [string]$Root = "C:\Users\jluna\Documents\Analysis Scripts",
     [switch]$ReloadPdc,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$Download
 )
 
-# CMS identity clock: overlay PDC/NPPES already in data/cms onto {st}_pd.
-# Pass -ReloadPdc only when a new DAC file must replace cms_pdc_clinician.
+# CMS identity. -ReloadPdc reloads the DAC clinician CSV (mj5m-pzi6).
 $ErrorActionPreference = "Stop"
-$python = Join-Path $Root ".venv\Scripts\python.exe"
-if (-not (Test-Path $python)) {
-    throw "Python venv not found at $python"
-}
-Set-Location $Root
-$syncArgs = @("-m", "provider_directory.cli", "sync", "--state", $State, "--cms")
-if ($ReloadPdc) { $syncArgs += "--reload-pdc" }
-if ($DryRun) { $syncArgs += "--dry-run" }
-& $python @syncArgs
+$change = if ($ReloadPdc) { "CmsDac" } else { "CmsIdentity" }
+& (Join-Path $PSScriptRoot "pd-sync.ps1") `
+    -Change $change `
+    -State $State `
+    -Root $Root `
+    -DryRun:$DryRun `
+    -Download:$Download `
+    -ReloadPdc:$ReloadPdc
 exit $LASTEXITCODE

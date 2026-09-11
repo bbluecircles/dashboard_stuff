@@ -4,14 +4,11 @@ param(
     [switch]$DryRun
 )
 
-# Care Compare yearly clock: MIPS scores + utilization categories. Skips Open Payments.
+# Care Compare yearly: MIPS + utilization. Not Open Payments. Not claims RVU.
 $ErrorActionPreference = "Stop"
-$python = Join-Path $Root ".venv\Scripts\python.exe"
-if (-not (Test-Path $python)) {
-    throw "Python venv not found at $python"
-}
-Set-Location $Root
-$syncArgs = @("-m", "provider_directory.cli", "sync", "--state", $State, "--mips", "--utilization")
-if ($DryRun) { $syncArgs += "--dry-run" }
-& $python @syncArgs
+& (Join-Path $PSScriptRoot "pd-sync.ps1") `
+    -Change CareCompare `
+    -State $State `
+    -Root $Root `
+    -DryRun:$DryRun
 exit $LASTEXITCODE

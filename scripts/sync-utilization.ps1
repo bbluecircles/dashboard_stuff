@@ -4,10 +4,10 @@ param(
     [switch]$DryRun
 )
 
-# CMS Open Payments (Sunshine Act). Not claims period_code. Do not run next to a window slide.
+# Care Compare utilization categories only (n0yb-util).
 $ErrorActionPreference = "Stop"
 & (Join-Path $PSScriptRoot "pd-sync.ps1") `
-    -Change OpenPayments `
+    -Change Utilization `
     -State $State `
     -Root $Root `
     -DryRun:$DryRun
