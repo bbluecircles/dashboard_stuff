@@ -207,3 +207,31 @@ class ProviderDumpList(BaseModel):
     total: int = 0
     limit: int = 0
     offset: int = 0
+
+
+class GroupPracticeDumpRow(BaseModel):
+    """One row in the group-practice dump. Sums of attributed Type 1 NPIs."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    organization_id: int
+    organization_name: str | None = None
+    organization_npi: int | None = None
+    parent_id: int | None = None
+    parent_name: str | None = None
+    provider_count: int = 0
+    active_provider_count: int = 0
+    in_system_provider_count: int = 0
+    visits_total: int = 0
+    panel_size: int = 0
+    wrvu_total: float | None = None
+
+
+class GroupPracticeDumpList(BaseModel):
+    state: str
+    mart_db: str
+    items: list[GroupPracticeDumpRow] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 0
+    offset: int = 0
+    visits_are_summed_across_npis: bool = True

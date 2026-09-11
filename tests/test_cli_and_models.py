@@ -1,6 +1,6 @@
 from provider_directory.cli import build_parser
 from provider_directory.lookup import _null_zero_open_payments
-from provider_directory.models import ProviderDumpRow, ProviderPractice, ProviderSpine
+from provider_directory.models import ProviderDumpRow, ProviderPractice, ProviderSpine, GroupPracticeDumpRow
 
 
 def test_cli_get_active_and_min_visits():
@@ -21,11 +21,33 @@ def test_cli_get_active_and_min_visits():
     assert dump.organization == "Mayo"
     assert dump.city == "Phoenix"
     assert dump.max_visits == 100
+    groups = build_parser().parse_args(
+        ["groups", "--state", "AZ", "--organization", "Mayo", "--min-visits", "1", "--limit", "25"]
+    )
+    assert groups.cmd == "groups"
+    assert groups.organization == "Mayo"
+    assert groups.min_visits == 1
+    members = build_parser().parse_args(["get", "--organization-id", "1234567893", "--min-visits", "1"])
+    assert members.organization_id == 1234567893
 
 
 def test_dump_row_includes_gender():
     row = ProviderDumpRow(npi=1952863797, last_name="Smith", gender="M", visits_total=6)
     assert row.model_dump()["gender"] == "M"
+
+
+def test_group_dump_row_roundtrip():
+    row = GroupPracticeDumpRow(
+        organization_id=1234567893,
+        organization_name="Mayo Clinic Arizona",
+        provider_count=12,
+        visits_total=4000,
+        wrvu_total=10.5,
+    )
+    dumped = row.model_dump()
+    assert dumped["organization_id"] == 1234567893
+    assert dumped["provider_count"] == 12
+    assert dumped["visits_total"] == 4000
 
 
 def test_provider_spine_model_roundtrip():

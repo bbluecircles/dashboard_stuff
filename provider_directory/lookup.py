@@ -13,6 +13,8 @@ import pymysql
 
 from provider_directory.db import quote_ident
 from provider_directory.models import (
+    GroupPracticeDumpList,
+    GroupPracticeDumpRow,
     ProviderDumpList,
     ProviderDumpRow,
     ProviderPractice,
@@ -187,6 +189,7 @@ def _provider_filter_clauses(
     max_visits: int | None = None,
     in_system: bool | None = None,
     organization: str | None = None,
+    organization_id: int | None = None,
 ) -> tuple[list[str], list]:
     if min_visits is not None and max_visits is not None and min_visits > max_visits:
         raise ValueError("min_visits cannot exceed max_visits")
@@ -221,6 +224,9 @@ def _provider_filter_clauses(
     if organization and organization.strip():
         clauses.append(f"{p}primary_organization_name LIKE %s")
         params.append(f"%{organization.strip()}%")
+    if organization_id is not None:
+        clauses.append(f"{p}primary_organization_id = %s")
+        params.append(organization_id)
     return clauses, params
 
 
@@ -288,6 +294,7 @@ def list_providers(
     city: str | None = None,
     mart_db: str = MART_DB,
     state: str | None = None,
+    organization_id: int | None = None,
 ) -> ProviderDumpList:
     """Paged dump for the picker table. Does not attach nested practices/referrals."""
     clauses, params = _provider_filter_clauses(
@@ -300,6 +307,7 @@ def list_providers(
         max_visits=max_visits,
         in_system=in_system,
         organization=organization,
+        organization_id=organization_id,
     )
     city_term = city.strip() if city else ""
     if city_term:
@@ -355,3 +363,129 @@ def list_providers(
         limit=limit,
         offset=offset,
     )
+
+
+def _group_dump_state(state: str | None, mart_db: str) -> str:
+    return (state or "").upper() or mart_db.split("_")[0].upper()
+
+
+def list_group_practices(
+    conn,
+    *,
+    organization: str | None = None,
+    organization_id: int | None = None,
+    parent: str | None = None,
+    active: bool | None = None,
+    min_visits: int | None = None,
+    max_visits: int | None = None,
+    min_providers: int | None = None,
+    in_system: bool | None = None,
+    limit: int = 25,
+    offset: int = 0,
+    mart_db: str = MART_DB,
+    state: str | None = None,
+) -> GroupPracticeDumpList:
+    """Paged dump of group practices. Reads pd_provider only — never pat_dt.
+
+    Grain is primary_organization_id (billing NPI from physician_primary_affiliation).
+    visits_total / panel_size / wrvu_total are sums of member Type 1 NPIs and can
+    double-count an encounter billed by two members of the same group.
+    """
+    if min_visits is not None and max_visits is not None and min_visits > max_visits:
+        raise ValueError("min_visits cannot exceed max_visits")
+    clauses = ["p.primary_organization_id IS NOT NULL"]
+    params: list = []
+    if organization_id is not None:
+        clauses.append("p.primary_organization_id = %s")
+        params.append(organization_id)
+    if organization and organization.strip():
+        clauses.append("p.primary_organization_name LIKE %s")
+        params.append(f"%{organization.strip()}%")
+    if parent and parent.strip():
+        clauses.append("p.primary_organization_parent_name LIKE %s")
+        params.append(f"%{parent.strip()}%")
+    if active is True:
+        clauses.append("p.active_provider = 1")
+    elif active is False:
+        clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
+    where = " AND ".join(clauses)
+
+    having = ["1=1"]
+    having_params: list = []
+    if min_visits is not None:
+        having.append("SUM(IFNULL(p.visits_total, 0)) >= %s")
+        having_params.append(min_visits)
+    if max_visits is not None:
+        having.append("SUM(IFNULL(p.visits_total, 0)) <= %s")
+        having_params.append(max_visits)
+    if min_providers is not None:
+        having.append("COUNT(*) >= %s")
+        having_params.append(min_providers)
+    if in_system is True:
+        having.append("SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) >= 1")
+    elif in_system is False:
+        having.append("SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) = 0")
+    having_sql = " AND ".join(having)
+
+    mart = quote_ident(mart_db)
+    provider = f"{mart}.pd_provider p"
+    grouped = f"""
+        SELECT
+            p.primary_organization_id AS organization_id,
+            MAX(p.primary_organization_name) AS organization_name,
+            MAX(p.primary_organization_npi) AS organization_npi,
+            MAX(p.primary_organization_parent_id) AS parent_id,
+            MAX(p.primary_organization_parent_name) AS parent_name,
+            COUNT(*) AS provider_count,
+            SUM(CASE WHEN p.active_provider = 1 THEN 1 ELSE 0 END) AS active_provider_count,
+            SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) AS in_system_provider_count,
+            SUM(IFNULL(p.visits_total, 0)) AS visits_total,
+            SUM(IFNULL(p.panel_size, 0)) AS panel_size,
+            SUM(IFNULL(p.wrvu_total, 0)) AS wrvu_total
+        FROM {provider}
+        WHERE {where}
+        GROUP BY p.primary_organization_id
+        HAVING {having_sql}
+    """
+    all_params = [*params, *having_params]
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT COUNT(*) AS n FROM ({grouped}) g", all_params)
+        total = int(cur.fetchone()["n"])
+        cur.execute(
+            f"""
+            {grouped}
+            ORDER BY visits_total DESC, provider_count DESC, organization_name, organization_id
+            LIMIT %s OFFSET %s
+            """,
+            [*all_params, limit, offset],
+        )
+        rows = cur.fetchall()
+    items = [GroupPracticeDumpRow.model_validate(row) for row in rows]
+    return GroupPracticeDumpList(
+        state=_group_dump_state(state, mart_db),
+        mart_db=mart_db,
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        visits_are_summed_across_npis=True,
+    )
+
+
+def get_group_practice(
+    conn,
+    organization_id: int,
+    *,
+    mart_db: str = MART_DB,
+    state: str | None = None,
+) -> GroupPracticeDumpRow | None:
+    result = list_group_practices(
+        conn,
+        organization_id=organization_id,
+        limit=1,
+        offset=0,
+        mart_db=mart_db,
+        state=state,
+    )
+    return result.items[0] if result.items else None
+

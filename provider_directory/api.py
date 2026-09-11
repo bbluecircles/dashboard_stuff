@@ -19,8 +19,8 @@ from pydantic import BaseModel, Field
 from provider_directory import __version__
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.jobs import PHASES, JobConflict, JobRunner
-from provider_directory.lookup import get_provider, list_providers
-from provider_directory.models import ProviderDumpList, ProviderSpine
+from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
+from provider_directory.models import GroupPracticeDumpList, GroupPracticeDumpRow, ProviderDumpList, ProviderSpine
 from provider_directory.refresh import read_refresh_state, resolve_window, warehouse_max_period
 from provider_directory.settings import (
     API_HOST,
@@ -243,6 +243,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         limit: int = Query(default=DUMP_PAGE_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX),
         offset: int = Query(default=0, ge=0),
         in_system: bool | None = None,
+        organization_id: int | None = Query(default=None, ge=1),
     ) -> ProviderDumpList:
         market = _market_or_422(state)
         if min_visits is not None and max_visits is not None and min_visits > max_visits:
@@ -257,6 +258,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
                 npi=npi,
                 specialty=specialty,
                 organization=organization,
+                organization_id=organization_id,
                 city=city,
                 active=active,
                 min_visits=min_visits,
@@ -264,6 +266,65 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
                 limit=_clamp_limit(limit),
                 offset=offset,
                 in_system=in_system,
+                mart_db=market.mart_db,
+                state=market.state,
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    @app.get("/v1/group-practices/{organization_id}", response_model=GroupPracticeDumpRow, tags=["groups"])
+    def group_practice_get(
+        organization_id: int,
+        _: Annotated[None, Depends(require_api_key)],
+        conn=Depends(db_conn),
+        state: str = Query(default=MARKET_STATE),
+    ) -> GroupPracticeDumpRow:
+        market = _market_or_422(state)
+        row = get_group_practice(
+            conn, organization_id, mart_db=market.mart_db, state=market.state
+        )
+        if row is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"organization_id {organization_id} not in {market.mart_db}.pd_provider",
+            )
+        return row
+
+    @app.get("/v1/group-practices", response_model=GroupPracticeDumpList, tags=["groups"])
+    def group_practice_search(
+        _: Annotated[None, Depends(require_api_key)],
+        conn=Depends(db_conn),
+        state: str = Query(default=MARKET_STATE),
+        organization: str | None = None,
+        organization_id: int | None = Query(default=None, ge=1),
+        parent: str | None = None,
+        active: bool | None = None,
+        min_visits: int | None = Query(default=None, ge=0),
+        max_visits: int | None = Query(default=None, ge=0),
+        min_providers: int | None = Query(default=None, ge=1),
+        in_system: bool | None = None,
+        limit: int = Query(default=DUMP_PAGE_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX),
+        offset: int = Query(default=0, ge=0),
+    ) -> GroupPracticeDumpList:
+        market = _market_or_422(state)
+        if min_visits is not None and max_visits is not None and min_visits > max_visits:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "min_visits cannot exceed max_visits",
+            )
+        try:
+            return list_group_practices(
+                conn,
+                organization=organization,
+                organization_id=organization_id,
+                parent=parent,
+                active=active,
+                min_visits=min_visits,
+                max_visits=max_visits,
+                min_providers=min_providers,
+                in_system=in_system,
+                limit=_clamp_limit(limit),
+                offset=offset,
                 mart_db=market.mart_db,
                 state=market.state,
             )

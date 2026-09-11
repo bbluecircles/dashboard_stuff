@@ -121,6 +121,71 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     bad_range = client.get("/v1/providers", params={"min_visits": 50, "max_visits": 10})
     assert bad_range.status_code == 422
 
+    def fake_org_id(conn, **kwargs):
+        assert kwargs["organization_id"] == 1234567893
+        return ProviderDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_providers", fake_org_id)
+    by_org = client.get("/v1/providers", params={"state": "AZ", "organization_id": 1234567893})
+    assert by_org.status_code == 200
+
+
+def test_group_practice_dump(tmp_path, monkeypatch):
+    from provider_directory.models import GroupPracticeDumpList, GroupPracticeDumpRow
+
+    client = _client(tmp_path, monkeypatch)
+
+    def fake_groups(conn, **kwargs):
+        assert kwargs["state"] == "AZ"
+        assert kwargs["mart_db"] == "az_pd"
+        assert kwargs["organization"] == "Mayo"
+        assert kwargs["min_visits"] == 1
+        return GroupPracticeDumpList(
+            state="AZ",
+            mart_db="az_pd",
+            items=[
+                GroupPracticeDumpRow(
+                    organization_id=1234567893,
+                    organization_name="Mayo Clinic Arizona",
+                    provider_count=12,
+                    visits_total=4000,
+                )
+            ],
+            total=1,
+            limit=50,
+            offset=0,
+        )
+
+    def fake_one(conn, organization_id, **kwargs):
+        if organization_id != 1234567893:
+            return None
+        return GroupPracticeDumpRow(
+            organization_id=1234567893,
+            organization_name="Mayo Clinic Arizona",
+            provider_count=12,
+            visits_total=4000,
+        )
+
+    monkeypatch.setattr("provider_directory.api.list_group_practices", fake_groups)
+    monkeypatch.setattr("provider_directory.api.get_group_practice", fake_one)
+    listed = client.get(
+        "/v1/group-practices",
+        params={"state": "AZ", "organization": "Mayo", "min_visits": 1},
+    )
+    assert listed.status_code == 200
+    body = listed.json()
+    assert body["total"] == 1
+    assert body["visits_are_summed_across_npis"] is True
+    assert body["items"][0]["organization_id"] == 1234567893
+    assert "npi" not in body["items"][0]
+    found = client.get("/v1/group-practices/1234567893", params={"state": "AZ"})
+    assert found.status_code == 200
+    assert found.json()["provider_count"] == 12
+    missing = client.get("/v1/group-practices/1111111111", params={"state": "AZ"})
+    assert missing.status_code == 404
+    bad = client.get("/v1/group-practices", params={"min_visits": 50, "max_visits": 10})
+    assert bad.status_code == 422
+
 
 def test_mart_status(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)

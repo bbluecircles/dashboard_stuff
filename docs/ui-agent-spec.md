@@ -30,6 +30,9 @@ Every lookup request must send **`state`** (two-letter USPS, default `AZ`). That
 GET /v1/mart?state=AZ
 GET /v1/providers?state=AZ&limit=50&offset=0
 GET /v1/providers/1952863797?state=AZ
+GET /v1/group-practices?state=AZ&min_visits=1&limit=50&offset=0
+GET /v1/group-practices/{organization_id}?state=AZ
+GET /v1/providers?state=AZ&organization_id={id}&min_visits=1
 ```
 
 ## Routes the UI should call
@@ -40,6 +43,8 @@ GET /v1/providers/1952863797?state=AZ
 | GET | `/v1/mart?state=` | Frozen window, warehouse max, `slide_available`. Banner **as of** `window_end`. |
 | GET | `/v1/providers?state=&limit=&offset=` | **Picker dump** — slim rows, paged. Max `limit` 500. |
 | GET | `/v1/providers/{npi}?state=` | Full profile after a row is selected |
+| GET | `/v1/group-practices?state=&limit=&offset=` | **Group-practice dump** — slim rows, paged. Same paging rules. |
+| GET | `/v1/group-practices/{organization_id}?state=` | One group row after a group is selected |
 
 Do **not** call `POST /v1/jobs/phaseN` from the UI. Phase jobs stay CLI / NSSM.
 
@@ -75,6 +80,32 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 Response also includes `state` and `mart_db` so the UI can confirm it hit the right market.
 
 On row select, close the modal and `GET /v1/providers/{npi}?state=`.
+
+## Group-practice dump
+
+Same picker pattern, different grain: one row per **primary billing organization** (`primary_organization_id` on the Type 1 spine — the billing NPI from `physician_primary_affiliation`). Groups with a null id are omitted.
+
+Page it the same way (`limit` default 50, max 500, `offset` + `total`). Default `min_visits=1` on the **sum** of member visits. Sort is server-side: `visits_total` desc, then `provider_count`, then name.
+
+**This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: visits are summed across providers, not de-duplicated encounters.
+
+Optional filters: `organization` (contains on group name), `parent` (contains on parent system name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`.
+
+| JSON | Table column |
+| --- | --- |
+| `organization_name` | Group |
+| `parent_name` | Parent system |
+| `provider_count` | Type 1 NPIs |
+| `active_provider_count` | Active in window |
+| `in_system_provider_count` | In-system members |
+| `visits_total` | Sum of member visits |
+| `panel_size` | Sum of member panel |
+| `wrvu_total` | Sum of member RVU (label **RVU**) |
+| `organization_id` | Billing NPI / group key (secondary column) |
+
+Response includes `visits_are_summed_across_npis: true`. On group row select, dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`.
+
+There is no group profile with nested sites/referrals in v1.
 
 ## Product locks
 
@@ -175,6 +206,7 @@ Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`, res
 ```
 python -m provider_directory.cli get --state AZ 1952863797
 python -m provider_directory.cli get --state AZ --min-visits 1 --limit 5
+python -m provider_directory.cli groups --state AZ --min-visits 1 --limit 5
 ```
 
 `--state` selects `{st}` / `{st}al` / `{st}_pd`. CMS national files in `data/cms` are shared. Never `phase1` from the UI.

@@ -33,6 +33,7 @@ def test_list_providers_joins_primary_site_only():
     filters = inspect.getsource(_provider_filter_clauses)
     assert "primary_organization_name LIKE" in filters
     assert "visits_total, 0) <= %s" in filters
+    assert "primary_organization_id = %s" in filters
 
 
 def test_visit_range_rejects_min_above_max():

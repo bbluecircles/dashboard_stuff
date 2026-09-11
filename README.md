@@ -122,6 +122,8 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | GET | `/v1/mart?state=` | Frozen window, warehouse max, running job (`AZ` → `az_pd`) |
 | GET | `/v1/providers/{npi}?state=` | Full profile + `practices` + `referrals` |
 | GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page |
+| GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by billing org). Max 500 per page |
+| GET | `/v1/group-practices/{organization_id}?state=` | One group row |
 | POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: `{state, …}` plus phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |
@@ -151,6 +153,8 @@ client.DefaultRequestHeaders.Add("X-API-Key", config["PdApiKey"]);
 var provider = await client.GetFromJsonAsync<JsonElement>("/v1/providers/1952863797", json);
 var search = await client.GetFromJsonAsync<JsonElement>(
     "/v1/providers?last_name=Smith&active=true&min_visits=1&limit=25", json);
+var groups = await client.GetFromJsonAsync<JsonElement>(
+    "/v1/group-practices?min_visits=1&limit=25", json);
 
 var started = await client.PostAsJsonAsync("/v1/jobs/phase6", new { slide = false });
 var jobUrl = started.Headers.Location; // /v1/jobs/{guid}

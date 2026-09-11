@@ -390,7 +390,8 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             KEY idx_specialty (primary_specialty_code),
             KEY idx_active (active_provider),
             KEY idx_active_visits (active_provider, visits_total),
-            KEY idx_spec_visits (primary_specialty_code, visits_total)
+            KEY idx_spec_visits (primary_specialty_code, visits_total),
+            KEY idx_org (primary_organization_id, visits_total)
         ) {table_options()}
         """,
         f"""
@@ -835,6 +836,7 @@ def drop_phase5_cached(conn, mart_db: str = MART_DB) -> None:
 MART_INDEXES = (
     ("pd_provider", "idx_active_visits", "active_provider, visits_total"),
     ("pd_provider", "idx_spec_visits", "primary_specialty_code, visits_total"),
+    ("pd_provider", "idx_org", "primary_organization_id, visits_total"),
     ("pd_stg_window_claim", "idx_period", "period_code"),
     ("pd_stg_visit", "idx_period", "period_code"),
 )

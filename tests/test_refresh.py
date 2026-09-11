@@ -38,6 +38,8 @@ def test_schema_has_refresh_state_and_period_indexes():
     names = {f"{table}.{index}" for table, index, _cols in MART_INDEXES}
     assert "pd_stg_window_claim.idx_period" in names
     assert "pd_provider.idx_active_visits" in names
+    assert "pd_provider.idx_org" in names
+    assert "KEY idx_org (primary_organization_id, visits_total)" in sql
     assert all(not table.startswith("az.") for table, _i, _c in MART_INDEXES)
 
 

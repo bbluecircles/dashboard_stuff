@@ -16,6 +16,8 @@ Examples:
   python -m provider_directory.cli extras --download
   python -m provider_directory.cli serve
   python -m provider_directory.cli get --last-name Smith --limit 3
+  python -m provider_directory.cli groups --state AZ --min-visits 1 --limit 25
+  python -m provider_directory.cli get --state AZ --organization-id 1234567893 --min-visits 1
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ import sys
 
 from provider_directory.db import ConfigError, ensure_mart_database, get_connection
 from provider_directory.locations import Phase2Required
-from provider_directory.lookup import get_provider, list_providers
+from provider_directory.lookup import get_provider, list_group_practices, list_providers
 from provider_directory.extras import OPEN_PAYMENTS_KINDS, parse_open_payments_kinds
 from provider_directory.pipeline import (
     download_cms_files,
@@ -222,6 +224,7 @@ def _cmd_get(args: argparse.Namespace) -> int:
                 args.min_visits is not None,
                 args.max_visits is not None,
                 args.in_system,
+                args.organization_id is not None,
             ]
         )
         if searching:
@@ -232,6 +235,7 @@ def _cmd_get(args: argparse.Namespace) -> int:
                     npi=args.npi,
                     specialty=args.specialty,
                     organization=args.organization,
+                    organization_id=args.organization_id,
                     city=args.city,
                     active=True if args.active else None,
                     min_visits=args.min_visits,
@@ -254,6 +258,32 @@ def _cmd_get(args: argparse.Namespace) -> int:
         print(f"NPI {args.npi} not in {market.mart_db}.pd_provider.", file=sys.stderr)
         return 1
     print(row.model_dump_json(indent=2))
+    return 0
+
+
+def _cmd_groups(args: argparse.Namespace) -> int:
+    market = _market(args)
+    with get_connection() as conn:
+        try:
+            result = list_group_practices(
+                conn,
+                organization=args.organization,
+                organization_id=args.organization_id,
+                parent=args.parent,
+                active=True if args.active else None,
+                min_visits=args.min_visits,
+                max_visits=args.max_visits,
+                min_providers=args.min_providers,
+                in_system=True if args.in_system else None,
+                limit=args.limit,
+                offset=args.offset,
+                mart_db=market.mart_db,
+                state=market.state,
+            )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    print(result.model_dump_json(indent=2))
     return 0
 
 
@@ -458,10 +488,48 @@ def build_parser() -> argparse.ArgumentParser:
         dest="in_system",
         help="Only NPIs with a CMS PDC facility affiliation (hospital CCN)",
     )
+    p.add_argument(
+        "--organization-id",
+        type=int,
+        dest="organization_id",
+        help="Exact primary_organization_id (billing NPI). Use after picking a group row.",
+    )
     p.add_argument("--min-visits", type=int, dest="min_visits", help="Minimum visits_total")
     p.add_argument("--max-visits", type=int, dest="max_visits", help="Maximum visits_total")
     p.add_argument("--limit", type=int, default=25)
     p.set_defaults(func=_cmd_get)
+
+    p = sub.add_parser(
+        "groups",
+        parents=[state_parent],
+        help="Paged group-practice dump (sums of Type 1 NPIs on primary_organization_id)",
+    )
+    p.add_argument("--organization", help="Contains match on group name")
+    p.add_argument("--organization-id", type=int, dest="organization_id")
+    p.add_argument("--parent", help="Contains match on parent system name")
+    p.add_argument("--active", action="store_true", help="Only roll up NPIs active in the frozen window")
+    p.add_argument(
+        "--in-system",
+        action="store_true",
+        dest="in_system",
+        help="Only groups with at least one CMS facility-affiliated NPI",
+    )
+    p.add_argument(
+        "--min-visits",
+        type=int,
+        dest="min_visits",
+        help="Minimum SUM of member visits_total",
+    )
+    p.add_argument(
+        "--max-visits",
+        type=int,
+        dest="max_visits",
+        help="Maximum SUM of member visits_total",
+    )
+    p.add_argument("--min-providers", type=int, dest="min_providers")
+    p.add_argument("--limit", type=int, default=25)
+    p.add_argument("--offset", type=int, default=0)
+    p.set_defaults(func=_cmd_groups)
     return parser
 
 
