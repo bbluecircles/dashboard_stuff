@@ -619,7 +619,7 @@ def polish_work_type(
     im_specialty_rollup: Any = None,
     hospital_system: Any = None,
 ) -> str | None:
-    """Trilliant-style site label from CMS POS, then warehouse rollup."""
+    """Site-of-care label from CMS POS, then warehouse rollup."""
     pos = parse_int(pos_type_code)
     if pos in POS_WORK_TYPE:
         return POS_WORK_TYPE[pos]

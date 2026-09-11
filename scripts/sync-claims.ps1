@@ -5,7 +5,7 @@ param(
     [switch]$SkipStagingIndexes
 )
 
-# Trilliant claims clock: {st}.period / pat_dt grew a month.
+# Claims warehouse clock: {st}.period / pat_dt grew a month.
 # Upsert Type 1 NPIs, then slide the 12-month window if warehouse max minus
 # 2 months is past the mart window_end. Never phase1.
 $ErrorActionPreference = "Stop"

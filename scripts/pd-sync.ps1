@@ -3,14 +3,15 @@
     Run the provider-directory mart refresh that matches a dependency-dataset change.
 
 .DESCRIPTION
-    The mart does not poll CMS or Trilliant. Someone (you or Task Scheduler) runs a
-    clock when a source actually changed.
+    The mart does not poll CMS or the claims warehouse. Someone (you or Task
+    Scheduler) runs a clock when a source actually changed.
 
-    "Warehouse max" / "Trilliant max" means:
+    "Warehouse max" means:
         SELECT MAX(period_code) FROM {st}.period
-    That is how far Trilliant has loaded claim months onto this MariaDB. It is not a
-    CMS program year. A 2-month lag is applied because the newest warehouse months
-    are incomplete. Example: max 202409 -> usable profile end 202407.
+    That is how far YOUR claims warehouse ({st} / {st}al on this MariaDB) has
+    been loaded. It is not CMS. A 2-month lag is applied because the newest
+    warehouse months are incomplete. Example: max 202409 -> usable profile
+    end 202407.
 
     CMS 2025 (Open Payments / MIPS / utilization files) is a different clock from
     claims period_code 202501. You can have OP 2025 dollars on a profile whose
@@ -100,7 +101,7 @@ function Get-PdCatalog {
         [pscustomobject]@{
             Change   = "WindowSlide"
             Dataset  = "{st}.period / {st}.pat_dt - new period_code month"
-            When     = "Trilliant loaded a later claim month. Slide if MAX(period_code) minus 2 months is past mart window_end."
+            When     = "A later claim month landed in {st}.period. Slide if MAX(period_code) minus 2 months is past mart window_end."
             Runs     = "sync (upsert Type 1s, then phase6 --slide + E/M/POS if usable)"
         }
         [pscustomobject]@{
@@ -226,9 +227,9 @@ if ($Change -eq "List") {
     Get-PdCatalog | Format-Table -Wrap -AutoSize Change, Dataset, When, Runs
     Write-Host @"
 
-Warehouse max (Trilliant) = SELECT MAX(period_code) FROM ${State}.period
-Usable profile end        = that max minus 2 months, still 12 months long
-CMS program year          = Open Payments / MIPS / utilization files, independent clock
+Warehouse max (your {st}.period) = SELECT MAX(period_code) FROM ${State}.period
+Usable profile end               = that max minus 2 months, still 12 months long
+CMS program year                 = Open Payments / MIPS / utilization files, independent clock
 
 Examples:
   .\pd-sync.ps1 -Change Plan -State AZ -DryRun

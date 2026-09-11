@@ -4,7 +4,7 @@ param(
     [switch]$DryRun
 )
 
-# Trilliant {st}.physician grew. Insert missing Type 1s, refresh name/specialty. Never truncates. Does not slide.
+# {st}.physician grew. Insert missing Type 1s, refresh name/specialty. Never truncates. Does not slide.
 $ErrorActionPreference = "Stop"
 & (Join-Path $PSScriptRoot "pd-sync.ps1") `
     -Change PhysicianRoster `
