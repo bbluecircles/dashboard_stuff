@@ -296,6 +296,19 @@ def specialty_percentile(rank: int | None, n: int | None) -> float | None:
     return round(100.0 * rank / n, 1)
 
 
+def activity_specialty_percentile(
+    visits_pct: float | None, wrvu_pct: float | None
+) -> float | None:
+    """Mean of visits and RVU specialty percentiles. One side if the other is missing."""
+    if visits_pct is not None and wrvu_pct is not None:
+        return round((float(visits_pct) + float(wrvu_pct)) / 2.0, 1)
+    if visits_pct is not None:
+        return round(float(visits_pct), 1)
+    if wrvu_pct is not None:
+        return round(float(wrvu_pct), 1)
+    return None
+
+
 def referral_display_name(*, last_name: Any = None, first_name: Any = None) -> str | None:
     last = nonempty(last_name)
     first = nonempty(first_name)

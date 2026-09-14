@@ -338,6 +338,9 @@ def list_providers(
                 p.panel_size,
                 p.in_system_provider,
                 p.active_provider,
+                p.wrvu_specialty_percentile,
+                p.visits_specialty_percentile,
+                p.activity_specialty_percentile,
                 pr.name AS practice_name,
                 pr.city,
                 pr.state
@@ -393,39 +396,39 @@ def list_group_practices(
     """
     if min_visits is not None and max_visits is not None and min_visits > max_visits:
         raise ValueError("min_visits cannot exceed max_visits")
-    clauses = ["p.primary_organization_id IS NOT NULL"]
-    params: list = []
-    if organization_id is not None:
-        clauses.append("p.primary_organization_id = %s")
-        params.append(organization_id)
-    if organization and organization.strip():
-        clauses.append("p.primary_organization_name LIKE %s")
-        params.append(f"%{organization.strip()}%")
-    if parent and parent.strip():
-        clauses.append("p.primary_organization_parent_name LIKE %s")
-        params.append(f"%{parent.strip()}%")
+    member_clauses = ["p.primary_organization_id IS NOT NULL"]
+    member_params: list = []
     if active is True:
-        clauses.append("p.active_provider = 1")
+        member_clauses.append("p.active_provider = 1")
     elif active is False:
-        clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
-    where = " AND ".join(clauses)
+        member_clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
+    member_where = " AND ".join(member_clauses)
 
-    having = ["1=1"]
-    having_params: list = []
+    outer_clauses = ["1=1"]
+    outer_params: list = []
+    if organization_id is not None:
+        outer_clauses.append("s.organization_id = %s")
+        outer_params.append(organization_id)
+    if organization and organization.strip():
+        outer_clauses.append("s.organization_name LIKE %s")
+        outer_params.append(f"%{organization.strip()}%")
+    if parent and parent.strip():
+        outer_clauses.append("s.parent_name LIKE %s")
+        outer_params.append(f"%{parent.strip()}%")
     if min_visits is not None:
-        having.append("SUM(IFNULL(p.visits_total, 0)) >= %s")
-        having_params.append(min_visits)
+        outer_clauses.append("s.visits_total >= %s")
+        outer_params.append(min_visits)
     if max_visits is not None:
-        having.append("SUM(IFNULL(p.visits_total, 0)) <= %s")
-        having_params.append(max_visits)
+        outer_clauses.append("s.visits_total <= %s")
+        outer_params.append(max_visits)
     if min_providers is not None:
-        having.append("COUNT(*) >= %s")
-        having_params.append(min_providers)
+        outer_clauses.append("s.provider_count >= %s")
+        outer_params.append(min_providers)
     if in_system is True:
-        having.append("SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) >= 1")
+        outer_clauses.append("s.in_system_provider_count >= 1")
     elif in_system is False:
-        having.append("SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) = 0")
-    having_sql = " AND ".join(having)
+        outer_clauses.append("s.in_system_provider_count = 0")
+    outer_where = " AND ".join(outer_clauses)
 
     mart = quote_ident(mart_db)
     provider = f"{mart}.pd_provider p"
@@ -443,17 +446,41 @@ def list_group_practices(
             SUM(IFNULL(p.panel_size, 0)) AS panel_size,
             SUM(IFNULL(p.wrvu_total, 0)) AS wrvu_total
         FROM {provider}
-        WHERE {where}
+        WHERE {member_where}
         GROUP BY p.primary_organization_id
-        HAVING {having_sql}
     """
-    all_params = [*params, *having_params]
+    scored = f"""
+        SELECT
+            g.*,
+            ROUND(g.visits_total * 1.0 / NULLIF(g.provider_count, 0), 1) AS visits_per_provider,
+            CASE
+                WHEN g.visits_total > 0 THEN ROUND(
+                    100.0 * ROW_NUMBER() OVER (
+                        PARTITION BY (g.visits_total > 0)
+                        ORDER BY g.visits_total, g.organization_id
+                    ) / COUNT(*) OVER (PARTITION BY (g.visits_total > 0)),
+                    1
+                )
+            END AS visits_percentile,
+            CASE
+                WHEN g.visits_total > 0 THEN ROUND(
+                    100.0 * ROW_NUMBER() OVER (
+                        PARTITION BY (g.visits_total > 0)
+                        ORDER BY g.visits_total * 1.0 / NULLIF(g.provider_count, 0), g.organization_id
+                    ) / COUNT(*) OVER (PARTITION BY (g.visits_total > 0)),
+                    1
+                )
+            END AS activity_percentile
+        FROM ({grouped}) g
+    """
+    filtered = f"SELECT * FROM ({scored}) s WHERE {outer_where}"
+    all_params = [*member_params, *outer_params]
     with conn.cursor() as cur:
-        cur.execute(f"SELECT COUNT(*) AS n FROM ({grouped}) g", all_params)
+        cur.execute(f"SELECT COUNT(*) AS n FROM ({filtered}) x", all_params)
         total = int(cur.fetchone()["n"])
         cur.execute(
             f"""
-            {grouped}
+            {filtered}
             ORDER BY visits_total DESC, provider_count DESC, organization_name, organization_id
             LIMIT %s OFFSET %s
             """,

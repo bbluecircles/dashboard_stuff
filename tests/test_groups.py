@@ -14,6 +14,9 @@ def test_group_dump_sql_rolls_up_org_id_not_pat_dt():
     assert "SUM(IFNULL(p.visits_total, 0))" in source
     assert "COUNT(*) AS provider_count" in source
     assert "visits_are_summed_across_npis=True" in source
+    assert "activity_percentile" in source
+    assert "visits_per_provider" in source
+    assert "ROW_NUMBER() OVER" in source
 
 
 def test_group_dump_rejects_min_above_max():

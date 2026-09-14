@@ -71,6 +71,7 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 | `primary_organization_name` | Organization |
 | `city` / `state` | Primary practice city (site_rank 1; may be null) |
 | `visits_total` | Visits |
+| `activity_specialty_percentile` | Activity vs specialty peers (mean of visits and RVU percentiles; 100 = highest) |
 | `in_system_provider` | In-system (PDC facility CCN) |
 | `active_provider` | Active in the frozen window |
 | `npi` | NPI (keep, can be a secondary column) |
@@ -87,7 +88,7 @@ Same picker pattern, different grain: one row per **primary billing organization
 
 Page it the same way (`limit` default 50, max 500, `offset` + `total`). Default `min_visits=1` on the **sum** of member visits. Sort is server-side: `visits_total` desc, then `provider_count`, then name.
 
-**This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: visits are summed across providers, not de-duplicated encounters.
+**This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: visits are summed across providers, not de-duplicated encounters. `activity_percentile` / `visits_percentile` are among **all** groups, not the current search filter.
 
 Optional filters: `organization` (contains on group name), `parent` (contains on parent system name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`.
 
@@ -99,6 +100,9 @@ Optional filters: `organization` (contains on group name), `parent` (contains on
 | `active_provider_count` | Active in window |
 | `in_system_provider_count` | In-system members |
 | `visits_total` | Sum of member visits |
+| `visits_per_provider` | Sum visits / Type 1 count |
+| `visits_percentile` | Percentile of summed visits among all groups (name filters do not change this) |
+| `activity_percentile` | Percentile of visits per attributed NPI among all groups. This is the group activity score. Large orgs do not auto-win. |
 | `panel_size` | Sum of member panel |
 | `wrvu_total` | Sum of member RVU (label **RVU**) |
 | `organization_id` | Billing NPI / group key (secondary column) |
@@ -122,6 +126,18 @@ There is no group profile with nested sites/referrals in v1.
 
 Label it **RVU** in the UI. Do not say “wRVU”. Numbers are total-RVU scale, not CMS physician work RVU. Cardiology mean vs median is badly skewed (mean ~1317, median ~8.73). Show **median / p25 / p75 / percentile** (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`). Do not lead with `wrvu_average` or `wrvu_state_specialty_average`. `wrvu_total` can sit as a supporting number next to visits.
 
+## Activity vs specialty peers
+
+Not quality, not MIPS. Peer group is `primary_specialty_code`.
+
+| JSON | Meaning |
+| --- | --- |
+| `visits_specialty_percentile` | Visit volume vs other Type 1s in the same specialty (`visits_total > 0`). 100 = highest. |
+| `wrvu_specialty_percentile` | RVU vs specialty peers with RVU > 0. Already existed. |
+| `activity_specialty_percentile` | Mean of the two when both exist; otherwise the one that exists. |
+
+Null if the NPI has no specialty or no visits/RVU. Schott-scale OTP volume will sit at the top of that NP’s specialty — that is volume, not a quality grade. After a code drop, ops must run `phase5` (no `--slide`) so the new columns fill; GET will show null until then.
+
 ## Profile layout (`GET /v1/providers/{npi}`)
 
 Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
@@ -132,7 +148,7 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
 
 | Tab | What’s on it |
 | --- | --- |
-| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, percentile. **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (names only — no share %). New vs established only if E/M counts exist. |
+| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (names only — no share %). New vs established only if E/M counts exist. |
 | **Sites** | Top 5 as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. |
 | **Panel** | **Bars** for age bands and sex. **Bars** for payer mix (third-party / Medicaid / MA / FFS). Top 3 commercial parent **names** + percents. Hide a 0% extra payer. |
 | **Referrals** | Two **lists**: in and out, top 3 each (peer name, specialty, patient count). No network graph. |

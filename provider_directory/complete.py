@@ -608,22 +608,54 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
         ) ranked
         """,
     )
+    _run(
+        cur,
+        conn,
+        f"""
+        INSERT INTO {mart}.pd_stg_npi_visits_percentile (npi, pct)
+        SELECT
+            npi,
+            ROUND(100.0 * rn / cnt, 1)
+        FROM (
+            SELECT
+                npi,
+                ROW_NUMBER() OVER (
+                    PARTITION BY primary_specialty_code
+                    ORDER BY visits_total, npi
+                ) AS rn,
+                COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
+            FROM {mart}.pd_provider
+            WHERE IFNULL(visits_total, 0) > 0
+              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+        ) ranked
+        """,
+    )
     total = 0
     sql = f"""
         UPDATE {mart}.pd_provider p
-        INNER JOIN {mart}.pd_stg_specialty_wrvu s
+        LEFT JOIN {mart}.pd_stg_specialty_wrvu s
             ON s.specialty_code = p.primary_specialty_code
-        LEFT JOIN {mart}.pd_stg_npi_percentile pct ON pct.npi = p.npi
+        LEFT JOIN {mart}.pd_stg_npi_percentile wrvu ON wrvu.npi = p.npi
+        LEFT JOIN {mart}.pd_stg_npi_visits_percentile vis ON vis.npi = p.npi
         SET
-            p.wrvu_state_specialty_average = s.avg_wrvu,
-            p.wrvu_state_specialty_median = s.median_wrvu,
-            p.wrvu_state_specialty_p25 = s.p25_wrvu,
-            p.wrvu_state_specialty_p75 = s.p75_wrvu,
-            p.wrvu_state_specialty_npi_count = s.npi_count,
-            p.wrvu_specialty_percentile = pct.pct,
+            p.wrvu_state_specialty_average = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu, p.wrvu_state_specialty_average),
+            p.wrvu_state_specialty_median = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.median_wrvu, p.wrvu_state_specialty_median),
+            p.wrvu_state_specialty_p25 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p25_wrvu, p.wrvu_state_specialty_p25),
+            p.wrvu_state_specialty_p75 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p75_wrvu, p.wrvu_state_specialty_p75),
+            p.wrvu_state_specialty_npi_count = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.npi_count, p.wrvu_state_specialty_npi_count),
+            p.wrvu_specialty_percentile = wrvu.pct,
+            p.visits_specialty_percentile = vis.pct,
+            p.activity_specialty_percentile = CASE
+                WHEN vis.pct IS NOT NULL AND wrvu.pct IS NOT NULL
+                    THEN ROUND((vis.pct + wrvu.pct) / 2, 1)
+                ELSE COALESCE(vis.pct, wrvu.pct)
+            END,
             p.refreshed_at = NOW()
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
-          AND p.wrvu_total IS NOT NULL AND p.wrvu_total > 0
+          AND (
+                (p.wrvu_total IS NOT NULL AND p.wrvu_total > 0)
+             OR IFNULL(p.visits_total, 0) > 0
+          )
     """
     for bucket in range(PROVIDER_BUCKETS):
         n = _run(cur, conn, sql, (bucket,))

@@ -36,6 +36,7 @@ TABLES = (
     "pd_stg_npi_wrvu_prior",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
+    "pd_stg_npi_visits_percentile",
 )
 
 PHASE2_STAGING_TABLES = (
@@ -70,6 +71,7 @@ PHASE5_STAGING_TABLES = (
     "pd_stg_referral_edge",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
+    "pd_stg_npi_visits_percentile",
 )
 
 PHASE5_CACHED_STAGING_TABLES = (
@@ -166,6 +168,8 @@ PD_PROVIDER_PHASE5_COLUMNS = (
     ("wrvu_state_specialty_p75", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_npi_count", "INT UNSIGNED NULL"),
     ("wrvu_specialty_percentile", "DECIMAL(5,1) NULL"),
+    ("visits_specialty_percentile", "DECIMAL(5,1) NULL"),
+    ("activity_specialty_percentile", "DECIMAL(5,1) NULL"),
 )
 
 PD_PRACTICE_PHASE5_COLUMNS = (
@@ -360,6 +364,8 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             wrvu_state_specialty_p75 DECIMAL(14,2) NULL,
             wrvu_state_specialty_npi_count INT UNSIGNED NULL,
             wrvu_specialty_percentile DECIMAL(5,1) NULL,
+            visits_specialty_percentile DECIMAL(5,1) NULL,
+            activity_specialty_percentile DECIMAL(5,1) NULL,
             group_size INT NULL,
             telehealth_offered TINYINT NULL,
             secondary_specialty_1 VARCHAR(120) NULL,
@@ -711,6 +717,13 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_percentile (
+            npi BIGINT UNSIGNED NOT NULL,
+            pct DECIMAL(5,1) NOT NULL,
+            PRIMARY KEY (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_visits_percentile (
             npi BIGINT UNSIGNED NOT NULL,
             pct DECIMAL(5,1) NOT NULL,
             PRIMARY KEY (npi)

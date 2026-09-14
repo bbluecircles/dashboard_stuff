@@ -143,6 +143,8 @@ class ProviderSpine(BaseModel):
     wrvu_state_specialty_p75: float | None = None
     wrvu_state_specialty_npi_count: int | None = None
     wrvu_specialty_percentile: float | None = None
+    visits_specialty_percentile: float | None = None
+    activity_specialty_percentile: float | None = None
     group_size: int | None = None
     telehealth_offered: bool | None = None
     secondary_specialty_1: str | None = None
@@ -198,6 +200,9 @@ class ProviderDumpRow(BaseModel):
     panel_size: int | None = None
     in_system_provider: bool | None = None
     active_provider: bool | None = None
+    wrvu_specialty_percentile: float | None = None
+    visits_specialty_percentile: float | None = None
+    activity_specialty_percentile: float | None = None
 
 
 class ProviderDumpList(BaseModel):
@@ -225,6 +230,9 @@ class GroupPracticeDumpRow(BaseModel):
     visits_total: int = 0
     panel_size: int = 0
     wrvu_total: float | None = None
+    visits_percentile: float | None = None
+    visits_per_provider: float | None = None
+    activity_percentile: float | None = None
 
 
 class GroupPracticeDumpList(BaseModel):

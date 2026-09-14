@@ -9,6 +9,7 @@ from provider_directory.complete import (
 from provider_directory.schema import PD_PROVIDER_PHASE5_COLUMNS, TABLES, ddl_statements
 from provider_directory.settings import PRIOR_WINDOW_END, PRIOR_WINDOW_START
 from provider_directory.transforms import (
+    activity_specialty_percentile,
     dow_percentages,
     referral_display_name,
     specialty_percentile,
@@ -36,6 +37,10 @@ def test_wrvu_yoy_and_percentile():
     assert wrvu_yoy_change_pct(1_000_000, 1) == 9999.99
     assert specialty_percentile(10, 40) == 25.0
     assert specialty_percentile(1, 1) == 100.0
+    assert activity_specialty_percentile(80.0, 20.0) == 50.0
+    assert activity_specialty_percentile(90.0, None) == 90.0
+    assert activity_specialty_percentile(None, 10.0) == 10.0
+    assert activity_specialty_percentile(None, None) is None
     assert referral_display_name(last_name="Smith", first_name="Sean") == "Smith, Sean"
 
 
@@ -47,7 +52,11 @@ def test_schema_includes_phase5():
     assert "wrvu_yoy_change_pct DECIMAL(12,2)" in sql
     names = {name for name, _def in PD_PROVIDER_PHASE5_COLUMNS}
     assert "visits_percent_monday" in names
+    assert "visits_specialty_percentile" in names
+    assert "activity_specialty_percentile" in names
     assert "pd_provider_referral" in TABLES
+    assert "pd_stg_npi_visits_percentile" in TABLES
+    assert "visits_specialty_percentile DECIMAL(5,1)" in sql
 
 
 def test_phase5_sql_stays_on_dash_and_pat_dt_dates():
@@ -55,6 +64,9 @@ def test_phase5_sql_stays_on_dash_and_pat_dt_dates():
     assert "dash_physician_referrals_to_rendering" in source
     assert "service_end_date" in source
     assert "FROM az.procd_dt" not in source
+    assert "pd_stg_npi_visits_percentile" in source
+    assert "visits_specialty_percentile" in source
+    assert "activity_specialty_percentile" in source
     date_sql = service_date_sql("t.service_end_date")
     assert "%" not in date_sql
     assert "%" not in is_ymd_sql("t.service_end_date")
