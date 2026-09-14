@@ -44,6 +44,8 @@ def test_schema_includes_phase4():
     assert "top_payer_name_1" in sql
     assert "primary_organization_npi" in sql
     assert "pd_stg_npi_payor" in sql
+    assert "pd_provider_group_practice" in sql
+    assert "pd_provider_hospital_affiliation" in sql
     assert "wrvu_at_site" in sql
     names = {name for name, _def in PD_PROVIDER_PHASE4_COLUMNS}
     assert "visits_percent_medicaid" in names
@@ -68,6 +70,7 @@ def test_phase4_sql_stays_on_mart_and_dash():
     source = open(rebuild_analytics.__code__.co_filename, encoding="utf-8").read()
     assert "dash_physician_payor_all" in source
     assert "physician_primary_affiliation" in source
+    assert "rebuild_org_lists" in source
     assert "WORK_RVU" in source
     assert "NON_FACILITY_TOTAL" in source
     assert "ROUND(SUM(pr.WORK_RVU)" not in source

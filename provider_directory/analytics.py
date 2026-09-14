@@ -1,4 +1,4 @@
-"""Phase 4: wRVU, payer mix, primary org, work_type polish.
+"""Phase 4: wRVU, payer mix, primary org, group/hospital lists, work_type polish.
 
 Reads az / azal / existing Phase 2–3 staging. Writes az_pd only.
 Does not rescan az.pat_dt or drop Phase 2/3 tables.
@@ -15,6 +15,7 @@ percents. Top 3 payers are commercial parents only.
 from __future__ import annotations
 
 from provider_directory.activity import iter_period_codes
+from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.db import quote_ident
 from provider_directory.locations import Phase2Required, is_person_practice_name_sql, table_has_rows
 from provider_directory.schema import create_schema, drop_phase4_staging
@@ -167,6 +168,8 @@ def rebuild_analytics(
         "practices_wrvu": 0,
         "practices_work_type": 0,
         "practices_names": 0,
+        "group_practice_rows": 0,
+        "hospital_affiliation_rows": 0,
     }
 
     with conn.cursor() as cur:
@@ -481,6 +484,15 @@ def rebuild_analytics(
                 n = _run(cur, conn, name_sql, (bucket,))
                 counts["practices_names"] += n
                 print(f"phase4 practice name bucket {bucket}: {n} rows", flush=True)
+
+    org_lists = rebuild_org_lists(
+        conn,
+        mart_db=mart_db,
+        claims_db=claims_db,
+        window_start=window_start,
+    )
+    counts["group_practice_rows"] = org_lists.get("group_practice_rows", 0)
+    counts["hospital_affiliation_rows"] = org_lists.get("hospital_affiliation_rows", 0)
 
     return {
         "window_start": window_start,

@@ -59,7 +59,7 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 - Default `min_visits=1` so referring-only NPIs (`visits_total = 0`) are out unless the user clears it. Optional `max_visits` is an upper bound. Exact visit count is `min_visits` = `max_visits`; do not add a separate equals control.
 - Optional filters: `last_name`, `specialty`, `organization` (contains on `primary_organization_name`), `city` (contains on primary practice city, site_rank 1), `active`, `in_system`, `min_visits`, `max_visits`.
 - Sort is server-side: `visits_total` desc, then `panel_size`, then name. Do not re-sort 500k in memory.
-- List rows are **slim**. No `practices[]`, `referrals[]`, or `utilization[]`. Load those only on the selected NPI.
+- List rows are **slim**. No `practices[]`, `group_practices[]`, `hospital_affiliations[]`, `referrals[]`, or `utilization[]`. Load those only on the selected NPI.
 
 **Dump row columns** (`GET /v1/providers`)
 
@@ -107,9 +107,9 @@ Optional filters: `organization` (contains on group name), `parent` (contains on
 | `wrvu_total` | Sum of member RVU (label **RVU**) |
 | `organization_id` | Billing NPI / group key (secondary column) |
 
-Response includes `visits_are_summed_across_npis: true`. On group row select, dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`.
+Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the group profile (`hospital_affiliations[]` — members' visit-weighted **distinct health systems**, top 5, same double-count caption). Dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
 
-There is no group profile with nested sites/referrals in v1.
+Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`. That flag is still PDC facility CCN.
 
 ## Product locks
 
@@ -119,7 +119,7 @@ There is no group profile with nested sites/referrals in v1.
 - Payers 1/2/3/4/5 as locked. Dummy NPIs 0 and 4 are dropped.
 - `in_system_provider` is a **CMS Provider Data Catalog facility affiliation** (hospital CCN), not a Vue roster.
 - Blank phones are OK. Do not invent a phone.
-- Top 3 lists stay top 3 (diagnoses, procedures, payers, referrals in and out). Practice sites stay top 5.
+- Top 3 lists stay top 3 (diagnoses, procedures, payers, referrals in and out). Practice **sites** stay top 5 addresses. Hospital **affiliations** stay top 5 **distinct systems** (not five campuses of the same system).
 - Weekend / after-hours is **UI-only**: `visits_percent_saturday` and `visits_percent_sunday` are already on the provider and each practice.
 
 ## RVU
@@ -148,8 +148,8 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
 
 | Tab | What’s on it |
 | --- | --- |
-| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (names only — no share %). New vs established only if E/M counts exist. |
-| **Sites** | Top 5 as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. |
+| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (names only — no share %). **Group practices** (`group_practices[]`): primary first, then every other in-window billing org (`organization_name`; `billing_type` is `P` professional / `I` institutional). **Hospital affiliations** (`hospital_affiliations[]`): top-in **distinct** health systems (`hospital_system_name`), optional campus `facility_name`, visit share. Hide either list if empty. New vs established only if E/M counts exist. |
+| **Sites** | Top 5 **addresses** as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. Do not put health systems here — those are Overview affiliations. |
 | **Panel** | **Bars** for age bands and sex. **Bars** for payer mix (third-party / Medicaid / MA / FFS). Top 3 commercial parent **names** + percents. Hide a 0% extra payer. |
 | **Referrals** | Two **lists**: in and out, top 3 each (peer name, specialty, patient count). No network graph. |
 | **CMS** | Group size, telehealth offered, secondary specialties, MIPS, Open Payments (non-null kinds only; never `$0` for a missing kind), `utilization[]`. |
@@ -162,7 +162,7 @@ Hide any other block inside a tab when every field in it is null. Hide a POS buc
 
 - **Numbers** for counts and scores: visits, panel size, RVU total, percentile, MIPS, Open Payments dollars, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
 - **Bars** for mixes that sum toward 100%: POS, weekday, panel age, panel sex, payer mix. A simple horizontal stacked or small-multiples bar is enough. No chart library required if CSS bars are easier.
-- **Lists** for ranked names: dx, px, sites, referrals. Do not bar top dx/px; the API does not send visit-share for those.
+- **Lists** for ranked names: dx, px, group practices, hospital affiliations, sites, referrals. Do not bar top dx/px; the API does not send visit-share for those. Affiliations do send `visit_share_pct`.
 
 ### Extras fields (null means CMS has no row, not that extras never ran)
 
@@ -217,9 +217,10 @@ When the warehouse or CMS publishes, run CLI/`scripts/*.ps1` — never phase but
 
 ## After code drops
 
-Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`, restart NSSM. Then:
+Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`. Run **`phase4 --state AZ`** (fills `group_practices[]` / `hospital_affiliations[]`; do not `phase1`). Then restart NSSM. Until phase4, GET still works; those lists are empty.
 
 ```
+python -m provider_directory.cli phase4 --state AZ
 python -m provider_directory.cli get --state AZ 1952863797
 python -m provider_directory.cli get --state AZ --min-visits 1 --limit 5
 python -m provider_directory.cli groups --state AZ --min-visits 1 --limit 5

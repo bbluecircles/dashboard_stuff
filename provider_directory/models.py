@@ -40,6 +40,37 @@ class ProviderPractice(BaseModel):
     visits_percent_sunday: float | None = None
 
 
+class ProviderGroupPractice(BaseModel):
+    """One billing org the Type 1 belongs to. Primary first (org_rank 1)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    npi: int
+    org_rank: int
+    organization_id: int | None = None
+    organization_npi: int | None = None
+    organization_name: str | None = None
+    billing_type: str | None = None
+    is_primary: bool = False
+    cases: int | None = None
+    max_period_code: int | None = None
+
+
+class HospitalAffiliation(BaseModel):
+    """Visit-weighted health system. Distinct systems, not campuses."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    npi: int | None = None
+    affiliation_rank: int
+    hospital_system_name: str
+    facility_name: str | None = None
+    sl_code: int | None = None
+    visits_at_system: int | None = None
+    visit_share_pct: float | None = None
+    provider_count: int | None = None
+
+
 class ProviderReferral(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -170,6 +201,8 @@ class ProviderSpine(BaseModel):
     open_payments_ownership_total: float | None = None
     open_payments_count: int | None = None
     practices: list[ProviderPractice] = Field(default_factory=list)
+    group_practices: list[ProviderGroupPractice] = Field(default_factory=list)
+    hospital_affiliations: list[HospitalAffiliation] = Field(default_factory=list)
     referrals: list[ProviderReferral] = Field(default_factory=list)
     utilization: list[ProviderUtilization] = Field(default_factory=list)
 
@@ -233,6 +266,12 @@ class GroupPracticeDumpRow(BaseModel):
     visits_percentile: float | None = None
     visits_per_provider: float | None = None
     activity_percentile: float | None = None
+
+
+class GroupPracticeProfile(GroupPracticeDumpRow):
+    """GET /v1/group-practices/{id}. Dump list stays slim."""
+
+    hospital_affiliations: list[HospitalAffiliation] = Field(default_factory=list)
 
 
 class GroupPracticeDumpList(BaseModel):

@@ -17,6 +17,8 @@ TABLES = (
     "pd_network_npi",
     "pd_refresh_state",
     "pd_provider_practice",
+    "pd_provider_group_practice",
+    "pd_provider_hospital_affiliation",
     "pd_provider_referral",
     "pd_provider_utilization",
     "pd_stg_window_claim",
@@ -575,6 +577,37 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             PRIMARY KEY (npi, site_rank),
             KEY idx_sl (sl_code),
             KEY idx_state_zip (state, zip)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_provider_group_practice (
+            npi BIGINT UNSIGNED NOT NULL,
+            org_rank TINYINT UNSIGNED NOT NULL,
+            organization_id BIGINT NOT NULL,
+            organization_npi BIGINT NULL,
+            organization_name VARCHAR(180),
+            billing_type CHAR(1) NULL,
+            is_primary TINYINT NOT NULL DEFAULT 0,
+            cases INT UNSIGNED NULL,
+            max_period_code INT UNSIGNED NULL,
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, org_rank),
+            KEY idx_org (organization_id),
+            KEY idx_npi_org (npi, organization_id)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_provider_hospital_affiliation (
+            npi BIGINT UNSIGNED NOT NULL,
+            affiliation_rank TINYINT UNSIGNED NOT NULL,
+            hospital_system_name VARCHAR(180) NOT NULL,
+            facility_name VARCHAR(180) NULL,
+            sl_code BIGINT UNSIGNED NULL,
+            visits_at_system INT UNSIGNED NOT NULL DEFAULT 0,
+            visit_share_pct DECIMAL(6,2) NULL,
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (npi, affiliation_rank),
+            KEY idx_system (hospital_system_name)
         ) {table_options()}
         """,
         f"""

@@ -20,7 +20,12 @@ from provider_directory import __version__
 from provider_directory.db import ConfigError, get_connection
 from provider_directory.jobs import PHASES, JobConflict, JobRunner
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
-from provider_directory.models import GroupPracticeDumpList, GroupPracticeDumpRow, ProviderDumpList, ProviderSpine
+from provider_directory.models import (
+    GroupPracticeDumpList,
+    GroupPracticeProfile,
+    ProviderDumpList,
+    ProviderSpine,
+)
 from provider_directory.refresh import read_refresh_state, resolve_window, warehouse_max_period
 from provider_directory.settings import (
     API_HOST,
@@ -272,13 +277,13 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    @app.get("/v1/group-practices/{organization_id}", response_model=GroupPracticeDumpRow, tags=["groups"])
+    @app.get("/v1/group-practices/{organization_id}", response_model=GroupPracticeProfile, tags=["groups"])
     def group_practice_get(
         organization_id: int,
         _: Annotated[None, Depends(require_api_key)],
         conn=Depends(db_conn),
         state: str = Query(default=MARKET_STATE),
-    ) -> GroupPracticeDumpRow:
+    ) -> GroupPracticeProfile:
         market = _market_or_422(state)
         row = get_group_practice(
             conn, organization_id, mart_db=market.mart_db, state=market.state

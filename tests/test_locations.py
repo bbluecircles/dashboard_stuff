@@ -118,6 +118,7 @@ def test_phase3_sql_stays_on_staging_and_mart():
     "SELECT 1 WHERE x = %s AND NOT ({})".format(po_box_sql("sl.street")) % (0,)
     name_sql = practice_name_sql()
     assert "npi_type = '2'" in name_sql
+    assert "sl_hospital_system_name" in name_sql
     assert "sl.street" in name_sql
     assert PERSON_NAME_REGEXP in name_sql or "^[^,]+," in name_sql
     key = cluster_key_sql("sl.street", "sl.zip_code", "sl.latitude", "sl.longitude", "sl.sl_code")

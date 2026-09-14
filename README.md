@@ -60,7 +60,7 @@ Phase 3 JSON that looks healthy: `visit_sites` in the tens of millions, `practic
 
 ## Phase 4
 
-wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all`, primary billing org from `az.physician_primary_affiliation`, and site-of-care `work_type` labels from CMS POS plus warehouse rollup. Phase 4 also replaces Type 1 `LAST, FIRST` practice names with street+city so another clinician's NPI is not shown as the site. Does not rescan `az.pat_dt`. Other / is_payor 5 is excluded from the four payer percents. Top 3 payers are commercial parents only.
+wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all`, primary billing org from `az.physician_primary_affiliation`, every in-window group practice from `physician_affiliation_p` / `_i`, top-in **distinct hospital systems** from visit-weighted `sl.sl_hospital_system_name` (not five campuses of the same system), and site-of-care `work_type` labels from CMS POS plus warehouse rollup. Phase 4 also replaces Type 1 `LAST, FIRST` practice names with street+city so another clinician's NPI is not shown as the site. Does not rescan `az.pat_dt`. Other / is_payor 5 is excluded from the four payer percents. Top 3 payers are commercial parents only.
 
 ```
 python -m provider_directory.cli phase4
@@ -120,10 +120,10 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | --- | --- | --- |
 | GET | `/health` | Process up (no API key). Use this for NSSM / probes. |
 | GET | `/v1/mart?state=` | Frozen window, warehouse max, running job (`AZ` → `az_pd`) |
-| GET | `/v1/providers/{npi}?state=` | Full profile + `practices` + `referrals` |
+| GET | `/v1/providers/{npi}?state=` | Full profile + `practices` + `group_practices` + `hospital_affiliations` + `referrals` |
 | GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page |
 | GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by billing org). Max 500 per page |
-| GET | `/v1/group-practices/{organization_id}?state=` | One group row |
+| GET | `/v1/group-practices/{organization_id}?state=` | One group row + `hospital_affiliations[]` |
 | POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: `{state, …}` plus phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |

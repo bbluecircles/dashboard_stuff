@@ -15,15 +15,22 @@ from provider_directory.db import quote_ident
 from provider_directory.models import (
     GroupPracticeDumpList,
     GroupPracticeDumpRow,
+    GroupPracticeProfile,
+    HospitalAffiliation,
     ProviderDumpList,
     ProviderDumpRow,
+    ProviderGroupPractice,
     ProviderPractice,
     ProviderReferral,
     ProviderSpine,
     ProviderSpineList,
     ProviderUtilization,
 )
-from provider_directory.settings import MART_DB
+from provider_directory.settings import (
+    MART_DB,
+    MAX_HOSPITAL_AFFILIATIONS,
+    MIN_HOSPITAL_AFFILIATION_SHARE_PCT,
+)
 
 
 _OPEN_PAYMENTS_MONEY = (
@@ -38,6 +45,10 @@ def _as_bool(row: dict, *flags: str) -> dict:
         if row.get(flag) is not None:
             row[flag] = bool(row[flag])
     return row
+
+
+def _missing_table(exc: BaseException) -> bool:
+    return bool(exc.args) and exc.args[0] == 1146
 
 
 def _null_zero_open_payments(row: dict) -> dict:
@@ -77,7 +88,7 @@ def fetch_practices(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[in
             )
             rows = cur.fetchall()
     except pymysql.err.ProgrammingError as exc:
-        if exc.args and exc.args[0] == 1146:
+        if _missing_table(exc):
             return empty
         raise
     by_npi: dict[int, list[ProviderPractice]] = empty
@@ -108,7 +119,7 @@ def fetch_referrals(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[in
             )
             rows = cur.fetchall()
     except pymysql.err.ProgrammingError as exc:
-        if exc.args and exc.args[0] == 1146:
+        if _missing_table(exc):
             return empty
         raise
     by_npi: dict[int, list[ProviderReferral]] = empty
@@ -135,7 +146,7 @@ def fetch_utilization(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[
             )
             rows = cur.fetchall()
     except pymysql.err.ProgrammingError as exc:
-        if exc.args and exc.args[0] == 1146:
+        if _missing_table(exc):
             return empty
         raise
     by_npi: dict[int, list[ProviderUtilization]] = empty
@@ -144,17 +155,152 @@ def fetch_utilization(conn, npis: list[int], *, mart_db: str = MART_DB) -> dict[
     return by_npi
 
 
+def fetch_group_practices(
+    conn, npis: list[int], *, mart_db: str = MART_DB
+) -> dict[int, list[ProviderGroupPractice]]:
+    empty = {npi: [] for npi in npis}
+    if not npis:
+        return {}
+    placeholders = ", ".join(["%s"] * len(npis))
+    table = f"{quote_ident(mart_db)}.pd_provider_group_practice"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT * FROM {table}
+                WHERE npi IN ({placeholders})
+                ORDER BY npi, org_rank
+                """,
+                npis,
+            )
+            rows = cur.fetchall()
+    except pymysql.err.ProgrammingError as exc:
+        if _missing_table(exc):
+            return empty
+        raise
+    by_npi: dict[int, list[ProviderGroupPractice]] = empty
+    for row in rows:
+        _as_bool(row, "is_primary")
+        by_npi.setdefault(int(row["npi"]), []).append(ProviderGroupPractice.model_validate(row))
+    return by_npi
+
+
+def fetch_hospital_affiliations(
+    conn, npis: list[int], *, mart_db: str = MART_DB
+) -> dict[int, list[HospitalAffiliation]]:
+    empty = {npi: [] for npi in npis}
+    if not npis:
+        return {}
+    placeholders = ", ".join(["%s"] * len(npis))
+    table = f"{quote_ident(mart_db)}.pd_provider_hospital_affiliation"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT * FROM {table}
+                WHERE npi IN ({placeholders})
+                ORDER BY npi, affiliation_rank
+                """,
+                npis,
+            )
+            rows = cur.fetchall()
+    except pymysql.err.ProgrammingError as exc:
+        if _missing_table(exc):
+            return empty
+        raise
+    by_npi: dict[int, list[HospitalAffiliation]] = empty
+    for row in rows:
+        by_npi.setdefault(int(row["npi"]), []).append(HospitalAffiliation.model_validate(row))
+    return by_npi
+
+
+def fetch_group_hospital_affiliations(
+    conn,
+    organization_id: int,
+    *,
+    visits_total: int | None = None,
+    mart_db: str = MART_DB,
+    max_systems: int = MAX_HOSPITAL_AFFILIATIONS,
+    min_share_pct: float = MIN_HOSPITAL_AFFILIATION_SHARE_PCT,
+) -> list[HospitalAffiliation]:
+    """Members' systems, re-ranked at the group. Sums can double-count visits."""
+    denom = int(visits_total or 0)
+    if denom <= 0:
+        return []
+    mart = quote_ident(mart_db)
+    sep = "CHAR(31)"
+    sql = f"""
+        SELECT
+            x.affiliation_rank,
+            x.hospital_system_name,
+            CASE
+                WHEN NULLIF(TRIM(x.facility_name), '') IS NULL THEN NULL
+                WHEN UPPER(TRIM(x.facility_name)) = UPPER(TRIM(x.hospital_system_name)) THEN NULL
+                ELSE LEFT(TRIM(x.facility_name), 180)
+            END AS facility_name,
+            x.visits_at_system,
+            ROUND(100.0 * x.visits_at_system / %s, 2) AS visit_share_pct,
+            x.provider_count
+        FROM (
+            SELECT
+                g.hospital_system_name,
+                g.facility_name,
+                g.visits_at_system,
+                g.provider_count,
+                ROW_NUMBER() OVER (
+                    ORDER BY g.visits_at_system DESC, g.hospital_system_name
+                ) AS affiliation_rank
+            FROM (
+                SELECT
+                    SUBSTRING_INDEX(
+                        MAX(CONCAT(LPAD(h.visits_at_system, 10, '0'), {sep}, h.hospital_system_name)),
+                        {sep}, -1
+                    ) AS hospital_system_name,
+                    SUBSTRING_INDEX(
+                        MAX(CONCAT(LPAD(h.visits_at_system, 10, '0'), {sep}, IFNULL(h.facility_name, ''))),
+                        {sep}, -1
+                    ) AS facility_name,
+                    SUM(h.visits_at_system) AS visits_at_system,
+                    COUNT(DISTINCT h.npi) AS provider_count
+                FROM {mart}.pd_provider p
+                INNER JOIN {mart}.pd_provider_hospital_affiliation h ON h.npi = p.npi
+                WHERE p.primary_organization_id = %s
+                GROUP BY UPPER(h.hospital_system_name)
+            ) g
+            WHERE (100.0 * g.visits_at_system / %s) >= %s
+        ) x
+        WHERE x.affiliation_rank <= %s
+        ORDER BY x.affiliation_rank
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                sql,
+                (denom, organization_id, denom, float(min_share_pct), int(max_systems)),
+            )
+            rows = cur.fetchall()
+    except pymysql.err.ProgrammingError as exc:
+        if _missing_table(exc):
+            return []
+        raise
+    return [HospitalAffiliation.model_validate(row) for row in rows]
+
+
 def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_DB) -> list[ProviderSpine]:
     if not items:
         return items
     npis = [item.npi for item in items]
     by_npi = fetch_practices(conn, npis, mart_db=mart_db)
+    by_org = fetch_group_practices(conn, npis, mart_db=mart_db)
+    by_hosp = fetch_hospital_affiliations(conn, npis, mart_db=mart_db)
     by_ref = fetch_referrals(conn, npis, mart_db=mart_db)
     by_util = fetch_utilization(conn, npis, mart_db=mart_db)
     return [
         item.model_copy(
             update={
                 "practices": by_npi.get(item.npi, []),
+                "group_practices": by_org.get(item.npi, []),
+                "hospital_affiliations": by_hosp.get(item.npi, []),
                 "referrals": by_ref.get(item.npi, []),
                 "utilization": by_util.get(item.npi, []),
             }
@@ -505,7 +651,7 @@ def get_group_practice(
     *,
     mart_db: str = MART_DB,
     state: str | None = None,
-) -> GroupPracticeDumpRow | None:
+) -> GroupPracticeProfile | None:
     result = list_group_practices(
         conn,
         organization_id=organization_id,
@@ -514,5 +660,16 @@ def get_group_practice(
         mart_db=mart_db,
         state=state,
     )
-    return result.items[0] if result.items else None
+    if not result.items:
+        return None
+    row = result.items[0]
+    return GroupPracticeProfile(
+        **row.model_dump(),
+        hospital_affiliations=fetch_group_hospital_affiliations(
+            conn,
+            organization_id,
+            visits_total=row.visits_total,
+            mart_db=mart_db,
+        ),
+    )
 

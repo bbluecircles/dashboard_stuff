@@ -17,6 +17,7 @@ def test_group_dump_sql_rolls_up_org_id_not_pat_dt():
     assert "activity_percentile" in source
     assert "visits_per_provider" in source
     assert "ROW_NUMBER() OVER" in source
+    assert "pd_provider_hospital_affiliation" not in source
 
 
 def test_group_dump_rejects_min_above_max():

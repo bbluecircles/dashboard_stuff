@@ -123,6 +123,37 @@ def practice_name_sql(sl: str = "sl", fac: str = "fac") -> str:
     """
 
 
+def hospital_system_name_sql(sl: str = "sl", fac: str = "fac") -> str:
+    """Parent health system. Drops blank / Unknown — those are not entities."""
+    raw = (
+        f"COALESCE("
+        f"NULLIF(TRIM({sl}.sl_hospital_system_name), ''), "
+        f"NULLIF(TRIM({fac}.provider_facility_npi_hospital_system_name), '')"
+        f")"
+    )
+    return f"""
+        CASE
+            WHEN {raw} IS NULL THEN NULL
+            WHEN UPPER({raw}) IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE') THEN NULL
+            ELSE TRIM({raw})
+        END
+    """
+
+
+def hospital_facility_name_sql(sl: str = "sl", fac: str = "fac") -> str:
+    """Campus / facility under a system. Not the parent system name, not Type 1 clones."""
+    return f"""
+        NULLIF(TRIM(COALESCE(
+            CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_dba_name), '') END,
+            CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_name), '') END,
+            NULLIF(TRIM({fac}.PROVIDER_FACILITY_NPI_dba_name), ''),
+            {org_or_null_sql(f"{sl}.sl_common_name")},
+            {org_or_null_sql(f"{sl}.sl_dba_name")},
+            {org_or_null_sql(f"{sl}.sl_name")}
+        )), '')
+    """
+
+
 def work_type_sql(sl: str = "sl", fac: str = "fac") -> str:
     return f"""
         CASE

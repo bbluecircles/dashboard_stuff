@@ -92,6 +92,8 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     assert found.status_code == 200
     assert found.json()["last_name"] == "Smith"
     assert found.json()["practices"] == []
+    assert found.json()["group_practices"] == []
+    assert found.json()["hospital_affiliations"] == []
     listed = client.get("/v1/providers", params={"state": "AZ", "last_name": "Smith", "active": True})
     assert listed.status_code == 200
     assert listed.json()["total"] == 1
@@ -159,11 +161,14 @@ def test_group_practice_dump(tmp_path, monkeypatch):
     def fake_one(conn, organization_id, **kwargs):
         if organization_id != 1234567893:
             return None
-        return GroupPracticeDumpRow(
+        from provider_directory.models import GroupPracticeProfile
+
+        return GroupPracticeProfile(
             organization_id=1234567893,
             organization_name="Mayo Clinic Arizona",
             provider_count=12,
             visits_total=4000,
+            hospital_affiliations=[],
         )
 
     monkeypatch.setattr("provider_directory.api.list_group_practices", fake_groups)
@@ -178,9 +183,11 @@ def test_group_practice_dump(tmp_path, monkeypatch):
     assert body["visits_are_summed_across_npis"] is True
     assert body["items"][0]["organization_id"] == 1234567893
     assert "npi" not in body["items"][0]
+    assert "hospital_affiliations" not in body["items"][0]
     found = client.get("/v1/group-practices/1234567893", params={"state": "AZ"})
     assert found.status_code == 200
     assert found.json()["provider_count"] == 12
+    assert found.json()["hospital_affiliations"] == []
     missing = client.get("/v1/group-practices/1111111111", params={"state": "AZ"})
     assert missing.status_code == 404
     bad = client.get("/v1/group-practices", params={"min_visits": 50, "max_visits": 10})
