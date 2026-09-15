@@ -109,7 +109,7 @@ Optional filters: `organization` (contains on group name), `parent` (contains on
 
 Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the **same five-tab profile as a provider**, with numbers and lists rolled up from member Type 1s. Dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
 
-**Same caption as visits:** sites, referrals, hospital affiliations, panel, payers, top dx/px, and RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Top dx/px and their percents are counted from `pd_stg_visit` for members (share of the group’s `visits_total`). Mix percents are visit-weighted (panel percents are panel-weighted). The three dx/px shares will not add to 100%.
+**Same caption as visits:** sites, referrals, hospital affiliations, panel, payers, top dx/px, and RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Group top dx/px (and their percents) are rolled up from each member’s stored top 3 — not a scan of every visit on GET. Percent is that summed count / group `visits_total`, so it is a **lower bound** of the true org share. Mix percents are visit-weighted (panel percents are panel-weighted). The three dx/px shares will not add to 100%.
 
 Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`. That flag is still PDC facility CCN (`in_system_provider` on the group is true if **any** member has a CCN).
 
@@ -168,7 +168,7 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 
 | Tab | Same as provider, except |
 | --- | --- |
-| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (among groups, not specialty peers — do not look for `activity_specialty_percentile`). POS and Mon–Sun bars. Top 3 dx/px names **and percents** (`visits_top_diagnosis_1_percent` …). Hospital affiliations. Hide `group_practices[]` (this page is the group). Caption: summed across providers. Drop the “re-ranked from members’ stored top 3” note; ranks and shares now come from member visits. |
+| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (among groups, not specialty peers — do not look for `activity_specialty_percentile`). POS and Mon–Sun bars. Top 3 dx/px names **and percents** (`visits_top_diagnosis_1_percent` …). Hospital affiliations. Hide `group_practices[]` (this page is the group). Caption: summed across providers. Group dx/px percents are a lower bound (members’ stored top 3 only). |
 | **Sites** | `practices[]` top 5 street+ZIP clusters, visits/RVU summed across members at that cluster. **No map.** |
 | **Panel** | Age / sex / payer mix from weighted member percents. Top 3 commercial parents. |
 | **Referrals** | Top 3 in and out; `patient_count` is summed. |

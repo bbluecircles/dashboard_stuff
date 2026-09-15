@@ -28,10 +28,13 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
     payers = inspect.getsource(fetch_group_top_payers)
     attach = inspect.getsource(attach_group_profile)
     blob = "\n".join([metrics, sites, refs, codes, payers, attach])
-    assert "pd_stg_visit" in codes
-    assert "visit_count / %s" in codes or "ranked.visit_count / %s" in codes
+    assert "pd_stg_visit" not in codes
+    assert "pd_stg_visit" not in attach
+    assert "pd_stg_top_dx" in codes
+    assert "pd_stg_top_px" in attach
+    assert "SUM(d.visit_count)" in codes
+    assert "visit_count" in codes
     assert "_percent" in codes
-    assert "GROUP BY v.{visit_col}" in codes
     assert ".pat_dt" not in blob
     assert "primary_organization_id = %s" in metrics
     assert "pd_provider_practice" in sites
@@ -40,7 +43,6 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
     assert "GROUP BY r.direction, r.peer_npi" in refs
     assert "pd_stg_top_dx" in attach
     assert "pd_stg_top_px" in attach
-    assert "visit_col=\"dx\"" in attach or 'visit_col="dx"' in attach
     assert "pd_stg_npi_payor" in payers
     dump = inspect.getsource(list_group_practices)
     assert "pd_provider_practice" not in dump
