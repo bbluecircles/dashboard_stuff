@@ -123,7 +123,7 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | GET | `/v1/providers/{npi}?state=` | Full profile + `practices` + `group_practices` + `hospital_affiliations` + `referrals` |
 | GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page |
 | GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by billing org). Max 500 per page |
-| GET | `/v1/group-practices/{organization_id}?state=` | One group row + `hospital_affiliations[]` |
+| GET | `/v1/group-practices/{organization_id}?state=` | Group profile (same tabs as a provider, member-aggregated) |
 | POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: `{state, …}` plus phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |

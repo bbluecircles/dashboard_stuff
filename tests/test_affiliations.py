@@ -55,8 +55,7 @@ def test_group_dump_stays_slim_profile_joins_systems():
     assert "pd_provider_hospital_affiliation" not in dump
     assert "hospital_affiliations" not in dump
     profile = inspect.getsource(get_group_practice)
-    assert "hospital_affiliations" in profile
-    assert "fetch_group_hospital_affiliations" in profile
+    assert "attach_group_profile" in profile
     group_sql = inspect.getsource(fetch_group_hospital_affiliations)
     assert "p.primary_organization_id = %s" in group_sql
     assert "GROUP BY UPPER(h.hospital_system_name)" in group_sql
@@ -111,4 +110,6 @@ def test_nested_affiliation_models_roundtrip():
         ],
     )
     assert profile.hospital_affiliations[0].provider_count == 12
-    assert "practices" not in profile.model_dump()
+    assert profile.practices == []
+    assert profile.referrals == []
+    assert profile.visits_are_summed_across_npis is True

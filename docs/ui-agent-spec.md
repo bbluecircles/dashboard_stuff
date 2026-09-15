@@ -107,9 +107,11 @@ Optional filters: `organization` (contains on group name), `parent` (contains on
 | `wrvu_total` | Sum of member RVU (label **RVU**) |
 | `organization_id` | Billing NPI / group key (secondary column) |
 
-Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the group profile (`hospital_affiliations[]` — members' visit-weighted **distinct health systems**, top 5, same double-count caption). Dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
+Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the **same five-tab profile as a provider**, with numbers and lists rolled up from member Type 1s. Dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
 
-Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`. That flag is still PDC facility CCN.
+**Same caption as visits:** sites, referrals, hospital affiliations, panel, payers, top dx/px, and RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Top dx/px are re-ranked from members’ stored top 3 codes (not a full encounter scan). Percents are visit-weighted (panel percents are panel-weighted).
+
+Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`. That flag is still PDC facility CCN (`in_system_provider` on the group is true if **any** member has a CCN).
 
 ## Product locks
 
@@ -157,6 +159,22 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
 **Hide the CMS tab** when group size, telehealth, secondary specialties, MIPS, Open Payments, and `utilization[]` are all null/empty. Sean Smith still has group size / telehealth / MIPS, so the tab stays. Many NPs will have a thin CMS tab (Open Payments only, or nothing).
 
 Hide any other block inside a tab when every field in it is null. Hide a POS bucket at 0% if the named buckets already tell the story.
+
+## Group profile layout (`GET /v1/group-practices/{organization_id}`)
+
+Reuse the **same five tabs and the same JSON keys** as the provider profile. Do not invent a second layout. The payload is `GroupPracticeProfile`: dump identity fields plus the provider metric/nested fields, aggregated.
+
+**Sticky chrome** — same banner. Header: `organization_name`, `parent_name`, modal specialty (`primary_specialty_description` = members’ highest-visit specialty), `provider_count` Type 1s, in-system badge (`in_system_provider`), `organization_id` (billing NPI). No person name, age, school, credential, or gender.
+
+| Tab | Same as provider, except |
+| --- | --- |
+| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (among groups, not specialty peers — do not look for `activity_specialty_percentile`). POS and Mon–Sun bars. Top 3 dx/px names. Hospital affiliations. Hide `group_practices[]` (this page is the group). Caption: summed across providers. |
+| **Sites** | `practices[]` top 5 street+ZIP clusters, visits/RVU summed across members at that cluster. **No map.** |
+| **Panel** | Age / sex / payer mix from weighted member percents. Top 3 commercial parents. |
+| **Referrals** | Top 3 in and out; `patient_count` is summed. |
+| **CMS** | `group_size` is max CMS `num_org_mem` on members (not `provider_count`). `telehealth_offered` if any member offers it. Open Payments are sums. Hide MIPS / `utilization[]` / secondary specialties (not group scores). |
+
+`visits_are_summed_across_npis` is true on this payload. Keep the summed-across-providers caption on every tab that shows volume.
 
 ### Numbers vs bars
 

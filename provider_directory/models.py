@@ -269,9 +269,84 @@ class GroupPracticeDumpRow(BaseModel):
 
 
 class GroupPracticeProfile(GroupPracticeDumpRow):
-    """GET /v1/group-practices/{id}. Dump list stays slim."""
+    """GET /v1/group-practices/{id}. Same tabs as a provider, member-aggregated.
 
+    Counts and nested lists can double-count encounters billed by two members.
+    Dump list rows stay slim (GroupPracticeDumpRow).
+    """
+
+    visits_are_summed_across_npis: bool = True
+    primary_specialty_code: str | None = None
+    primary_specialty_description: str | None = None
+    in_system_provider: bool | None = None
+    active_provider: bool | None = None
+    visits_top_diagnosis_1: str | None = None
+    visits_top_diagnosis_1_name: str | None = None
+    visits_top_diagnosis_2: str | None = None
+    visits_top_diagnosis_2_name: str | None = None
+    visits_top_diagnosis_3: str | None = None
+    visits_top_diagnosis_3_name: str | None = None
+    visits_top_procedure_1: str | None = None
+    visits_top_procedure_1_name: str | None = None
+    visits_top_procedure_2: str | None = None
+    visits_top_procedure_2_name: str | None = None
+    visits_top_procedure_3: str | None = None
+    visits_top_procedure_3_name: str | None = None
+    panel_average_age: float | None = None
+    panel_percent_age_0_19: float | None = None
+    panel_percent_age_20_44: float | None = None
+    panel_percent_age_45_64: float | None = None
+    panel_percent_age_65_84: float | None = None
+    panel_percent_age_85_plus: float | None = None
+    panel_percent_female: float | None = None
+    panel_percent_male: float | None = None
+    provider_practices_total: int | None = None
+    wrvu_average: float | None = None
+    wrvu_procedure_count: int | None = None
+    visits_percent_third_party: float | None = None
+    visits_percent_medicaid: float | None = None
+    visits_percent_medicare_advantage: float | None = None
+    visits_percent_medicare_traditional: float | None = None
+    top_payer_name_1: str | None = None
+    top_payer_percent_1: float | None = None
+    top_payer_name_2: str | None = None
+    top_payer_percent_2: float | None = None
+    top_payer_name_3: str | None = None
+    top_payer_percent_3: float | None = None
+    visits_percent_monday: float | None = None
+    visits_percent_tuesday: float | None = None
+    visits_percent_wednesday: float | None = None
+    visits_percent_thursday: float | None = None
+    visits_percent_friday: float | None = None
+    visits_percent_saturday: float | None = None
+    visits_percent_sunday: float | None = None
+    wrvu_prior_year_total: float | None = None
+    wrvu_prior_year_average: float | None = None
+    wrvu_prior_year_procedure_count: int | None = None
+    wrvu_yoy_change_pct: float | None = None
+    group_size: int | None = None
+    telehealth_offered: bool | None = None
+    visits_new_patient: int | None = None
+    visits_established: int | None = None
+    visits_percent_new_patient: float | None = None
+    visits_percent_office: float | None = None
+    visits_percent_hopd: float | None = None
+    visits_percent_asc: float | None = None
+    visits_percent_ed: float | None = None
+    visits_percent_telehealth: float | None = None
+    visits_percent_inpatient: float | None = None
+    visits_percent_lab: float | None = None
+    visits_percent_other_pos: float | None = None
+    open_payments_year: int | None = None
+    open_payments_general_total: float | None = None
+    open_payments_research_total: float | None = None
+    open_payments_ownership_total: float | None = None
+    open_payments_count: int | None = None
+    practices: list[ProviderPractice] = Field(default_factory=list)
+    group_practices: list[ProviderGroupPractice] = Field(default_factory=list)
     hospital_affiliations: list[HospitalAffiliation] = Field(default_factory=list)
+    referrals: list[ProviderReferral] = Field(default_factory=list)
+    utilization: list[ProviderUtilization] = Field(default_factory=list)
 
 
 class GroupPracticeDumpList(BaseModel):

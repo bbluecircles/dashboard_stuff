@@ -663,13 +663,7 @@ def get_group_practice(
     if not result.items:
         return None
     row = result.items[0]
-    return GroupPracticeProfile(
-        **row.model_dump(),
-        hospital_affiliations=fetch_group_hospital_affiliations(
-            conn,
-            organization_id,
-            visits_total=row.visits_total,
-            mart_db=mart_db,
-        ),
-    )
+    from provider_directory.group_profile import attach_group_profile
+
+    return attach_group_profile(conn, row, mart_db=mart_db)
 

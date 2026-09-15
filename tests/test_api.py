@@ -188,6 +188,9 @@ def test_group_practice_dump(tmp_path, monkeypatch):
     assert found.status_code == 200
     assert found.json()["provider_count"] == 12
     assert found.json()["hospital_affiliations"] == []
+    assert found.json()["practices"] == []
+    assert found.json()["referrals"] == []
+    assert found.json()["visits_are_summed_across_npis"] is True
     missing = client.get("/v1/group-practices/1111111111", params={"state": "AZ"})
     assert missing.status_code == 404
     bad = client.get("/v1/group-practices", params={"min_visits": 50, "max_visits": 10})

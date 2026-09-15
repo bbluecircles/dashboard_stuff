@@ -28,7 +28,7 @@ import sys
 
 from provider_directory.db import ConfigError, ensure_mart_database, get_connection
 from provider_directory.locations import Phase2Required
-from provider_directory.lookup import get_provider, list_group_practices, list_providers
+from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
 from provider_directory.extras import OPEN_PAYMENTS_KINDS, parse_open_payments_kinds
 from provider_directory.pipeline import (
     download_cms_files,
@@ -264,6 +264,21 @@ def _cmd_get(args: argparse.Namespace) -> int:
 def _cmd_groups(args: argparse.Namespace) -> int:
     market = _market(args)
     with get_connection() as conn:
+        if args.organization_id is not None and not args.organization and not args.parent:
+            row = get_group_practice(
+                conn,
+                args.organization_id,
+                mart_db=market.mart_db,
+                state=market.state,
+            )
+            if row is None:
+                print(
+                    f"organization_id {args.organization_id} not in {market.mart_db}.pd_provider.",
+                    file=sys.stderr,
+                )
+                return 1
+            print(row.model_dump_json(indent=2))
+            return 0
         try:
             result = list_group_practices(
                 conn,
