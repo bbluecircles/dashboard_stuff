@@ -202,24 +202,50 @@ def fetch_group_modal_specialty(conn, organization_id: int, *, mart_db: str = MA
 
 
 def fetch_group_top_codes(
-    conn, organization_id: int, *, table: str, prefix: str, mart_db: str = MART_DB
+    conn,
+    organization_id: int,
+    *,
+    visit_col: str,
+    name_table: str,
+    prefix: str,
+    visits_total: int | None,
+    mart_db: str = MART_DB,
 ) -> dict:
+    """Top 3 codes from pd_stg_visit for members. Share is of the group's visits_total."""
+    if visit_col not in ("dx", "px"):
+        raise ValueError(f"visit_col must be dx or px, not {visit_col!r}")
     mart = quote_ident(mart_db)
+    denom = int(visits_total or 0)
     sql = f"""
-        SELECT d.code, MAX(d.name) AS name, SUM(d.visit_count) AS visit_count
-        FROM {mart}.pd_provider p
-        INNER JOIN {mart}.{quote_ident(table)} d ON d.npi = p.npi
-        WHERE p.primary_organization_id = %s
-          AND NULLIF(TRIM(d.code), '') IS NOT NULL
-        GROUP BY d.code
-        ORDER BY visit_count DESC, d.code
-        LIMIT 3
+        SELECT
+            ranked.code,
+            names.name,
+            CASE WHEN %s > 0 THEN ROUND(100.0 * ranked.visit_count / %s, 2) END AS pct
+        FROM (
+            SELECT v.{visit_col} AS code, COUNT(*) AS visit_count
+            FROM {mart}.pd_provider p
+            INNER JOIN {mart}.pd_stg_visit v ON v.rendering_npi = p.npi
+            WHERE p.primary_organization_id = %s
+              AND v.{visit_col} IS NOT NULL AND v.{visit_col} <> ''
+            GROUP BY v.{visit_col}
+            ORDER BY visit_count DESC, v.{visit_col}
+            LIMIT 3
+        ) ranked
+        LEFT JOIN (
+            SELECT d.code, MAX(d.name) AS name
+            FROM {mart}.{quote_ident(name_table)} d
+            INNER JOIN {mart}.pd_provider p ON p.npi = d.npi
+            WHERE p.primary_organization_id = %s
+            GROUP BY d.code
+        ) names ON names.code = ranked.code
+        ORDER BY ranked.visit_count DESC, ranked.code
     """
-    rows = _fetch(conn, sql, (organization_id,))
+    rows = _fetch(conn, sql, (denom, denom, organization_id, organization_id))
     out: dict = {}
     for i, row in enumerate(rows, start=1):
         out[f"{prefix}_{i}"] = row.get("code")
         out[f"{prefix}_{i}_name"] = row.get("name")
+        out[f"{prefix}_{i}_percent"] = row.get("pct")
     return out
 
 
@@ -432,8 +458,10 @@ def attach_group_profile(
         fetch_group_top_codes(
             conn,
             organization_id,
-            table="pd_stg_top_dx",
+            visit_col="dx",
+            name_table="pd_stg_top_dx",
             prefix="visits_top_diagnosis",
+            visits_total=row.visits_total,
             mart_db=mart_db,
         )
     )
@@ -441,8 +469,10 @@ def attach_group_profile(
         fetch_group_top_codes(
             conn,
             organization_id,
-            table="pd_stg_top_px",
+            visit_col="px",
+            name_table="pd_stg_top_px",
             prefix="visits_top_procedure",
+            visits_total=row.visits_total,
             mart_db=mart_db,
         )
     )

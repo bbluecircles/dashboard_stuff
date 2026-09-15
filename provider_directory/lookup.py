@@ -286,6 +286,47 @@ def fetch_group_hospital_affiliations(
     return [HospitalAffiliation.model_validate(row) for row in rows]
 
 
+def fetch_top_code_percents(
+    conn, npis: list[int], *, mart_db: str = MART_DB
+) -> dict[int, dict[str, float]]:
+    """Share of visits_total from pd_stg_top_dx/px visit_count. Phase 2 already scanned visits."""
+    empty: dict[int, dict[str, float]] = {npi: {} for npi in npis}
+    if not npis:
+        return {}
+    placeholders = ", ".join(["%s"] * len(npis))
+    mart = quote_ident(mart_db)
+    by_npi = empty
+    for table, prefix in (
+        ("pd_stg_top_dx", "visits_top_diagnosis"),
+        ("pd_stg_top_px", "visits_top_procedure"),
+    ):
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT
+                        d.npi,
+                        d.rk,
+                        ROUND(100.0 * d.visit_count / NULLIF(p.visits_total, 0), 2) AS pct
+                    FROM {mart}.{quote_ident(table)} d
+                    INNER JOIN {mart}.pd_provider p ON p.npi = d.npi
+                    WHERE d.npi IN ({placeholders})
+                    """,
+                    npis,
+                )
+                rows = cur.fetchall()
+        except pymysql.err.ProgrammingError as exc:
+            if _missing_table(exc):
+                continue
+            raise
+        for row in rows:
+            rk = int(row["rk"])
+            if rk < 1 or rk > 3 or row.get("pct") is None:
+                continue
+            by_npi.setdefault(int(row["npi"]), {})[f"{prefix}_{rk}_percent"] = float(row["pct"])
+    return by_npi
+
+
 def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_DB) -> list[ProviderSpine]:
     if not items:
         return items
@@ -295,6 +336,7 @@ def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_D
     by_hosp = fetch_hospital_affiliations(conn, npis, mart_db=mart_db)
     by_ref = fetch_referrals(conn, npis, mart_db=mart_db)
     by_util = fetch_utilization(conn, npis, mart_db=mart_db)
+    by_pct = fetch_top_code_percents(conn, npis, mart_db=mart_db)
     return [
         item.model_copy(
             update={
@@ -303,6 +345,7 @@ def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_D
                 "hospital_affiliations": by_hosp.get(item.npi, []),
                 "referrals": by_ref.get(item.npi, []),
                 "utilization": by_util.get(item.npi, []),
+                **by_pct.get(item.npi, {}),
             }
         )
         for item in items

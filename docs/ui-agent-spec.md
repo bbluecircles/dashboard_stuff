@@ -109,7 +109,7 @@ Optional filters: `organization` (contains on group name), `parent` (contains on
 
 Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the **same five-tab profile as a provider**, with numbers and lists rolled up from member Type 1s. Dump members with `GET /v1/providers?state=&organization_id={id}&min_visits=1` (exact id, not a name contains). Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
 
-**Same caption as visits:** sites, referrals, hospital affiliations, panel, payers, top dx/px, and RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Top dx/px are re-ranked from members’ stored top 3 codes (not a full encounter scan). Percents are visit-weighted (panel percents are panel-weighted).
+**Same caption as visits:** sites, referrals, hospital affiliations, panel, payers, top dx/px, and RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Top dx/px and their percents are counted from `pd_stg_visit` for members (share of the group’s `visits_total`). Mix percents are visit-weighted (panel percents are panel-weighted). The three dx/px shares will not add to 100%.
 
 Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`. That flag is still PDC facility CCN (`in_system_provider` on the group is true if **any** member has a CCN).
 
@@ -150,7 +150,7 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
 
 | Tab | What’s on it |
 | --- | --- |
-| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (names only — no share %). **Group practices** (`group_practices[]`): primary first, then every other in-window billing org (`organization_name`; `billing_type` is `P` professional / `I` institutional). **Hospital affiliations** (`hospital_affiliations[]`): top-in **distinct** health systems (`hospital_system_name`), optional campus `facility_name`, visit share. Hide either list if empty. New vs established only if E/M counts exist. |
+| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 3 dx and top 3 px (`visits_top_diagnosis_*_name` + `visits_top_diagnosis_*_percent`, same for procedures). Shares are of `visits_total` and will not add to 100%. **Group practices** (`group_practices[]`): primary first, then every other in-window billing org (`organization_name`; `billing_type` is `P` professional / `I` institutional). **Hospital affiliations** (`hospital_affiliations[]`): top-in **distinct** health systems (`hospital_system_name`), optional campus `facility_name`, visit share. Hide either list if empty. New vs established only if E/M counts exist. |
 | **Sites** | Top 5 **addresses** as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. Do not put health systems here — those are Overview affiliations. |
 | **Panel** | **Bars** for age bands and sex. **Bars** for payer mix (third-party / Medicaid / MA / FFS). Top 3 commercial parent **names** + percents. Hide a 0% extra payer. |
 | **Referrals** | Two **lists**: in and out, top 3 each (peer name, specialty, patient count). No network graph. |
@@ -168,7 +168,7 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 
 | Tab | Same as provider, except |
 | --- | --- |
-| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (among groups, not specialty peers — do not look for `activity_specialty_percentile`). POS and Mon–Sun bars. Top 3 dx/px names. Hospital affiliations. Hide `group_practices[]` (this page is the group). Caption: summed across providers. |
+| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (among groups, not specialty peers — do not look for `activity_specialty_percentile`). POS and Mon–Sun bars. Top 3 dx/px names **and percents** (`visits_top_diagnosis_1_percent` …). Hospital affiliations. Hide `group_practices[]` (this page is the group). Caption: summed across providers. Drop the “re-ranked from members’ stored top 3” note; ranks and shares now come from member visits. |
 | **Sites** | `practices[]` top 5 street+ZIP clusters, visits/RVU summed across members at that cluster. **No map.** |
 | **Panel** | Age / sex / payer mix from weighted member percents. Top 3 commercial parents. |
 | **Referrals** | Top 3 in and out; `patient_count` is summed. |
@@ -180,7 +180,7 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 
 - **Numbers** for counts and scores: visits, panel size, RVU total, percentile, MIPS, Open Payments dollars, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
 - **Bars** for mixes that sum toward 100%: POS, weekday, panel age, panel sex, payer mix. A simple horizontal stacked or small-multiples bar is enough. No chart library required if CSS bars are easier.
-- **Lists** for ranked names: dx, px, group practices, hospital affiliations, sites, referrals. Do not bar top dx/px; the API does not send visit-share for those. Affiliations do send `visit_share_pct`.
+- **Lists** for ranked names: dx, px, group practices, hospital affiliations, sites, referrals. Dx/px send `visits_top_diagnosis_*_percent` / `visits_top_procedure_*_percent` (share of visits, not a 100% bar). Affiliations send `visit_share_pct`.
 
 ### Extras fields (null means CMS has no row, not that extras never ran)
 

@@ -9,7 +9,7 @@ from provider_directory.group_profile import (
     fetch_group_top_payers,
     weighted_pct_sql,
 )
-from provider_directory.lookup import list_group_practices
+from provider_directory.lookup import fetch_top_code_percents, list_group_practices
 from provider_directory.models import GroupPracticeProfile, ProviderPractice, ProviderReferral
 
 
@@ -28,6 +28,10 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
     payers = inspect.getsource(fetch_group_top_payers)
     attach = inspect.getsource(attach_group_profile)
     blob = "\n".join([metrics, sites, refs, codes, payers, attach])
+    assert "pd_stg_visit" in codes
+    assert "visit_count / %s" in codes or "ranked.visit_count / %s" in codes
+    assert "_percent" in codes
+    assert "GROUP BY v.{visit_col}" in codes
     assert ".pat_dt" not in blob
     assert "primary_organization_id = %s" in metrics
     assert "pd_provider_practice" in sites
@@ -36,10 +40,20 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
     assert "GROUP BY r.direction, r.peer_npi" in refs
     assert "pd_stg_top_dx" in attach
     assert "pd_stg_top_px" in attach
+    assert "visit_col=\"dx\"" in attach or 'visit_col="dx"' in attach
     assert "pd_stg_npi_payor" in payers
     dump = inspect.getsource(list_group_practices)
     assert "pd_provider_practice" not in dump
     assert "visits_percent_office" not in dump
+
+
+def test_provider_top_code_percents_use_staging_counts():
+    source = inspect.getsource(fetch_top_code_percents)
+    assert "pd_stg_top_dx" in source
+    assert "pd_stg_top_px" in source
+    assert "visit_count" in source
+    assert ".pat_dt" not in source
+    assert "_percent" in source
 
 
 def test_group_profile_model_shares_provider_keys():
@@ -68,6 +82,7 @@ def test_group_profile_model_shares_provider_keys():
     )
     dumped = row.model_dump()
     assert dumped["visits_percent_office"] == 40.0
+    assert dumped["visits_top_diagnosis_1_percent"] is None
     assert dumped["practices"][0]["city"] == "Phoenix"
     assert dumped["referrals"][0]["direction"] == "out"
     assert dumped["visits_are_summed_across_npis"] is True
