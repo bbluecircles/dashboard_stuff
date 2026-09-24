@@ -39,7 +39,39 @@ DUMMY_NPIS = frozenset({0, 4})
 DUMMY_STATES = frozenset({"XX"})
 NPI_MIN = 1_000_000_000
 NPI_MAX = 9_999_999_999
-MARKET_STATE = DEFAULT_MARKET_STATE if re.fullmatch(r"[A-Z]{2}", DEFAULT_MARKET_STATE) else "AZ"
+_STATE_RE = re.compile(r"^[A-Z]{2}$")
+_IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
+
+
+@dataclass(frozen=True)
+class Market:
+    """One warehouse + mart per USPS state. AZ → az / azal / az_pd.
+
+    AZ_CMS is the blended Arizona claims catalog (az_cms), still USPS AZ.
+    """
+
+    state: str
+    claims_db: str
+    lookup_db: str
+    mart_db: str
+
+
+# Warehouse aliases: CLI/API key → USPS state + database names.
+MARKET_ALIASES = {
+    "AZ_CMS": Market(
+        state="AZ",
+        claims_db="az_cms",
+        lookup_db="azal",
+        mart_db="az_pd",
+    ),
+}
+
+
+def _is_market_key(text: str) -> bool:
+    return text in MARKET_ALIASES or bool(_STATE_RE.fullmatch(text))
+
+
+MARKET_STATE = DEFAULT_MARKET_STATE if _is_market_key(DEFAULT_MARKET_STATE) else "AZ"
 MAX_PRACTICE_SITES = 5
 MAX_HOSPITAL_AFFILIATIONS = 5
 MIN_HOSPITAL_AFFILIATION_SHARE_PCT = 2.0
@@ -82,9 +114,6 @@ POS_TELEHEALTH = (2, 10)
 POS_INPATIENT = (21,)
 POS_LAB = (81,)
 
-_IDENT_RE = re.compile(r"^[A-Za-z0-9_]+$")
-_STATE_RE = re.compile(r"^[A-Z]{2}$")
-
 
 def require_ident(name: str, label: str) -> str:
     if not _IDENT_RE.match(name):
@@ -92,25 +121,23 @@ def require_ident(name: str, label: str) -> str:
     return name
 
 
-@dataclass(frozen=True)
-class Market:
-    """One warehouse + mart per USPS state. AZ → az / azal / az_pd."""
-
-    state: str
-    claims_db: str
-    lookup_db: str
-    mart_db: str
-
-
 def parse_state(raw: str | None) -> str:
+    """USPS two-letter code. Aliases like AZ_CMS resolve to AZ."""
     text = (raw or MARKET_STATE).strip().upper()
+    if text in MARKET_ALIASES:
+        return MARKET_ALIASES[text].state
     if not _STATE_RE.fullmatch(text):
-        raise ValueError(f"Invalid state {raw!r}; use a two-letter USPS code like AZ")
+        raise ValueError(
+            f"Invalid state {raw!r}; use a two-letter USPS code like AZ, or AZ_CMS for blended AZ claims"
+        )
     return text
 
 
 def market_for_state(state: str | None = None) -> Market:
-    st = parse_state(state)
+    text = (state or MARKET_STATE).strip().upper()
+    if text in MARKET_ALIASES:
+        return MARKET_ALIASES[text]
+    st = parse_state(text)
     code = st.lower()
     return Market(
         state=st,

@@ -4,6 +4,7 @@ import pytest
 
 from provider_directory.lookup import _provider_filter_clauses, list_providers
 from provider_directory.settings import market_for_state, parse_state
+from provider_directory.cli import build_parser
 
 
 def test_market_for_state_maps_usps_to_dbs():
@@ -16,6 +17,17 @@ def test_market_for_state_maps_usps_to_dbs():
     assert tx.claims_db == "tx"
     assert tx.lookup_db == "txal"
     assert tx.mart_db == "tx_pd"
+
+
+def test_az_cms_alias_uses_blended_claims():
+    market = market_for_state("AZ_CMS")
+    assert market.state == "AZ"
+    assert market.claims_db == "az_cms"
+    assert market.lookup_db == "azal"
+    assert market.mart_db == "az_pd"
+    assert parse_state("AZ_CMS") == "AZ"
+    args = build_parser().parse_args(["phase2", "--state", "AZ_CMS"])
+    assert args.state == "AZ_CMS"
 
 
 def test_parse_state_rejects_words():

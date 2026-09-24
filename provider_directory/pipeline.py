@@ -7,6 +7,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
+from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.activity import rebuild_activity
 from provider_directory.analytics import rebuild_analytics
 from provider_directory.complete import rebuild_complete
@@ -188,10 +189,23 @@ def run_phase4(
     claims_db: str = CLAIMS_DB,
     lookup_db: str = LOOKUP_DB,
     market_state: str = MARKET_STATE,
+    org_lists_only: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, _prior_start, _prior_end = resolve_window(conn, mart_db)
+    if org_lists_only:
+        summary = rebuild_org_lists(
+            conn,
+            mart_db=mart_db,
+            claims_db=claims_db,
+            window_start=window_start,
+        )
+        summary["window_start"] = window_start
+        summary["window_end"] = window_end
+        summary["org_lists_only"] = True
+        summary["state"] = market_state
+        return summary
     summary = rebuild_analytics(
         conn,
         mart_db=mart_db,

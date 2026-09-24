@@ -127,15 +127,15 @@ def hospital_system_name_sql(sl: str = "sl", fac: str = "fac") -> str:
     """Parent health system. Drops blank / Unknown — those are not entities."""
     raw = (
         f"COALESCE("
-        f"NULLIF(TRIM({sl}.sl_hospital_system_name), ''), "
-        f"NULLIF(TRIM({fac}.provider_facility_npi_hospital_system_name), '')"
+        f"NULLIF(TRIM({sl}.sl_hospital_system_name COLLATE {MART_COLLATION}), ''), "
+        f"NULLIF(TRIM({fac}.provider_facility_npi_hospital_system_name COLLATE {MART_COLLATION}), '')"
         f")"
     )
     return f"""
         CASE
             WHEN {raw} IS NULL THEN NULL
             WHEN UPPER({raw}) IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE') THEN NULL
-            ELSE TRIM({raw})
+            ELSE LEFT(TRIM({raw}), 180)
         END
     """
 

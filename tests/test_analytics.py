@@ -92,3 +92,6 @@ def test_phase4_sql_stays_on_mart_and_dash():
 def test_cli_phase4():
     args = build_parser().parse_args(["phase4"])
     assert args.cmd == "phase4"
+    assert args.org_lists_only is False
+    lists = build_parser().parse_args(["phase4", "--org-lists-only"])
+    assert lists.org_lists_only is True

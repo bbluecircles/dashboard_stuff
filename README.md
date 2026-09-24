@@ -28,7 +28,7 @@ python -m provider_directory.cli get 1952863797
 
 Do **not** rerun `phase1` — that TRUNCATEs `pd_provider` and you would have to rerun 2–5.
 
-Same DB env as `db_snapshot.py`: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`. `--state AZ` selects `az` / `azal` / `az_pd` (and `TX` → `tx` / `txal` / `tx_pd`). Optional env: `PD_MARKET_STATE` (default `AZ`). `PD_CLAIMS_DB` / `PD_LOOKUP_DB` / `PD_MART_DB` remain the import defaults when code does not pass `--state`.
+Same DB env as `db_snapshot.py`: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`. `--state AZ` selects `az` / `azal` / `az_pd` (and `TX` → `tx` / `txal` / `tx_pd`). `--state AZ_CMS` is the blended Arizona warehouse: `az_cms` / `azal` / `az_pd` (USPS still `AZ` for PDC/NPPES). Optional env: `PD_MARKET_STATE` (default `AZ`; set `AZ_CMS` on the blended box). `PD_CLAIMS_DB` / `PD_LOOKUP_DB` / `PD_MART_DB` remain the import defaults when code does not pass `--state`.
 
 ## Phase 2
 

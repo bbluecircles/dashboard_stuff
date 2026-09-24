@@ -41,7 +41,7 @@ from provider_directory.pipeline import (
     run_phase6,
 )
 from provider_directory.schema import create_schema
-from provider_directory.settings import MARKET_STATE, Market, market_for_state, parse_state
+from provider_directory.settings import MARKET_STATE, Market, market_for_state
 from provider_directory.spine import rebuild_spine
 from provider_directory.sync import run_sync
 from provider_directory.mart import overlay_cms
@@ -49,9 +49,10 @@ from provider_directory.mart import overlay_cms
 
 def _state_type(raw: str) -> str:
     try:
-        return parse_state(raw)
+        market_for_state(raw)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
+    return raw.strip().upper()
 
 
 def _market(args: argparse.Namespace) -> Market:
@@ -126,7 +127,11 @@ def _cmd_phase3(args: argparse.Namespace) -> int:
 
 def _cmd_phase4(args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
-        summary = run_phase4(conn, **_market_kwargs(args))
+        summary = run_phase4(
+            conn,
+            org_lists_only=args.org_lists_only,
+            **_market_kwargs(args),
+        )
     print(json.dumps(summary, indent=2, default=str))
     return 0
 
@@ -309,7 +314,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--state",
         default=MARKET_STATE,
         type=_state_type,
-        help="USPS state. Selects claims {st}, lookup {st}al, mart {st}_pd. Default AZ.",
+        help="USPS state or warehouse alias. AZ → az/azal/az_pd. AZ_CMS → az_cms/azal/az_pd (blended claims, still USPS AZ).",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -366,7 +371,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "phase4",
         parents=[state_parent],
-        help="wRVU, payer mix, primary org, and work_type polish for 202308–202407",
+        help="wRVU, payer mix, primary org, group/hospital lists, and work_type polish for 202308–202407",
+    )
+    p.add_argument(
+        "--org-lists-only",
+        action="store_true",
+        help="Rebuild pd_provider_group_practice and pd_provider_hospital_affiliation only (skip wRVU/payers)",
     )
     p.set_defaults(func=_cmd_phase4)
 

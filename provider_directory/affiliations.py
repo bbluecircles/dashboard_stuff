@@ -17,6 +17,7 @@ from provider_directory.schema import table_options
 from provider_directory.settings import (
     CLAIMS_DB,
     DUMMY_NPIS,
+    MART_COLLATION,
     MART_DB,
     MAX_HOSPITAL_AFFILIATIONS,
     MIN_HOSPITAL_AFFILIATION_SHARE_PCT,
@@ -259,83 +260,113 @@ def rebuild_org_lists(
             counts["group_practice_rows"] += n
             print(f"phase4 group practices bucket {bucket}: {n} rows", flush=True)
 
-        if not has_npi_sl:
-            return counts
+        if has_npi_sl:
+            system_sql = hospital_system_name_sql()
+            facility_sql = hospital_facility_name_sql()
+            sep = "CHAR(31)"
+            hospital_sql = f"""
+                INSERT INTO {mart}.pd_provider_hospital_affiliation (
+                    npi, affiliation_rank, hospital_system_name, facility_name, sl_code,
+                    visits_at_system, visit_share_pct, refreshed_at
+                )
+                SELECT
+                    ranked.npi,
+                    ranked.affiliation_rank,
+                    LEFT(ranked.hospital_system_name, 180),
+                    CASE
+                        WHEN NULLIF(TRIM(ranked.facility_name), '') IS NULL THEN NULL
+                        WHEN UPPER(TRIM(ranked.facility_name))
+                             = UPPER(TRIM(ranked.hospital_system_name)) THEN NULL
+                        ELSE LEFT(TRIM(ranked.facility_name), 180)
+                    END,
+                    ranked.sl_code,
+                    ranked.visits_at_system,
+                    ROUND(100.0 * ranked.visits_at_system / NULLIF(p.visits_total, 0), 2),
+                    NOW()
+                FROM (
+                    SELECT
+                        g.npi,
+                        g.hospital_system_name,
+                        g.facility_name,
+                        g.sl_code,
+                        g.visits_at_system,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY g.npi
+                            ORDER BY g.visits_at_system DESC, g.hospital_system_name
+                        ) AS affiliation_rank
+                    FROM (
+                        SELECT
+                            x.npi,
+                            SUBSTRING_INDEX(
+                                MAX(CONCAT(LPAD(x.visits, 10, '0'), {sep}, x.hospital_system_name)),
+                                {sep}, -1
+                            ) AS hospital_system_name,
+                            SUBSTRING_INDEX(
+                                MAX(CONCAT(LPAD(x.visits, 10, '0'), {sep}, IFNULL(x.facility_name, ''))),
+                                {sep}, -1
+                            ) AS facility_name,
+                            CAST(SUBSTRING_INDEX(
+                                MAX(CONCAT(LPAD(x.visits, 10, '0'), {sep}, x.sl_code)),
+                                {sep}, -1
+                            ) AS UNSIGNED) AS sl_code,
+                            SUM(x.visits) AS visits_at_system
+                        FROM (
+                            SELECT
+                                s.npi,
+                                s.sl_code,
+                                s.visits,
+                                {system_sql} AS hospital_system_name,
+                                {facility_sql} AS facility_name
+                            FROM {mart}.pd_stg_npi_sl s
+                            INNER JOIN {claims}.sl sl ON sl.sl_code = s.sl_code
+                            LEFT JOIN {claims}.provider_facility_npi fac
+                                ON fac.PROVIDER_FACILITY_NPI_code = sl.sl_code
+                            WHERE MOD(s.npi, {PROVIDER_BUCKETS}) = %s
+                        ) x
+                        WHERE x.hospital_system_name IS NOT NULL
+                        GROUP BY x.npi, UPPER(x.hospital_system_name COLLATE {MART_COLLATION})
+                    ) g
+                ) ranked
+                INNER JOIN {mart}.pd_provider p ON p.npi = ranked.npi
+                WHERE ranked.affiliation_rank <= {max_systems}
+                  AND IFNULL(p.visits_total, 0) > 0
+                  AND (100.0 * ranked.visits_at_system / p.visits_total) >= {min_share}
+            """
+            for bucket in range(PROVIDER_BUCKETS):
+                n = _run(cur, conn, hospital_sql, (bucket,))
+                counts["hospital_affiliation_rows"] += n
+                print(f"phase4 hospital affiliations bucket {bucket}: {n} rows", flush=True)
+        else:
+            print("phase4 hospital affiliations skipped: pd_stg_npi_sl is empty", flush=True)
 
-        system_sql = hospital_system_name_sql()
-        facility_sql = hospital_facility_name_sql()
-        sep = "CHAR(31)"
-        hospital_sql = f"""
+        parent_sql = f"""
             INSERT INTO {mart}.pd_provider_hospital_affiliation (
                 npi, affiliation_rank, hospital_system_name, facility_name, sl_code,
                 visits_at_system, visit_share_pct, refreshed_at
             )
             SELECT
-                ranked.npi,
-                ranked.affiliation_rank,
-                ranked.hospital_system_name,
-                CASE
-                    WHEN NULLIF(TRIM(ranked.facility_name), '') IS NULL THEN NULL
-                    WHEN UPPER(TRIM(ranked.facility_name))
-                         = UPPER(TRIM(ranked.hospital_system_name)) THEN NULL
-                    ELSE LEFT(TRIM(ranked.facility_name), 180)
-                END,
-                ranked.sl_code,
-                ranked.visits_at_system,
-                ROUND(100.0 * ranked.visits_at_system / NULLIF(p.visits_total, 0), 2),
+                p.npi,
+                1,
+                LEFT(TRIM(p.primary_organization_parent_name), 180),
+                NULL,
+                NULL,
+                IFNULL(p.visits_total, 0),
+                NULL,
                 NOW()
-            FROM (
-                SELECT
-                    g.npi,
-                    g.hospital_system_name,
-                    g.facility_name,
-                    g.sl_code,
-                    g.visits_at_system,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY g.npi
-                        ORDER BY g.visits_at_system DESC, g.hospital_system_name
-                    ) AS affiliation_rank
-                FROM (
-                    SELECT
-                        x.npi,
-                        SUBSTRING_INDEX(
-                            MAX(CONCAT(LPAD(x.visits, 10, '0'), {sep}, x.hospital_system_name)),
-                            {sep}, -1
-                        ) AS hospital_system_name,
-                        SUBSTRING_INDEX(
-                            MAX(CONCAT(LPAD(x.visits, 10, '0'), {sep}, IFNULL(x.facility_name, ''))),
-                            {sep}, -1
-                        ) AS facility_name,
-                        CAST(SUBSTRING_INDEX(
-                            MAX(CONCAT(LPAD(x.visits, 10, '0'), {sep}, x.sl_code)),
-                            {sep}, -1
-                        ) AS UNSIGNED) AS sl_code,
-                        SUM(x.visits) AS visits_at_system
-                    FROM (
-                        SELECT
-                            s.npi,
-                            s.sl_code,
-                            s.visits,
-                            {system_sql} AS hospital_system_name,
-                            {facility_sql} AS facility_name
-                        FROM {mart}.pd_stg_npi_sl s
-                        INNER JOIN {claims}.sl sl ON sl.sl_code = s.sl_code
-                        LEFT JOIN {claims}.provider_facility_npi fac
-                            ON fac.PROVIDER_FACILITY_NPI_code = sl.sl_code
-                        WHERE MOD(s.npi, {PROVIDER_BUCKETS}) = %s
-                    ) x
-                    WHERE x.hospital_system_name IS NOT NULL
-                    GROUP BY x.npi, UPPER(x.hospital_system_name)
-                ) g
-            ) ranked
-            INNER JOIN {mart}.pd_provider p ON p.npi = ranked.npi
-            WHERE ranked.affiliation_rank <= {max_systems}
-              AND IFNULL(p.visits_total, 0) > 0
-              AND (100.0 * ranked.visits_at_system / p.visits_total) >= {min_share}
+            FROM {mart}.pd_provider p
+            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+              AND NULLIF(TRIM(p.primary_organization_parent_name), '') IS NOT NULL
+              AND UPPER(TRIM(p.primary_organization_parent_name))
+                  NOT IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE')
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM {mart}.pd_provider_hospital_affiliation h
+                  WHERE h.npi = p.npi
+              )
         """
         for bucket in range(PROVIDER_BUCKETS):
-            n = _run(cur, conn, hospital_sql, (bucket,))
+            n = _run(cur, conn, parent_sql, (bucket,))
             counts["hospital_affiliation_rows"] += n
-            print(f"phase4 hospital affiliations bucket {bucket}: {n} rows", flush=True)
+            print(f"phase4 hospital parent fallback bucket {bucket}: {n} rows", flush=True)
 
     return counts

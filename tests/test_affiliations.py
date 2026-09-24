@@ -41,7 +41,9 @@ def test_org_list_sql_uses_affiliation_tables_not_pat_dt():
     assert "physician_affiliation_i" in source
     assert "max_period_code >=" in source
     assert "UNKNOWN GROUP PRACTICE" in names
-    assert "GROUP BY x.npi, UPPER(x.hospital_system_name)" in source
+    assert "GROUP BY x.npi, UPPER(x.hospital_system_name COLLATE {MART_COLLATION})" in source
+    assert "primary_organization_parent_name" in source
+    assert "hospital parent fallback" in source
     assert "dedupe_rk" in source
     assert "pd_stg_npi_sl" in source
     assert ".pat_dt" not in source
