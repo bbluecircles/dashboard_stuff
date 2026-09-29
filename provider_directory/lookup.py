@@ -327,7 +327,13 @@ def fetch_top_code_percents(
     return by_npi
 
 
-def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_DB) -> list[ProviderSpine]:
+def _attach_practices(
+    conn,
+    items: list[ProviderSpine],
+    *,
+    mart_db: str = MART_DB,
+    include_utilization: bool = True,
+) -> list[ProviderSpine]:
     if not items:
         return items
     npis = [item.npi for item in items]
@@ -335,7 +341,7 @@ def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_D
     by_org = fetch_group_practices(conn, npis, mart_db=mart_db)
     by_hosp = fetch_hospital_affiliations(conn, npis, mart_db=mart_db)
     by_ref = fetch_referrals(conn, npis, mart_db=mart_db)
-    by_util = fetch_utilization(conn, npis, mart_db=mart_db)
+    by_util = fetch_utilization(conn, npis, mart_db=mart_db) if include_utilization else {}
     by_pct = fetch_top_code_percents(conn, npis, mart_db=mart_db)
     return [
         item.model_copy(
@@ -352,7 +358,13 @@ def _attach_practices(conn, items: list[ProviderSpine], *, mart_db: str = MART_D
     ]
 
 
-def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | None:
+def get_provider(
+    conn,
+    npi: int,
+    *,
+    mart_db: str = MART_DB,
+    include_utilization: bool = True,
+) -> ProviderSpine | None:
     with conn.cursor() as cur:
         cur.execute(
             f"SELECT * FROM {quote_ident(mart_db)}.pd_provider WHERE npi = %s",
@@ -364,7 +376,9 @@ def get_provider(conn, npi: int, *, mart_db: str = MART_DB) -> ProviderSpine | N
     _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered")
     _null_zero_open_payments(row)
     item = ProviderSpine.model_validate(row)
-    return _attach_practices(conn, [item], mart_db=mart_db)[0]
+    return _attach_practices(
+        conn, [item], mart_db=mart_db, include_utilization=include_utilization
+    )[0]
 
 
 def _provider_filter_clauses(

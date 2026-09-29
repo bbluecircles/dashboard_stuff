@@ -25,6 +25,7 @@ from provider_directory.models import (
     GroupPracticeProfile,
     ProviderDumpList,
     ProviderSpine,
+    api_response_exclude,
 )
 from provider_directory.refresh import read_refresh_state, resolve_window, warehouse_max_period
 from provider_directory.settings import (
@@ -157,7 +158,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         description=(
             "Mart lookup for the .NET UI. Pass state=AZ (or TX, …) to select "
             "{st}_pd. List endpoint is a paged dump for the picker table; "
-            "GET /v1/providers/{npi} is the full profile. Never reads pat_dt."
+            "GET /v1/providers/{npi} is the full profile. Never reads pat_dt. "
+            "Omits Open Payments and Care Compare utilization (practice profile)."
         ),
         docs_url=docs,
         redoc_url=None if docs is None else "/redoc",
@@ -214,7 +216,12 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             current_job=job_runner.current(),
         )
 
-    @app.get("/v1/providers/{npi}", response_model=ProviderSpine, tags=["providers"])
+    @app.get(
+        "/v1/providers/{npi}",
+        response_model=ProviderSpine,
+        response_model_exclude=api_response_exclude(ProviderSpine),
+        tags=["providers"],
+    )
     def provider_get(
         npi: int,
         _: Annotated[None, Depends(require_api_key)],
@@ -224,7 +231,9 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         if npi < NPI_MIN or npi > NPI_MAX:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "NPI must be 10 digits")
         market = _market_or_422(state)
-        row = get_provider(conn, npi, mart_db=market.mart_db)
+        row = get_provider(
+            conn, npi, mart_db=market.mart_db, include_utilization=False
+        )
         if row is None:
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND,
@@ -277,7 +286,12 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    @app.get("/v1/group-practices/{organization_id}", response_model=GroupPracticeProfile, tags=["groups"])
+    @app.get(
+        "/v1/group-practices/{organization_id}",
+        response_model=GroupPracticeProfile,
+        response_model_exclude=api_response_exclude(GroupPracticeProfile),
+        tags=["groups"],
+    )
     def group_practice_get(
         organization_id: int,
         _: Annotated[None, Depends(require_api_key)],

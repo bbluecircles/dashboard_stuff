@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from provider_directory.api import create_app, db_conn
 from provider_directory.jobs import PHASES, JobRunner
-from provider_directory.models import ProviderDumpList, ProviderDumpRow, ProviderSpine
+from provider_directory.models import ProviderDumpList, ProviderDumpRow, ProviderSpine, ProviderUtilization
 
 
 @contextmanager
@@ -64,9 +64,25 @@ def test_api_key_required(tmp_path, monkeypatch):
 
 def test_get_and_search_providers(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
-    row = ProviderSpine(npi=1952863797, last_name="Smith", visits_total=6)
+    row = ProviderSpine(
+        npi=1952863797,
+        last_name="Smith",
+        visits_total=6,
+        gender="M",
+        group_size=12,
+        mips_final_score=88.5,
+        in_system_provider=True,
+        telehealth_offered=True,
+        open_payments_year=2025,
+        open_payments_general_total=38.28,
+        open_payments_count=2,
+        utilization=[
+            ProviderUtilization(npi=1952863797, rk=1, procedure_category="Office visits")
+        ],
+    )
 
     def fake_get(conn, npi, **kwargs):
+        assert kwargs.get("include_utilization") is False
         return row if npi == 1952863797 else None
 
     def fake_search(conn, **kwargs):
@@ -90,10 +106,27 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     assert missing.status_code == 404
     found = client.get("/v1/providers/1952863797")
     assert found.status_code == 200
-    assert found.json()["last_name"] == "Smith"
-    assert found.json()["practices"] == []
-    assert found.json()["group_practices"] == []
-    assert found.json()["hospital_affiliations"] == []
+    body = found.json()
+    assert body["last_name"] == "Smith"
+    assert body["gender"] == "M"
+    assert body["group_size"] == 12
+    assert body["mips_final_score"] == 88.5
+    assert body["in_system_provider"] is True
+    assert body["telehealth_offered"] is True
+    assert body["practices"] == []
+    assert body["group_practices"] == []
+    assert body["hospital_affiliations"] == []
+    assert "utilization" not in body
+    assert "open_payments_year" not in body
+    assert "open_payments_general_total" not in body
+    assert "open_payments_research_total" not in body
+    assert "open_payments_ownership_total" not in body
+    assert "open_payments_count" not in body
+    assert "gender" in body
+    assert "group_size" in body
+    assert "mips_final_score" in body
+    assert "in_system_provider" in body
+    assert "telehealth_offered" in body
     listed = client.get("/v1/providers", params={"state": "AZ", "last_name": "Smith", "active": True})
     assert listed.status_code == 200
     assert listed.json()["total"] == 1
@@ -169,6 +202,9 @@ def test_group_practice_dump(tmp_path, monkeypatch):
             provider_count=12,
             visits_total=4000,
             hospital_affiliations=[],
+            open_payments_year=2025,
+            open_payments_general_total=38.28,
+            utilization=[],
         )
 
     monkeypatch.setattr("provider_directory.api.list_group_practices", fake_groups)
@@ -186,11 +222,17 @@ def test_group_practice_dump(tmp_path, monkeypatch):
     assert "hospital_affiliations" not in body["items"][0]
     found = client.get("/v1/group-practices/1234567893", params={"state": "AZ"})
     assert found.status_code == 200
-    assert found.json()["provider_count"] == 12
-    assert found.json()["hospital_affiliations"] == []
-    assert found.json()["practices"] == []
-    assert found.json()["referrals"] == []
-    assert found.json()["visits_are_summed_across_npis"] is True
+    group = found.json()
+    assert group["provider_count"] == 12
+    assert group["hospital_affiliations"] == []
+    assert group["practices"] == []
+    assert group["referrals"] == []
+    assert group["visits_are_summed_across_npis"] is True
+    assert "utilization" not in group
+    assert "open_payments_year" not in group
+    assert "open_payments_general_total" not in group
+    assert "group_size" in group
+    assert "telehealth_offered" in group
     missing = client.get("/v1/group-practices/1111111111", params={"state": "AZ"})
     assert missing.status_code == 404
     bad = client.get("/v1/group-practices", params={"min_visits": 50, "max_visits": 10})

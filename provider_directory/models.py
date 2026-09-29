@@ -4,6 +4,23 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# HTTP GET omits these. Mart/CLI still load them. utilization[] is Care Compare
+# procedure volume (practice profile). Open Payments is the dollar overlay.
+API_OMIT_FIELDS = frozenset(
+    {
+        "open_payments_year",
+        "open_payments_general_total",
+        "open_payments_research_total",
+        "open_payments_ownership_total",
+        "open_payments_count",
+        "utilization",
+    }
+)
+
+
+def api_response_exclude(model: type[BaseModel]) -> set[str]:
+    return set(API_OMIT_FIELDS & model.model_fields.keys())
+
 
 class ProviderPractice(BaseModel):
     model_config = ConfigDict(extra="ignore")

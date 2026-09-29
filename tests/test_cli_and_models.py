@@ -1,6 +1,13 @@
 from provider_directory.cli import build_parser
 from provider_directory.lookup import _null_zero_open_payments
-from provider_directory.models import ProviderDumpRow, ProviderPractice, ProviderSpine, GroupPracticeDumpRow
+from provider_directory.models import (
+    GroupPracticeDumpRow,
+    GroupPracticeProfile,
+    ProviderDumpRow,
+    ProviderPractice,
+    ProviderSpine,
+    api_response_exclude,
+)
 
 
 def test_cli_get_active_and_min_visits():
@@ -70,6 +77,29 @@ def test_provider_spine_model_roundtrip():
     assert dumped["utilization"] == []
     assert dumped["visits_top_diagnosis_1_percent"] is None
     assert ProviderSpine.model_validate(dumped).last_name == "Smith"
+
+
+def test_api_omits_open_payments_and_utilization_only():
+    omit = api_response_exclude(ProviderSpine)
+    assert omit == {
+        "open_payments_year",
+        "open_payments_general_total",
+        "open_payments_research_total",
+        "open_payments_ownership_total",
+        "open_payments_count",
+        "utilization",
+    }
+    assert "gender" not in omit
+    assert "group_size" not in omit
+    assert "mips_final_score" not in omit
+    assert "in_system_provider" not in omit
+    assert "telehealth_offered" not in omit
+    assert "secondary_specialty_1" not in omit
+    assert "practices" not in omit
+    group_omit = api_response_exclude(GroupPracticeProfile)
+    assert "utilization" in group_omit
+    assert "open_payments_count" in group_omit
+    assert "group_size" not in group_omit
 
 
 def test_provider_practice_nested_roundtrip():

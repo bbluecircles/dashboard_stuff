@@ -59,7 +59,7 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 - Default `min_visits=1` so referring-only NPIs (`visits_total = 0`) are out unless the user clears it. Optional `max_visits` is an upper bound. Exact visit count is `min_visits` = `max_visits`; do not add a separate equals control.
 - Optional filters: `last_name`, `specialty`, `organization` (contains on `primary_organization_name`), `city` (contains on primary practice city, site_rank 1), `active`, `in_system`, `min_visits`, `max_visits`.
 - Sort is server-side: `visits_total` desc, then `panel_size`, then name. Do not re-sort 500k in memory.
-- List rows are **slim**. No `practices[]`, `group_practices[]`, `hospital_affiliations[]`, `referrals[]`, or `utilization[]`. Load those only on the selected NPI.
+- List rows are **slim**. No `practices[]`, `group_practices[]`, `hospital_affiliations[]`, or `referrals[]`. Load those only on the selected NPI. HTTP GET never returns `utilization[]` or Open Payments.
 
 **Dump row columns** (`GET /v1/providers`)
 
@@ -142,7 +142,7 @@ Null if the NPI has no specialty or no visits/RVU. Schott-scale OTP volume will 
 
 ## Profile layout (`GET /v1/providers/{npi}`)
 
-Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
+Same keys as `python -m provider_directory.cli get --state AZ {npi}`, except HTTP GET omits Open Payments (`open_payments_*`) and Care Compare `utilization[]` (practice profile). CLI `get` still prints those. Claims sites stay on `practices[]`.
 
 **Sticky chrome (not a tab)** — banner from `/v1/mart` (“as of {window_end}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, primary org + parent, NPI.
 
@@ -154,9 +154,9 @@ Same payload as `python -m provider_directory.cli get --state AZ {npi}`.
 | **Sites** | Top 5 **addresses** as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. Do not put health systems here — those are Overview affiliations. |
 | **Panel** | **Bars** for age bands and sex. **Bars** for payer mix (third-party / Medicaid / MA / FFS). Top 3 commercial parent **names** + percents. Hide a 0% extra payer. |
 | **Referrals** | Two **lists**: in and out, top 3 each (peer name, specialty, patient count). No network graph. |
-| **CMS** | Group size, telehealth offered, secondary specialties, MIPS, Open Payments (non-null kinds only; never `$0` for a missing kind), `utilization[]`. |
+| **CMS** | Group size, telehealth offered, secondary specialties, MIPS. |
 
-**Hide the CMS tab** when group size, telehealth, secondary specialties, MIPS, Open Payments, and `utilization[]` are all null/empty. Sean Smith still has group size / telehealth / MIPS, so the tab stays. Many NPs will have a thin CMS tab (Open Payments only, or nothing).
+**Hide the CMS tab** when group size, telehealth, secondary specialties, and MIPS are all null/empty. Sean Smith still has group size / telehealth / MIPS, so the tab stays. Many NPs will have no CMS tab. Do not render Open Payments or Care Compare `utilization[]` — those keys are not on HTTP GET.
 
 Hide any other block inside a tab when every field in it is null. Hide a POS bucket at 0% if the named buckets already tell the story.
 
@@ -172,13 +172,13 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 | **Sites** | `practices[]` top 5 street+ZIP clusters, visits/RVU summed across members at that cluster. **No map.** |
 | **Panel** | Age / sex / payer mix from weighted member percents. Top 3 commercial parents. |
 | **Referrals** | Top 3 in and out; `patient_count` is summed. |
-| **CMS** | `group_size` is max CMS `num_org_mem` on members (not `provider_count`). `telehealth_offered` if any member offers it. Open Payments are sums. Hide MIPS / `utilization[]` / secondary specialties (not group scores). |
+| **CMS** | `group_size` is max CMS `num_org_mem` on members (not `provider_count`). `telehealth_offered` if any member offers it. Hide MIPS / secondary specialties (not group scores). |
 
 `visits_are_summed_across_npis` is true on this payload. Keep the summed-across-providers caption on every tab that shows volume.
 
 ### Numbers vs bars
 
-- **Numbers** for counts and scores: visits, panel size, RVU total, percentile, MIPS, Open Payments dollars, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
+- **Numbers** for counts and scores: visits, panel size, RVU total, percentile, MIPS, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
 - **Bars** for mixes that sum toward 100%: POS, weekday, panel age, panel sex, payer mix. A simple horizontal stacked or small-multiples bar is enough. No chart library required if CSS bars are easier.
 - **Lists** for ranked names: dx, px, group practices, hospital affiliations, sites, referrals. Dx/px send `visits_top_diagnosis_*_percent` / `visits_top_procedure_*_percent` (share of visits, not a 100% bar). Affiliations send `visit_share_pct`.
 
@@ -200,17 +200,12 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 | `visits_percent_lab` | POS 81, or laboratory work_type | |
 | `visits_percent_other_pos` | Everything else | Hide if named buckets sum to ~100 |
 | `mips_final_score` / `mips_quality_score` | PDC clinician MIPS | |
-| `open_payments_year` | Program year summed | Currently 2025 |
-| `open_payments_general_total` | General $ | Null if none; never show `$0` for a missing kind |
-| `open_payments_research_total` | Research $ | Null if no research rows |
-| `open_payments_ownership_total` | Ownership $ | Null if none |
-| `open_payments_count` | Payment row count | |
-| `utilization[]` | Care Compare procedure categories | Often empty for NPs and low-volume NPIs |
+| `open_payments_*` / `utilization[]` | Built into the mart; CLI `get` still shows them | **Not on HTTP GET.** Do not bind UI fields. |
 
 ## Smoke NPIs (`state=AZ`)
 
-- **Sean Smith `1952863797`**: `in_system_provider: true`, Mayo, 6 visits, phones may be null. Open Payments and `utilization[]` are null.
-- **Lori Schott `1609236967`**: Open Payments 2025 general ~$38, research/ownership **null** (not `0.0`), count 2. High OTP visit volume. Group size / MIPS / utilization may be null (NP).
+- **Sean Smith `1952863797`**: `in_system_provider: true`, Mayo, 6 visits, phones may be null.
+- **Lori Schott `1609236967`**: High OTP visit volume. Group size / MIPS may be null (NP).
 
 ## Out of v1 UI
 
