@@ -476,7 +476,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_window_claim (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            encounter_id BIGINT,
+            encounter_id DECIMAL(25,0),
             period_code INT,
             pat_id BIGINT UNSIGNED,
             age_code SMALLINT,
@@ -497,7 +497,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit (
-            encounter_id BIGINT NOT NULL,
+            encounter_id DECIMAL(25,0) NOT NULL,
             rendering_npi BIGINT UNSIGNED,
             dx VARCHAR(10),
             px VARCHAR(10),
@@ -612,7 +612,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit_site (
-            encounter_id BIGINT NOT NULL,
+            encounter_id DECIMAL(25,0) NOT NULL,
             rendering_npi BIGINT UNSIGNED NOT NULL,
             sl_code BIGINT UNSIGNED NOT NULL,
             PRIMARY KEY (encounter_id),
@@ -697,7 +697,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_visit_date (
-            encounter_id BIGINT NOT NULL,
+            encounter_id DECIMAL(25,0) NOT NULL,
             service_end_date DATE NOT NULL,
             PRIMARY KEY (encounter_id)
         ) {table_options()}

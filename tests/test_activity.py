@@ -99,14 +99,15 @@ def test_schema_includes_phase2_columns_and_staging():
 
 
 def test_encounter_id_is_signed_and_buckets_use_abs():
-    # az_cms.pat_dt carries encounter ids outside BIGINT UNSIGNED (error 1264
-    # at Phase 2 load). Staging must accept signed ids and bucket them by ABS so
-    # negative ids are not silently skipped by MOD(x, N) = 0..N-1.
+    # az_cms.pat_dt.encounter_id is decimal(65,0) with 22-digit ids, past any
+    # BIGINT (error 1264 at Phase 2 load). Staging must use a wide DECIMAL and
+    # bucket by ABS so a negative id is never skipped by MOD(x, N) = 0..N-1.
     import re
     from provider_directory import activity, analytics, complete, locations
 
     sql = "\n".join(ddl_statements("az_pd"))
-    assert "encounter_id BIGINT UNSIGNED" not in sql
+    assert "encounter_id BIGINT" not in sql
+    assert sql.count("encounter_id DECIMAL(25,0)") == 4
     for table in ("pd_stg_window_claim", "pd_stg_visit", "pd_stg_visit_site", "pd_stg_visit_date"):
         assert table in sql
     for mod in (activity, analytics, complete, locations):
