@@ -478,7 +478,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             encounter_id DECIMAL(25,0),
             period_code INT,
-            pat_id BIGINT UNSIGNED,
+            pat_id DECIMAL(25,0),
             age_code SMALLINT,
             gender_code VARCHAR(1),
             rendering_physician_code BIGINT UNSIGNED,
@@ -501,7 +501,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             rendering_npi BIGINT UNSIGNED,
             dx VARCHAR(10),
             px VARCHAR(10),
-            pat_id BIGINT UNSIGNED,
+            pat_id DECIMAL(25,0),
             period_code INT,
             PRIMARY KEY (encounter_id),
             KEY idx_rend (rendering_npi),
@@ -513,7 +513,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_panel_patient (
             npi BIGINT UNSIGNED NOT NULL,
-            pat_id BIGINT UNSIGNED NOT NULL,
+            pat_id DECIMAL(25,0) NOT NULL,
             age_code SMALLINT,
             gender_code VARCHAR(1),
             PRIMARY KEY (npi, pat_id)

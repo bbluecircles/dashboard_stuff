@@ -108,6 +108,8 @@ def test_encounter_id_is_signed_and_buckets_use_abs():
     sql = "\n".join(ddl_statements("az_pd"))
     assert "encounter_id BIGINT" not in sql
     assert sql.count("encounter_id DECIMAL(25,0)") == 4
+    assert "pat_id BIGINT" not in sql
+    assert sql.count("pat_id DECIMAL(25,0)") == 3
     for table in ("pd_stg_window_claim", "pd_stg_visit", "pd_stg_visit_site", "pd_stg_visit_date"):
         assert table in sql
     for mod in (activity, analytics, complete, locations):
