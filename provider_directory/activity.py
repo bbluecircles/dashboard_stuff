@@ -161,7 +161,7 @@ def _rebuild_activity_from_staging(
             MIN(t.period_code)
         FROM {mart}.pd_stg_window_claim t
         WHERE t.encounter_id IS NOT NULL AND t.encounter_id <> 0
-          AND MOD(t.encounter_id, {VISIT_BUCKETS}) = %s
+          AND MOD(ABS(t.encounter_id), {VISIT_BUCKETS}) = %s
         GROUP BY t.encounter_id
     """
     for bucket in range(VISIT_BUCKETS):

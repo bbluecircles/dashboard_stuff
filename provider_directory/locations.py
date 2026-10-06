@@ -297,7 +297,7 @@ def rebuild_locations(
                         ON c.encounter_id = v.encounter_id
                     INNER JOIN {mart}.pd_provider p
                         ON p.npi = v.rendering_npi
-                    WHERE MOD(v.encounter_id, {VISIT_BUCKETS}) = %s
+                    WHERE MOD(ABS(v.encounter_id), {VISIT_BUCKETS}) = %s
                       AND c.sl_code IS NOT NULL
                       AND c.sl_code NOT IN ({dummy})
                     GROUP BY v.encounter_id, v.rendering_npi, c.sl_code

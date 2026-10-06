@@ -96,3 +96,20 @@ def test_schema_includes_phase2_columns_and_staging():
     names = {name for name, _def in PD_PROVIDER_PHASE2_COLUMNS}
     assert "active_provider" in names
     assert "visits_top_procedure_3" in names
+
+
+def test_encounter_id_is_signed_and_buckets_use_abs():
+    # az_cms.pat_dt carries encounter ids outside BIGINT UNSIGNED (error 1264
+    # at Phase 2 load). Staging must accept signed ids and bucket them by ABS so
+    # negative ids are not silently skipped by MOD(x, N) = 0..N-1.
+    import re
+    from provider_directory import activity, analytics, complete, locations
+
+    sql = "\n".join(ddl_statements("az_pd"))
+    assert "encounter_id BIGINT UNSIGNED" not in sql
+    for table in ("pd_stg_window_claim", "pd_stg_visit", "pd_stg_visit_site", "pd_stg_visit_date"):
+        assert table in sql
+    for mod in (activity, analytics, complete, locations):
+        source = open(mod.__file__, encoding="utf-8").read()
+        for match in re.findall(r"MOD\(([^,]+encounter_id[^,]*),\s*\{VISIT_BUCKETS\}\)", source):
+            assert match.startswith("ABS("), f"{mod.__name__}: {match}"

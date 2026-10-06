@@ -264,7 +264,7 @@ def rebuild_analytics(
                 INNER JOIN {mart}.pd_stg_visit v ON v.encounter_id = vs.encounter_id
                 INNER JOIN {lookup}.procd pr
                     ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
-                WHERE MOD(vs.encounter_id, {VISIT_BUCKETS}) = %s
+                WHERE MOD(ABS(vs.encounter_id), {VISIT_BUCKETS}) = %s
                   AND v.px IS NOT NULL AND v.px <> ''
                   AND {is_hcpcs_sql("v.px")}
                   AND {wrvu_expr} IS NOT NULL

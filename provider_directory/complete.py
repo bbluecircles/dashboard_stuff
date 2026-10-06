@@ -355,7 +355,7 @@ def _fill_visit_dates(
         FROM {claims}.pat_dt t
         INNER JOIN {mart}.pd_stg_visit v ON v.encounter_id = t.encounter_id
         WHERE t.period_code = %s
-          AND MOD(IFNULL(t.encounter_id, 0), {VISIT_BUCKETS}) = %s
+          AND MOD(ABS(IFNULL(t.encounter_id, 0)), {VISIT_BUCKETS}) = %s
           AND {is_ymd_sql("t.service_end_date")}
           AND {date_expr} IS NOT NULL
         GROUP BY v.encounter_id
@@ -383,7 +383,7 @@ def _fill_npi_dow(cur, conn, mart: str) -> int:
             COUNT(*)
         FROM {mart}.pd_stg_visit_date d
         INNER JOIN {mart}.pd_stg_visit v ON v.encounter_id = d.encounter_id
-        WHERE MOD(d.encounter_id, {VISIT_BUCKETS}) = %s
+        WHERE MOD(ABS(d.encounter_id), {VISIT_BUCKETS}) = %s
           AND v.rendering_npi IS NOT NULL
           AND d.service_end_date IS NOT NULL
         GROUP BY v.rendering_npi, DAYOFWEEK(d.service_end_date)
@@ -408,7 +408,7 @@ def _fill_site_dow(cur, conn, mart: str) -> int:
             COUNT(*)
         FROM {mart}.pd_stg_visit_date d
         INNER JOIN {mart}.pd_stg_visit_site vs ON vs.encounter_id = d.encounter_id
-        WHERE MOD(d.encounter_id, {VISIT_BUCKETS}) = %s
+        WHERE MOD(ABS(d.encounter_id), {VISIT_BUCKETS}) = %s
           AND d.service_end_date IS NOT NULL
         GROUP BY vs.rendering_npi, vs.sl_code, DAYOFWEEK(d.service_end_date)
         ON DUPLICATE KEY UPDATE
@@ -504,7 +504,7 @@ def _fill_prior_wrvu(
                 MAX(NULLIF(TRIM(t.encounter_work_procd_code), '')) AS px
             FROM {claims}.pat_dt t
             WHERE t.period_code = %s
-              AND MOD(IFNULL(t.encounter_id, 0), {VISIT_BUCKETS}) = %s
+              AND MOD(ABS(IFNULL(t.encounter_id, 0)), {VISIT_BUCKETS}) = %s
               AND t.encounter_id IS NOT NULL AND t.encounter_id <> 0
             GROUP BY t.encounter_id
         ) v
