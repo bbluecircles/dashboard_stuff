@@ -3,7 +3,7 @@ import inspect
 import pytest
 
 from provider_directory.lookup import _provider_filter_clauses, list_providers
-from provider_directory.settings import market_for_state, parse_state
+from provider_directory.settings import market_for_state, parse_state, payer_source_for_claims_db
 from provider_directory.cli import build_parser
 
 
@@ -25,6 +25,10 @@ def test_az_cms_alias_uses_blended_claims():
     assert market.claims_db == "az_cms"
     assert market.lookup_db == "azal"
     assert market.mart_db == "az_pd"
+    assert market.payer_source == "pat_dt"
+    assert market_for_state("AZ").payer_source == "dash"
+    assert payer_source_for_claims_db("az_cms") == "pat_dt"
+    assert payer_source_for_claims_db("az") == "dash"
     assert parse_state("AZ_CMS") == "AZ"
     args = build_parser().parse_args(["phase2", "--state", "AZ_CMS"])
     assert args.state == "AZ_CMS"

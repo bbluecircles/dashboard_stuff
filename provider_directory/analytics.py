@@ -8,8 +8,11 @@ RVU from azal.procd (WORK_RVU when it looks real, else total − PE − MP).
 Do not round site wRVU per encounter bucket — Galera splits visits across
 16 hashes and ROUND(0.001, 2) zeros them out. Line-level procd_dt sums are
 a later refinement. Payer mix reuses az.dash_physician_payor_all claim
-counts in the frozen window. Code 5 Other is excluded from the four
-percents. Top 3 payers are commercial parents only.
+counts in the frozen window, except on markets whose payer_source is
+"pat_dt" (the az_cms blend, whose summary table only holds native claims):
+there it is visit-weighted from pat_dt × the payor lookup, one scan per
+month and encounter bucket like Phase 5. Code 5 Other is excluded from the
+four percents. Top 3 payers are commercial parents only.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from provider_directory.settings import (
     LOOKUP_DB,
     MART_COLLATION,
     MART_DB,
+    PAYER_SOURCES,
     PAYOR_COMMERCIAL,
     PAYOR_HMO_MA,
     PAYOR_MEDICAID,
@@ -32,6 +36,7 @@ from provider_directory.settings import (
     PAYOR_MIX_CODES,
     WINDOW_END,
     WINDOW_START,
+    payer_source_for_claims_db,
 )
 from provider_directory.transforms import (
     MIN_PLAUSIBLE_TOTAL_RVU,
@@ -143,9 +148,14 @@ def rebuild_analytics(
     lookup_db: str = LOOKUP_DB,
     window_start: int = WINDOW_START,
     window_end: int = WINDOW_END,
+    payer_source: str | None = None,
 ) -> dict:
     if not table_has_rows(conn, mart_db, "pd_stg_visit"):
         raise Phase2Required("pd_stg_visit is empty. Run phase2 first.")
+    if payer_source is None:
+        payer_source = payer_source_for_claims_db(claims_db)
+    if payer_source not in PAYER_SOURCES:
+        raise ValueError(f"payer_source must be one of {PAYER_SOURCES}, got {payer_source!r}")
     drop_phase4_staging(conn, mart_db)
     create_schema(conn, mart_db)
 
@@ -332,10 +342,53 @@ def rebuild_analytics(
                     'Unknown'
                 ), 140)
         """
-        for bucket in range(PROVIDER_BUCKETS):
-            n = _run(cur, conn, payor_sql, (bucket,))
-            counts["payor_rows"] += n
-            print(f"phase4 payor bucket {bucket}: {n} rows", flush=True)
+        payor_claims_sql = f"""
+            INSERT INTO {mart}.pd_stg_npi_payor (
+                npi, is_payor_code, payor_parent_name, claim_count
+            )
+            SELECT
+                v.rendering_npi,
+                v.is_payor_code,
+                v.payor_parent_name,
+                COUNT(*)
+            FROM (
+                SELECT
+                    t.encounter_id,
+                    MAX(t.encounter_rendering_physician_code) AS rendering_npi,
+                    py.is_payor_code,
+                    LEFT(COALESCE(
+                        NULLIF(TRIM(py.payor_parent_name), ''),
+                        NULLIF(TRIM(py.payor_name), ''),
+                        'Unknown'
+                    ), 140) AS payor_parent_name
+                FROM {claims}.pat_dt t
+                INNER JOIN {claims}.payor py
+                    ON py.payor_code = COALESCE(
+                        NULLIF(TRIM(t.encounter_payor_code), ''), t.payor_code
+                    ) COLLATE {MART_COLLATION}
+                WHERE t.period_code = %s
+                  AND MOD(ABS(IFNULL(t.encounter_id, 0)), {VISIT_BUCKETS}) = %s
+                  AND t.encounter_id IS NOT NULL AND t.encounter_id <> 0
+                  AND py.is_payor_code IS NOT NULL
+                GROUP BY t.encounter_id, py.is_payor_code, payor_parent_name
+            ) v
+            INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
+            WHERE v.rendering_npi NOT IN ({dummy})
+            GROUP BY v.rendering_npi, v.is_payor_code, v.payor_parent_name
+            ON DUPLICATE KEY UPDATE
+                claim_count = {mart}.pd_stg_npi_payor.claim_count + VALUES(claim_count)
+        """
+        if payer_source == "pat_dt":
+            for period in iter_period_codes(window_start, window_end):
+                for bucket in range(VISIT_BUCKETS):
+                    n = _run(cur, conn, payor_claims_sql, (period, bucket))
+                    counts["payor_rows"] += n
+                    print(f"phase4 payor {period} bucket {bucket}: {n} rows", flush=True)
+        else:
+            for bucket in range(PROVIDER_BUCKETS):
+                n = _run(cur, conn, payor_sql, (bucket,))
+                counts["payor_rows"] += n
+                print(f"phase4 payor bucket {bucket}: {n} rows", flush=True)
 
         mix_sql = f"""
             UPDATE {mart}.pd_provider p
@@ -497,5 +550,6 @@ def rebuild_analytics(
     return {
         "window_start": window_start,
         "window_end": window_end,
+        "payer_source": payer_source,
         **counts,
     }

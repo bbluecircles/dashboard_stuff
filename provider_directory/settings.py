@@ -48,12 +48,18 @@ class Market:
     """One warehouse + mart per USPS state. AZ → az / azal / az_pd.
 
     AZ_CMS is the blended Arizona claims catalog (az_cms), still USPS AZ.
+
+    payer_source: where Phase 4 reads payer mix. "dash" is the warehouse
+    summary table dash_physician_payor_all. "pat_dt" derives it from the
+    claims lines joined to the payor lookup, for blends whose summary table
+    only carries the native claims.
     """
 
     state: str
     claims_db: str
     lookup_db: str
     mart_db: str
+    payer_source: str = "dash"
 
 
 # Warehouse aliases: CLI/API key → USPS state + database names.
@@ -63,8 +69,19 @@ MARKET_ALIASES = {
         claims_db="az_cms",
         lookup_db="azal",
         mart_db="az_pd",
+        payer_source="pat_dt",
     ),
 }
+
+PAYER_SOURCES = ("dash", "pat_dt")
+
+
+def payer_source_for_claims_db(claims_db: str) -> str:
+    """Payer source for a claims database, by its market alias; "dash" otherwise."""
+    for market in MARKET_ALIASES.values():
+        if market.claims_db == claims_db:
+            return market.payer_source
+    return "dash"
 
 
 def _is_market_key(text: str) -> bool:

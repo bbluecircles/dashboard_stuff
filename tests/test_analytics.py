@@ -77,6 +77,13 @@ def test_phase4_sql_stays_on_mart_and_dash():
     assert "FROM az.pat_dt" not in source
     assert "pd_stg_visit" in source
     assert "is_payor_code = 5" not in source or "PAYOR_OTHER" in source
+    # Blended az_cms: payer mix comes from pat_dt × payor lookup, visit grain,
+    # one scan per period/encounter bucket, accumulated with ON DUPLICATE KEY.
+    assert 'payer_source == "pat_dt"' in source
+    assert "encounter_payor_code" in source
+    assert "py.is_payor_code" in source
+    assert "MAX(t.encounter_rendering_physician_code) AS rendering_npi" in source
+    assert "claim_count = {mart}.pd_stg_npi_payor.claim_count + VALUES(claim_count)" in source
     periods = period_in_sql(202308, 202407)
     assert "202308" in periods and "202407" in periods and "202408" not in periods
     case_sql = work_type_case_sql("sl")
