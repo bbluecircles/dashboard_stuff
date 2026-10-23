@@ -90,10 +90,13 @@ STAGING_TABLES = (
 )
 
 
+MART_ENGINE = "MyISAM"
+
+
 def table_options() -> str:
     charset = require_ident(MART_CHARSET, "charset")
     collation = require_ident(MART_COLLATION, "collation")
-    return f"ENGINE=InnoDB DEFAULT CHARSET={charset} COLLATE={collation}"
+    return f"ENGINE={MART_ENGINE} DEFAULT CHARSET={charset} COLLATE={collation}"
 
 
 PD_PROVIDER_PHASE2_COLUMNS = (
@@ -982,6 +985,26 @@ def convert_persistent_collation(conn, mart_db: str = MART_DB) -> None:
             )
 
 
+def convert_engine(conn, mart_db: str = MART_DB) -> None:
+    """Move any existing mart table off InnoDB onto MyISAM. CREATE ... IF NOT EXISTS won't."""
+    db = quote_ident(mart_db)
+    with conn.cursor() as cur:
+        for table in TABLES:
+            cur.execute(
+                """
+                SELECT ENGINE AS engine
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                """,
+                (mart_db, table),
+            )
+            row = cur.fetchone()
+            if not row or (row["engine"] or "").lower() == MART_ENGINE.lower():
+                continue
+            print(f"engine {table}: {row['engine']} -> {MART_ENGINE}", flush=True)
+            cur.execute(f"ALTER TABLE {db}.{quote_ident(table)} ENGINE={MART_ENGINE}")
+
+
 def create_schema(conn, mart_db: str = MART_DB) -> None:
     from provider_directory.db import ensure_mart_database
 
@@ -994,4 +1017,5 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     migrate_phase4_columns(conn, mart_db)
     migrate_phase5_columns(conn, mart_db)
     migrate_extras_columns(conn, mart_db)
+    convert_engine(conn, mart_db)
     convert_persistent_collation(conn, mart_db)
