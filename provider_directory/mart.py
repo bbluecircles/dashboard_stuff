@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
+from provider_directory.group_summary import rebuild_group_summary
 from provider_directory.settings import GRAD_AGE_OFFSET, MARKET_STATE, MART_DB, MAX_ESTIMATED_AGE, MIN_GRAD_YEAR, REPORT_YEAR
 
 PROVIDER_BUCKETS = 16
@@ -158,6 +159,7 @@ def overlay_cms(
         overlay_in_system(cur, conn, mart_db)
         cur.execute(f"UPDATE {mart}.pd_provider SET refreshed_at = NOW()")
     conn.commit()
+    rebuild_group_summary(conn, mart_db)
 
 
 def overlay_in_system(cur, conn, mart_db: str = MART_DB) -> dict[str, int]:

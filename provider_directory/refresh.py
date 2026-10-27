@@ -13,6 +13,7 @@ from provider_directory.activity import slide_activity
 from provider_directory.analytics import rebuild_analytics
 from provider_directory.complete import rebuild_complete
 from provider_directory.db import quote_ident
+from provider_directory.group_summary import rebuild_group_summary
 from provider_directory.locations import rebuild_locations
 from provider_directory.schema import create_schema, ensure_indexes
 from provider_directory.settings import (
@@ -187,11 +188,13 @@ def rebuild_refresh(
 ) -> dict:
     create_schema(conn, mart_db)
     indexes = ensure_indexes(conn, mart_db, include_staging=not skip_staging_indexes)
+    group_summary = rebuild_group_summary(conn, mart_db)
     plan = _window_plan(conn, mart_db, claims_db)
     summary: dict = {
         "mart_db": mart_db,
         "action": "indexes",
         "indexes": indexes,
+        "group_summary": group_summary,
         **plan,
     }
 

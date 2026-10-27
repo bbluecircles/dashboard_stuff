@@ -7,6 +7,7 @@ exceeded"). Every INSERT/UPDATE here commits in monthly or hashed slices.
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
+from provider_directory.group_summary import rebuild_group_summary
 from provider_directory.schema import create_schema, drop_phase2_derived, drop_staging_tables, table_options
 from provider_directory.settings import (
     CLAIMS_DB,
@@ -397,6 +398,7 @@ def rebuild_activity(
         counts["window_claims"] = load_window_claims(cur, conn, mart, claims, periods)
         _rebuild_activity_from_staging(cur, conn, mart, lookup, dummy, periods, counts)
 
+    counts["group_summary"] = rebuild_group_summary(conn, mart_db)
     return {
         "window_start": window_start,
         "window_end": window_end,
@@ -459,6 +461,7 @@ def slide_activity(
             _run(cur, conn, reset_activity_columns_sql(mart_db, bucket=bucket))
         _rebuild_activity_from_staging(cur, conn, mart, lookup, dummy, periods, counts)
 
+    counts["group_summary"] = rebuild_group_summary(conn, mart_db)
     return {
         "window_start": window_start,
         "window_end": window_end,

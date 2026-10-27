@@ -2,22 +2,50 @@ import inspect
 
 import pytest
 
-from provider_directory.lookup import list_group_practices, list_providers
+from provider_directory.lookup import (
+    group_member_where,
+    group_scope,
+    group_scored_sql,
+    list_group_practices,
+    list_providers,
+)
 from provider_directory.models import GroupPracticeDumpList, GroupPracticeDumpRow
 
 
 def test_group_dump_sql_rolls_up_org_id_not_pat_dt():
+    sql = group_scored_sql("az_pd", "all")
+    assert "GROUP BY p.primary_organization_id" in sql
+    assert "p.primary_organization_id IS NOT NULL" in sql
+    assert ".pat_dt" not in sql
+    assert "SUM(IFNULL(p.visits_total, 0))" in sql
+    assert "COUNT(*) AS provider_count" in sql
+    assert "activity_percentile" in sql
+    assert "visits_per_provider" in sql
+    assert "ROW_NUMBER() OVER" in sql
+    assert "pd_provider_hospital_affiliation" not in sql
     source = inspect.getsource(list_group_practices)
-    assert "GROUP BY p.primary_organization_id" in source
-    assert "p.primary_organization_id IS NOT NULL" in source
-    assert ".pat_dt" not in source
-    assert "SUM(IFNULL(p.visits_total, 0))" in source
-    assert "COUNT(*) AS provider_count" in source
     assert "visits_are_summed_across_npis=True" in source
-    assert "activity_percentile" in source
-    assert "visits_per_provider" in source
-    assert "ROW_NUMBER() OVER" in source
-    assert "pd_provider_hospital_affiliation" not in source
+    assert ".pat_dt" not in source
+
+
+def test_group_dump_serves_from_summary_table_with_live_fallback():
+    source = inspect.getsource(list_group_practices)
+    assert "group_summary_ready(conn, mart_db)" in source
+    assert "GROUP_SUMMARY_TABLE" in source
+    assert "s.member_scope = %s" in source
+    assert "group_scored_sql(mart_db, scope)" in source
+    assert "ORDER BY visits_total DESC, provider_count DESC, organization_name, organization_id" in source
+
+
+def test_group_scope_matches_active_filter():
+    assert group_scope(None) == "all"
+    assert group_scope(True) == "active"
+    assert group_scope(False) == "inactive"
+    assert "active_provider" not in group_member_where("all")
+    assert "p.active_provider = 1" in group_member_where("active")
+    assert "p.active_provider = 0" in group_member_where("inactive")
+    with pytest.raises(ValueError):
+        group_member_where("everyone")
 
 
 def test_group_dump_rejects_min_above_max():

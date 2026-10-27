@@ -575,6 +575,101 @@ def _group_dump_state(state: str | None, mart_db: str) -> str:
     return (state or "").upper() or mart_db.split("_")[0].upper()
 
 
+GROUP_SCOPE_ALL = "all"
+GROUP_SCOPE_ACTIVE = "active"
+GROUP_SCOPE_INACTIVE = "inactive"
+GROUP_SCOPES = (GROUP_SCOPE_ALL, GROUP_SCOPE_ACTIVE, GROUP_SCOPE_INACTIVE)
+GROUP_SUMMARY_TABLE = "pd_group_practice"
+
+
+def group_scope(active: bool | None) -> str:
+    """Which member set the dump sums: every attributed NPI, active only, or inactive only."""
+    if active is True:
+        return GROUP_SCOPE_ACTIVE
+    if active is False:
+        return GROUP_SCOPE_INACTIVE
+    return GROUP_SCOPE_ALL
+
+
+def group_member_where(scope: str) -> str:
+    if scope not in GROUP_SCOPES:
+        raise ValueError(f"scope must be one of {GROUP_SCOPES}, got {scope!r}")
+    clauses = ["p.primary_organization_id IS NOT NULL"]
+    if scope == GROUP_SCOPE_ACTIVE:
+        clauses.append("p.active_provider = 1")
+    elif scope == GROUP_SCOPE_INACTIVE:
+        clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
+    return " AND ".join(clauses)
+
+
+def group_scored_sql(mart_db: str, scope: str) -> str:
+    """Live aggregation of pd_provider into one scored row per billing org.
+
+    Grain is primary_organization_id (billing NPI from physician_primary_affiliation).
+    visits_total / panel_size / wrvu_total are sums of member Type 1 NPIs and can
+    double-count an encounter billed by two members of the same group. Reads
+    pd_provider only, never pat_dt. rebuild_group_summary materializes this into
+    pd_group_practice; list_group_practices only runs it when that table is empty.
+    """
+    mart = quote_ident(mart_db)
+    member_where = group_member_where(scope)
+    grouped = f"""
+        SELECT
+            p.primary_organization_id AS organization_id,
+            MAX(p.primary_organization_name) AS organization_name,
+            MAX(p.primary_organization_npi) AS organization_npi,
+            MAX(p.primary_organization_parent_id) AS parent_id,
+            MAX(p.primary_organization_parent_name) AS parent_name,
+            COUNT(*) AS provider_count,
+            SUM(CASE WHEN p.active_provider = 1 THEN 1 ELSE 0 END) AS active_provider_count,
+            SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) AS in_system_provider_count,
+            SUM(IFNULL(p.visits_total, 0)) AS visits_total,
+            SUM(IFNULL(p.panel_size, 0)) AS panel_size,
+            SUM(IFNULL(p.wrvu_total, 0)) AS wrvu_total
+        FROM {mart}.pd_provider p
+        WHERE {member_where}
+        GROUP BY p.primary_organization_id
+    """
+    return f"""
+        SELECT
+            g.*,
+            ROUND(g.visits_total * 1.0 / NULLIF(g.provider_count, 0), 1) AS visits_per_provider,
+            CASE
+                WHEN g.visits_total > 0 THEN ROUND(
+                    100.0 * ROW_NUMBER() OVER (
+                        PARTITION BY (g.visits_total > 0)
+                        ORDER BY g.visits_total, g.organization_id
+                    ) / COUNT(*) OVER (PARTITION BY (g.visits_total > 0)),
+                    1
+                )
+            END AS visits_percentile,
+            CASE
+                WHEN g.visits_total > 0 THEN ROUND(
+                    100.0 * ROW_NUMBER() OVER (
+                        PARTITION BY (g.visits_total > 0)
+                        ORDER BY g.visits_total * 1.0 / NULLIF(g.provider_count, 0), g.organization_id
+                    ) / COUNT(*) OVER (PARTITION BY (g.visits_total > 0)),
+                    1
+                )
+            END AS activity_percentile
+        FROM ({grouped}) g
+    """
+
+
+def group_summary_ready(conn, mart_db: str = MART_DB) -> bool:
+    """True when pd_group_practice exists and holds rows."""
+    mart = quote_ident(mart_db)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT 1 AS ok FROM {mart}.{GROUP_SUMMARY_TABLE} LIMIT 1")
+            return cur.fetchone() is not None
+    except pymysql.err.ProgrammingError as exc:
+        if _missing_table(exc):
+            conn.rollback()
+            return False
+        raise
+
+
 def list_group_practices(
     conn,
     *,
@@ -591,21 +686,16 @@ def list_group_practices(
     mart_db: str = MART_DB,
     state: str | None = None,
 ) -> GroupPracticeDumpList:
-    """Paged dump of group practices. Reads pd_provider only — never pat_dt.
+    """Paged dump of group practices. Reads the mart only, never pat_dt.
 
-    Grain is primary_organization_id (billing NPI from physician_primary_affiliation).
-    visits_total / panel_size / wrvu_total are sums of member Type 1 NPIs and can
-    double-count an encounter billed by two members of the same group.
+    Serves from pd_group_practice (one precomputed row per org per member
+    scope) so filtering, sorting and paging are indexed reads. Falls back to
+    the live pd_provider aggregation in group_scored_sql when that table has
+    not been built yet.
     """
     if min_visits is not None and max_visits is not None and min_visits > max_visits:
         raise ValueError("min_visits cannot exceed max_visits")
-    member_clauses = ["p.primary_organization_id IS NOT NULL"]
-    member_params: list = []
-    if active is True:
-        member_clauses.append("p.active_provider = 1")
-    elif active is False:
-        member_clauses.append("(p.active_provider = 0 OR p.active_provider IS NULL)")
-    member_where = " AND ".join(member_clauses)
+    scope = group_scope(active)
 
     outer_clauses = ["1=1"]
     outer_params: list = []
@@ -634,50 +724,15 @@ def list_group_practices(
     outer_where = " AND ".join(outer_clauses)
 
     mart = quote_ident(mart_db)
-    provider = f"{mart}.pd_provider p"
-    grouped = f"""
-        SELECT
-            p.primary_organization_id AS organization_id,
-            MAX(p.primary_organization_name) AS organization_name,
-            MAX(p.primary_organization_npi) AS organization_npi,
-            MAX(p.primary_organization_parent_id) AS parent_id,
-            MAX(p.primary_organization_parent_name) AS parent_name,
-            COUNT(*) AS provider_count,
-            SUM(CASE WHEN p.active_provider = 1 THEN 1 ELSE 0 END) AS active_provider_count,
-            SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) AS in_system_provider_count,
-            SUM(IFNULL(p.visits_total, 0)) AS visits_total,
-            SUM(IFNULL(p.panel_size, 0)) AS panel_size,
-            SUM(IFNULL(p.wrvu_total, 0)) AS wrvu_total
-        FROM {provider}
-        WHERE {member_where}
-        GROUP BY p.primary_organization_id
-    """
-    scored = f"""
-        SELECT
-            g.*,
-            ROUND(g.visits_total * 1.0 / NULLIF(g.provider_count, 0), 1) AS visits_per_provider,
-            CASE
-                WHEN g.visits_total > 0 THEN ROUND(
-                    100.0 * ROW_NUMBER() OVER (
-                        PARTITION BY (g.visits_total > 0)
-                        ORDER BY g.visits_total, g.organization_id
-                    ) / COUNT(*) OVER (PARTITION BY (g.visits_total > 0)),
-                    1
-                )
-            END AS visits_percentile,
-            CASE
-                WHEN g.visits_total > 0 THEN ROUND(
-                    100.0 * ROW_NUMBER() OVER (
-                        PARTITION BY (g.visits_total > 0)
-                        ORDER BY g.visits_total * 1.0 / NULLIF(g.provider_count, 0), g.organization_id
-                    ) / COUNT(*) OVER (PARTITION BY (g.visits_total > 0)),
-                    1
-                )
-            END AS activity_percentile
-        FROM ({grouped}) g
-    """
-    filtered = f"SELECT * FROM ({scored}) s WHERE {outer_where}"
-    all_params = [*member_params, *outer_params]
+    if group_summary_ready(conn, mart_db):
+        filtered = f"""
+            SELECT * FROM {mart}.{GROUP_SUMMARY_TABLE} s
+            WHERE s.member_scope = %s AND {outer_where}
+        """
+        all_params = [scope, *outer_params]
+    else:
+        filtered = f"SELECT * FROM ({group_scored_sql(mart_db, scope)}) s WHERE {outer_where}"
+        all_params = [*outer_params]
     with conn.cursor() as cur:
         cur.execute(f"SELECT COUNT(*) AS n FROM ({filtered}) x", all_params)
         total = int(cur.fetchone()["n"])

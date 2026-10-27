@@ -21,6 +21,7 @@ TABLES = (
     "pd_provider_hospital_affiliation",
     "pd_provider_referral",
     "pd_provider_utilization",
+    "pd_group_practice",
     "pd_stg_window_claim",
     "pd_stg_visit",
     "pd_stg_panel_patient",
@@ -693,6 +694,31 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (npi, rk),
             KEY idx_npi (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_group_practice (
+            member_scope VARCHAR(8) NOT NULL,
+            organization_id BIGINT NOT NULL,
+            organization_name VARCHAR(180) NULL,
+            organization_npi BIGINT NULL,
+            parent_id INT NULL,
+            parent_name VARCHAR(80) NULL,
+            provider_count INT UNSIGNED NOT NULL DEFAULT 0,
+            active_provider_count INT UNSIGNED NOT NULL DEFAULT 0,
+            in_system_provider_count INT UNSIGNED NOT NULL DEFAULT 0,
+            visits_total BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            panel_size BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            wrvu_total DECIMAL(16,2) NULL,
+            visits_per_provider DECIMAL(12,1) NULL,
+            visits_percentile DECIMAL(5,1) NULL,
+            activity_percentile DECIMAL(5,1) NULL,
+            refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (member_scope, organization_id),
+            KEY idx_scope_visits (member_scope, visits_total),
+            KEY idx_scope_name (member_scope, organization_name),
+            KEY idx_scope_parent (member_scope, parent_name),
+            KEY idx_scope_providers (member_scope, provider_count)
         ) {table_options()}
         """,
         f"""

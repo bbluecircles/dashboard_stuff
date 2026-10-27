@@ -128,6 +128,8 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |
 
+The group-practice dump and group profile read `pd_group_practice`, one precomputed row per billing org per member scope (`all` / `active` / `inactive`), so filter, sort and page are indexed reads instead of a 858K-row aggregation per request. It is rebuilt at the end of `phase2`, `phase4`, `overlay-cms` and `phase6` (a few seconds). After pulling this change run `phase6 --state AZ_CMS` once to fill it; until then the dump falls back to the live aggregation.
+
 One phase job at a time (409 if another is running). `workers=1` is required so job state stays in this process. Poll `GET /v1/jobs/{id}` — do not use a 100-second HTTP timeout on `POST /v1/jobs/phase2`.
 
 NSSM (App directory = Analysis Scripts, same `.env` as the CLI):

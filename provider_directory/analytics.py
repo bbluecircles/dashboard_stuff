@@ -20,6 +20,7 @@ from __future__ import annotations
 from provider_directory.activity import iter_period_codes
 from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.db import quote_ident
+from provider_directory.group_summary import rebuild_group_summary
 from provider_directory.locations import Phase2Required, is_person_practice_name_sql, table_has_rows
 from provider_directory.schema import create_schema, drop_phase4_staging
 from provider_directory.settings import (
@@ -547,9 +548,11 @@ def rebuild_analytics(
     counts["group_practice_rows"] = org_lists.get("group_practice_rows", 0)
     counts["hospital_affiliation_rows"] = org_lists.get("hospital_affiliation_rows", 0)
 
+    group_summary = rebuild_group_summary(conn, mart_db)
     return {
         "window_start": window_start,
         "window_end": window_end,
         "payer_source": payer_source,
         **counts,
+        "group_summary": group_summary,
     }

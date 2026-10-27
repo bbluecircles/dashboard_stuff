@@ -239,4 +239,6 @@ python -m provider_directory.cli get --state AZ --min-visits 1 --limit 5
 python -m provider_directory.cli groups --state AZ --min-visits 1 --limit 5
 ```
 
+Group dump speed: `GET /v1/group-practices` reads the precomputed `pd_group_practice` table. After a code drop run `phase6 --state AZ` once (indexes only, no `--slide`) so it fills; phase2/phase4/overlay-cms also rebuild it.
+
 `--state` selects `{st}` / `{st}al` / `{st}_pd`. CMS national files in `data/cms` are shared. Never `phase1` from the UI.
