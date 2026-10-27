@@ -63,6 +63,8 @@ def test_schema_has_locked_tables():
     assert "in_system_provider" in sql
     assert "visits_total" in sql
     assert "utf8mb4_unicode_520_ci" in sql
+    assert "InnoDB" not in sql
+    assert sql.count("ENGINE=MyISAM") == len(ddl_statements("az_pd"))
     assert "pd_stg_visit" in sql
     assert "cms_pdc_mips" in sql
     assert "pd_provider_utilization" in sql
