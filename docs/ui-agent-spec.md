@@ -202,6 +202,15 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 | `mips_final_score` / `mips_quality_score` | PDC clinician MIPS | |
 | `open_payments_*` / `utilization[]` | Built into the mart; CLI `get` still shows them | **Not on HTTP GET.** Do not bind UI fields. |
 
+## Field help / tooltips
+
+Every rendered field gets a hover tooltip. Do not hardcode the text: fetch `GET /v1/field-help?state=` once per session and bind by **scope + JSON key**.
+
+- Scopes: `provider` (profile and picker rows), `group` (group dump and group profile; same keys, summed/weighted meaning), `practice` (`practices[]`), `group_practice` (`group_practices[]`), `hospital_affiliation`, `referral`, `utilization`.
+- Each entry: `label`, `help`. Use `label` for the field caption and `help` as the tooltip body. Text already has the window filled in ("Nov 2024 to Oct 2025").
+- **Dev mode**: `GET /v1/field-help?state=&dev=true` with header `X-Dev-Key: <PD_DEV_HELP_KEY>` adds `dev` per entry: the formula, thresholds and the mart/warehouse tables behind the number. Show it as a second paragraph in the tooltip when the app is started with a dev flag (query string, setting, or build flag; your call). Without the key the API answers 403, so a client build can never show it by accident.
+- Two-screen demo: one browser without the flag (client view), one with the flag and the key (developer view). Same data, same page.
+
 ## Smoke NPIs (`state=AZ`)
 
 - **Sean Smith `1952863797`**: `in_system_provider: true`, Mayo, 6 visits, phones may be null.

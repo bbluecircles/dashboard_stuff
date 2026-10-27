@@ -124,11 +124,14 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page |
 | GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by billing org). Max 500 per page |
 | GET | `/v1/group-practices/{organization_id}?state=` | Group profile (same tabs as a provider, member-aggregated) |
+| GET | `/v1/field-help?state=&dev=` | Label + hover text for every field, by scope (`provider`, `group`, `practice`, `group_practice`, `hospital_affiliation`, `referral`, `utilization`) and JSON key. `dev=true` adds the developer tier (formula + tables); set `PD_DEV_HELP_KEY` and send it as `X-Dev-Key` to gate it. Static per deployment; cache it |
 | POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: `{state, …}` plus phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |
 
 The group-practice dump and group profile read `pd_group_practice`, one precomputed row per billing org per member scope (`all` / `active` / `inactive`), so filter, sort and page are indexed reads instead of a 858K-row aggregation per request. It is rebuilt at the end of `phase2`, `phase4`, `overlay-cms` and `phase6` (a few seconds). After pulling this change run `phase6 --state AZ_CMS` once to fill it; until then the dump falls back to the live aggregation.
+
+Field help: the UI should fetch `/v1/field-help` once per session and bind each field's tooltip by scope + key. The same text prints from `python -m provider_directory.cli field-help --state AZ_CMS [--dev] [--format md|json]` for a handout. `{window}` in the text resolves to the mart's current window.
 
 One phase job at a time (409 if another is running). `workers=1` is required so job state stays in this process. Poll `GET /v1/jobs/{id}` — do not use a 100-second HTTP timeout on `POST /v1/jobs/phase2`.
 

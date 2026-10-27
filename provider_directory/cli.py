@@ -27,6 +27,7 @@ import json
 import sys
 
 from provider_directory.db import ConfigError, ensure_mart_database, get_connection
+from provider_directory.field_help import catalog_markdown, render_catalog
 from provider_directory.locations import Phase2Required
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
 from provider_directory.extras import OPEN_PAYMENTS_KINDS, parse_open_payments_kinds
@@ -213,6 +214,29 @@ def _cmd_overlay(args: argparse.Namespace) -> int:
     with get_connection() as conn:
         overlay_cms(conn, mart_db=market.mart_db, market_state=market.state)
     print(f"Overlaid CMS identity onto {market.mart_db}.pd_provider.")
+    return 0
+
+
+def _cmd_field_help(args: argparse.Namespace) -> int:
+    market = _market(args)
+    from provider_directory.refresh import resolve_window
+
+    window = (None, None, None, None)
+    if not args.no_db:
+        with get_connection() as conn:
+            window = resolve_window(conn, mart_db=market.mart_db)
+    rendered = render_catalog(
+        dev=args.dev,
+        window_start=window[0],
+        window_end=window[1],
+        prior_window_start=window[2],
+        prior_window_end=window[3],
+    )
+    rendered["state"] = market.state
+    if args.format == "json":
+        print(json.dumps(rendered, indent=2))
+    else:
+        print(catalog_markdown(rendered))
     return 0
 
 
@@ -496,6 +520,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--host", default=None, help="Default PD_API_HOST or 127.0.0.1")
     p.add_argument("--port", type=int, default=None, help="Default PD_API_PORT or 8080")
     p.set_defaults(func=_cmd_serve)
+
+    p = sub.add_parser(
+        "field-help",
+        parents=[state_parent],
+        help="Print the field help catalog (same text as GET /v1/field-help); --dev adds the developer tier",
+    )
+    p.add_argument("--dev", action="store_true", help="Include formula + tables per field")
+    p.add_argument("--format", choices=("md", "json"), default="md")
+    p.add_argument("--no-db", action="store_true", dest="no_db", help="Skip the window lookup; leave {window} unresolved as ?")
+    p.set_defaults(func=_cmd_field_help)
 
     p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (preview of the future API)")
     p.add_argument("npi", nargs="?", type=int)

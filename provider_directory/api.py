@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from provider_directory import __version__
 from provider_directory.db import ConfigError, get_connection
+from provider_directory.field_help import render_catalog
 from provider_directory.jobs import PHASES, JobConflict, JobRunner
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
 from provider_directory.models import (
@@ -42,6 +43,20 @@ from provider_directory.settings import (
 
 def _api_key() -> str:
     return os.environ.get("PD_API_KEY", "").strip()
+
+
+def _dev_help_key() -> str:
+    return os.environ.get("PD_DEV_HELP_KEY", "").strip()
+
+
+def dev_help_allowed(dev: bool, x_dev_key: str | None) -> bool:
+    """Dev-tier help text: ?dev=true, and X-Dev-Key must match PD_DEV_HELP_KEY when that is set."""
+    if not dev:
+        return False
+    expected = _dev_help_key()
+    if not expected:
+        return True
+    return bool(x_dev_key) and secrets.compare_digest(x_dev_key, expected)
 
 
 def _cors_origins() -> list[str]:
@@ -215,6 +230,30 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             last_action=refresh.get("last_action"),
             current_job=job_runner.current(),
         )
+
+    @app.get("/v1/field-help", tags=["ops"])
+    def field_help(
+        _: Annotated[None, Depends(require_api_key)],
+        conn=Depends(db_conn),
+        state: str = Query(default=MARKET_STATE),
+        dev: bool = Query(default=False, description="Include the developer tier (formula + tables)"),
+        x_dev_key: Annotated[str | None, Header()] = None,
+    ) -> dict:
+        """Label + hover text for every field, by scope and JSON key. Static per deployment; cache it in the UI."""
+        market = _market_or_422(state)
+        if dev and not dev_help_allowed(dev, x_dev_key):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Developer help requires X-Dev-Key")
+        window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db=market.mart_db)
+        body = render_catalog(
+            dev=dev,
+            window_start=window_start,
+            window_end=window_end,
+            prior_window_start=prior_start,
+            prior_window_end=prior_end,
+        )
+        body["state"] = market.state
+        body["mart_db"] = market.mart_db
+        return body
 
     @app.get(
         "/v1/providers/{npi}",
