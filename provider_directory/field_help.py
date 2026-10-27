@@ -274,7 +274,7 @@ PRACTICE: dict[str, dict[str, str]] = {
     "work_type": _entry("Work type", "Type of care setting, from the place-of-service code on claims.", "az.sl.pos_type_code mapped via POS_WORK_TYPE (11 Office, 22 Hospital Outpatient, 23 Emergency Department, 24 Ambulatory Surgery Center, ...); else keyword match on az.sl.im_specialty_rollup; else null."),
     "visits_at_site": _entry("Visits at site", "The clinician's visits at this site in {window}.", "SUM of pd_stg_npi_sl.visits over the cluster's locations. Each visit's location is the modal sl_code across its claim lines (pd_stg_visit_site)."),
     "visit_share_pct": _entry("Visit share", "Share of the clinician's visits that happened at this site. Sites past the top 5 and visits with no location keep the shares from adding to 100.", "visits_at_site / pd_provider.visits_total x100, 2 decimals."),
-    "npi_type": _entry("Location type", "Whether the location code is an organization (2) or an individual (1).", "az.sl.npi_type."),
+    "npi_type": _entry("Location type", "Whether the location code is an organization (2) or an individual (1).", "az.sl.npi_type of the canonical location: 2 = organization, 1 = individual."),
     "location_source": _entry("Location source", "Where the address came from. Always claims today.", "Constant 'claims_sl'. Reserved for geocoded or CMS-sourced sites."),
     "location_flag": _entry("Location status", "Confidence flag for the address. Always claims-confirmed today.", "Constant 'claims_confirmed'."),
     "phone_source": _entry("Phone source", "Where the phone came from: CMS PDC, or blank.", "'pdc' when the PDC match found a phone, else null."),
