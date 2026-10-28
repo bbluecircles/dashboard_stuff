@@ -118,6 +118,8 @@ def test_field_help_route(tmp_path, monkeypatch):
 def test_cli_field_help_flags():
     args = build_parser().parse_args(["field-help", "--state", "AZ_CMS", "--dev", "--format", "json", "--no-db"])
     assert args.cmd == "field-help" and args.dev and args.format == "json" and args.no_db
+    args = build_parser().parse_args(["field-help", "--state", "AZ_CMS", "--window-start", "202411", "--window-end", "202510"])
+    assert args.window_start == 202411 and args.window_end == 202510
 
 
 # Fields whose value is a constant or a pure derivation with no table of its own.

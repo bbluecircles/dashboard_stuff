@@ -201,3 +201,12 @@ Do **not** `phase1`. Clocks, one mart per `--state`. Check first with `--dry-run
 Default `sync` upserts the Type 1 roster (insert missing, refresh name/specialty; never truncates), then is a no-op on the claims window if it is already current; otherwise `phase6 --slide` then extras for E/M + POS only (does not reread Open Payments). Copy `scripts/` into Analysis Scripts if you want Task Scheduler to call the `.ps1` files. UI still has no phase buttons.
 
 
+
+## Field help fixtures
+
+`docs/fixtures/field-help.AZ_CMS.json` (client tier) and `field-help.AZ_CMS.dev.json` (developer tier) are the exact bodies `GET /v1/field-help?state=AZ_CMS[&dev=true]` returns, with the window pinned to Nov 2024 to Oct 2025. UI work can run against them without the API. Regenerate after editing `provider_directory/field_help.py`:
+
+```
+python -m provider_directory.cli field-help --state AZ_CMS --dev --format json --window-start 202411 --window-end 202510 > docs/fixtures/field-help.AZ_CMS.dev.json
+python -m provider_directory.cli field-help --state AZ_CMS --format json --window-start 202411 --window-end 202510 > docs/fixtures/field-help.AZ_CMS.json
+```

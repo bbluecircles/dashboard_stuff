@@ -222,7 +222,11 @@ def _cmd_field_help(args: argparse.Namespace) -> int:
     from provider_directory.refresh import resolve_window
 
     window = (None, None, None, None)
-    if not args.no_db:
+    if args.window_start and args.window_end:
+        from provider_directory.window import prior_window
+
+        window = (args.window_start, args.window_end, *prior_window(args.window_start, args.window_end))
+    elif not args.no_db:
         with get_connection() as conn:
             window = resolve_window(conn, mart_db=market.mart_db)
     rendered = render_catalog(
@@ -531,6 +535,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dev", action="store_true", help="Include formula + tables per field")
     p.add_argument("--format", choices=("md", "json"), default="md")
     p.add_argument("--no-db", action="store_true", dest="no_db", help="Skip the window lookup; leave {window} unresolved as ?")
+    p.add_argument("--window-start", type=int, dest="window_start", help="YYYYMM; with --window-end fills {window} without a database (fixtures)")
+    p.add_argument("--window-end", type=int, dest="window_end", help="YYYYMM")
     p.set_defaults(func=_cmd_field_help)
 
     p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (preview of the future API)")
