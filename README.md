@@ -207,6 +207,6 @@ Default `sync` upserts the Type 1 roster (insert missing, refresh name/specialty
 `docs/fixtures/field-help.AZ_CMS.json` (client tier) and `field-help.AZ_CMS.dev.json` (developer tier) are the exact bodies `GET /v1/field-help?state=AZ_CMS[&dev=true]` returns, with the window pinned to Nov 2024 to Oct 2025. UI work can run against them without the API. Regenerate after editing `provider_directory/field_help.py`:
 
 ```
-python -m provider_directory.cli field-help --state AZ_CMS --dev --format json --window-start 202411 --window-end 202510 > docs/fixtures/field-help.AZ_CMS.dev.json
-python -m provider_directory.cli field-help --state AZ_CMS --format json --window-start 202411 --window-end 202510 > docs/fixtures/field-help.AZ_CMS.json
+python -m provider_directory.cli field-help --state AZ_CMS --dev --format json --window-start 202411 --window-end 202510 --out docs/fixtures/field-help.AZ_CMS.dev.json
+python -m provider_directory.cli field-help --state AZ_CMS --format json --window-start 202411 --window-end 202510 --out docs/fixtures/field-help.AZ_CMS.json
 ```

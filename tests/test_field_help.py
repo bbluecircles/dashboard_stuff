@@ -122,6 +122,20 @@ def test_cli_field_help_flags():
     assert args.window_start == 202411 and args.window_end == 202510
 
 
+def test_cli_field_help_writes_file(tmp_path, capsys):
+    from provider_directory.cli import main
+
+    out = tmp_path / "nested" / "field-help.json"
+    rc = main(["field-help", "--state", "AZ_CMS", "--dev", "--format", "json",
+               "--window-start", "202411", "--window-end", "202510", "--out", str(out)])
+    assert rc == 0
+    import json
+    body = json.loads(out.read_text(encoding="utf-8"))
+    assert body["dev"] is True and body["window"] == "Nov 2024 to Oct 2025"
+    assert "tables" in body["scopes"]["group"]["wrvu_total"]
+    assert "wrote" in capsys.readouterr().out
+
+
 # Fields whose value is a constant or a pure derivation with no table of its own.
 NO_TABLE_FIELDS = {("group", "visits_are_summed_across_npis")}
 

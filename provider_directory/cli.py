@@ -239,10 +239,17 @@ def _cmd_field_help(args: argparse.Namespace) -> int:
         lookup_db=market.lookup_db,
     )
     rendered["state"] = market.state
-    if args.format == "json":
-        print(json.dumps(rendered, indent=2))
+    text = json.dumps(rendered, indent=2) if args.format == "json" else catalog_markdown(rendered)
+    if args.out:
+        from pathlib import Path
+
+        path = Path(args.out)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text + "\n", encoding="utf-8")
+        entries = sum(len(v) for v in rendered["scopes"].values())
+        print(f"wrote {path} ({entries} entries, dev={'on' if args.dev else 'off'}, window {rendered['window']})")
     else:
-        print(catalog_markdown(rendered))
+        print(text)
     return 0
 
 
@@ -537,6 +544,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-db", action="store_true", dest="no_db", help="Skip the window lookup; leave {window} unresolved as ?")
     p.add_argument("--window-start", type=int, dest="window_start", help="YYYYMM; with --window-end fills {window} without a database (fixtures)")
     p.add_argument("--window-end", type=int, dest="window_end", help="YYYYMM")
+    p.add_argument("-o", "--out", help="Write to this file instead of stdout (parent folders are created)")
     p.set_defaults(func=_cmd_field_help)
 
     p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (preview of the future API)")
