@@ -124,7 +124,7 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page |
 | GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by billing org). Max 500 per page |
 | GET | `/v1/group-practices/{organization_id}?state=` | Group profile (same tabs as a provider, member-aggregated) |
-| GET | `/v1/field-help?state=&dev=` | Label + hover text for every field, by scope (`provider`, `group`, `practice`, `group_practice`, `hospital_affiliation`, `referral`, `utilization`) and JSON key. `dev=true` adds the developer tier: formula plus `tables[]` (kind warehouse / mart / cms, `external` flag, CMS dataset `url`); set `PD_DEV_HELP_KEY` and send it as `X-Dev-Key` to gate it. Static per deployment; cache it |
+| GET | `/v1/field-help?state=&dev=` | Label + hover text for every field, by scope (`provider`, `group`, `practice`, `group_practice`, `hospital_affiliation`, `referral`, `utilization`) and JSON key. `dev=true` adds the developer tier: formula, `caveats[]`, `derived_from[]` (lineage to other fields) and `tables[]` (kind warehouse / mart / cms, `external` flag, `upstream` flag, `phase`, CMS dataset `url`); set `PD_DEV_HELP_KEY` and send it as `X-Dev-Key` to gate it. Static per deployment; cache it |
 | POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: `{state, …}` plus phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |

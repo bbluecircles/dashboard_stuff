@@ -156,7 +156,8 @@ def test_describe_table_marks_external_with_cms_links():
     assert describe_table("cms_pdc_mips")["url"].endswith("/a174-a962")
     assert describe_table("cms_pdc_utilization")["url"].endswith("/n0yb-util")
     wh = describe_table("claims.pat_dt", claims_db="az_cms", lookup_db="azal")
-    assert wh == {"key": "claims.pat_dt", "name": "az_cms.pat_dt", "kind": "warehouse", "external": False, "description": TABLE_REGISTRY["claims.pat_dt"]["description"]}
+    assert wh == {"key": "claims.pat_dt", "name": "az_cms.pat_dt", "kind": "warehouse", "external": False,
+                  "phase": "warehouse load, outside this pipeline", "description": TABLE_REGISTRY["claims.pat_dt"]["description"]}
     assert describe_table("lookup.procd")["name"] == "azal.procd"
     mart = describe_table("pd_stg_visit")
     assert mart["kind"] == "mart" and mart["external"] is False and "url" not in mart
@@ -180,3 +181,50 @@ def test_rendered_dev_entries_carry_tables_and_markdown_marks_external():
     assert "## Tables" in md
     plain = render_catalog(dev=False, window_start=202411, window_end=202510)
     assert "tables" not in plain and "tables" not in plain["scopes"]["provider"]["gender"]
+
+
+def test_lineage_pulls_upstream_tables_through_the_chain():
+    rendered = render_catalog(dev=True, window_start=202411, window_end=202510,
+                              prior_window_start=202311, prior_window_end=202410,
+                              claims_db="az_cms", lookup_db="azal")
+    grp = rendered["scopes"]["group"]["wrvu_total"]
+    assert [r["ref"] for r in grp["derived_from"]] == ["provider.wrvu_total"]
+    assert grp["derived_from"][0]["label"] == "RVU total"
+    own = [t["name"] for t in grp["tables"] if not t["upstream"]]
+    up = [t["name"] for t in grp["tables"] if t["upstream"]]
+    assert own == ["pd_provider", "pd_group_practice"]
+    assert "azal.procd" in up and "pd_stg_visit" in up and "pd_stg_npi_wrvu" in up
+    assert "pd_provider" not in up
+    act = rendered["scopes"]["provider"]["activity_specialty_percentile"]
+    assert {r["ref"] for r in act["derived_from"]} == {"provider.visits_specialty_percentile", "provider.wrvu_specialty_percentile"}
+    share = rendered["scopes"]["practice"]["visit_share_pct"]
+    assert {r["ref"] for r in share["derived_from"]} == {"practice.visits_at_site", "provider.visits_total"}
+    assert all("phase" in t for t in grp["tables"])
+    assert rendered["tables"][0]["phase"]
+
+
+def test_caveats_cover_the_fields_clients_ask_about():
+    cat = catalog(dev=True)
+    must = [("provider", "wrvu_total"), ("group", "wrvu_total"), ("group", "visits_total"), ("provider", "estimated_age"),
+            ("provider", "in_system_provider"), ("referral", "patient_count"), ("provider", "visits_percent_medicaid"),
+            ("provider", "activity_specialty_percentile"), ("practice", "visit_share_pct"), ("provider", "visits_top_diagnosis_1_percent"),
+            ("group", "panel_percent_female"), ("provider", "visits_percent_monday"), ("provider", "visits_percent_office")]
+    for scope, key in must:
+        assert cat[scope][key]["caveats"], (scope, key)
+    assert any("twice" in c for c in cat["group"]["wrvu_total"]["caveats"])
+    assert any("Weighted" in c for c in cat["group"]["panel_percent_female"]["caveats"])
+    for scope, fields in cat.items():
+        for key, item in fields.items():
+            assert all(c.strip() for c in item["caveats"]), (scope, key)
+            assert isinstance(item["derived_from"], list)
+    plain = catalog(dev=False)
+    assert "caveats" not in plain["provider"]["wrvu_total"] and "derived_from" not in plain["provider"]["wrvu_total"]
+
+
+def test_markdown_shows_built_on_notes_and_upstream():
+    rendered = render_catalog(dev=True, window_start=202411, window_end=202510)
+    md = catalog_markdown(rendered)
+    assert "Built on: `provider.wrvu_total`" in md
+    assert "Notes: An encounter billed by two members of the group counts twice." in md
+    assert "(upstream:" in md
+    assert "| Refreshed by |" in md

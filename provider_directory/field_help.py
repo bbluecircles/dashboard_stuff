@@ -60,61 +60,61 @@ def _pdc(dataset_id: str) -> str:
 
 TABLE_REGISTRY: dict[str, dict[str, str]] = {
     # warehouse: claims database
-    "claims.physician": {"kind": "warehouse", "description": "Provider master: every NPI that has billed, with names and specialty group."},
-    "claims.pat_dt": {"kind": "warehouse", "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer."},
-    "claims.sl": {"kind": "warehouse", "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system."},
-    "claims.payor": {"kind": "warehouse", "description": "Payer master: payer code to name, parent name and payer class 1 to 5."},
-    "claims.dash_physician_payor_all": {"kind": "warehouse", "description": "Monthly claim counts by rendering NPI and payer (summary table)."},
-    "claims.dash_physician_referrals_to_rendering": {"kind": "warehouse", "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts."},
-    "claims.physician_primary_affiliation": {"kind": "warehouse", "description": "One row per NPI: primary professional and institutional billing org and hospital system."},
-    "claims.physician_affiliation_p": {"kind": "warehouse", "description": "Every professional billing org an NPI billed under, with cases and last month."},
-    "claims.physician_affiliation_i": {"kind": "warehouse", "description": "Every institutional billing org an NPI billed under, with cases and last month."},
-    "claims.provider_facility_npi": {"kind": "warehouse", "description": "Facility NPIs with DBA and hospital system names."},
-    "claims.period": {"kind": "warehouse", "description": "Loaded months; its max drives the refresh window."},
+    "claims.physician": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Provider master: every NPI that has billed, with names and specialty group."},
+    "claims.pat_dt": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer."},
+    "claims.sl": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system."},
+    "claims.payor": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Payer master: payer code to name, parent name and payer class 1 to 5."},
+    "claims.dash_physician_payor_all": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Monthly claim counts by rendering NPI and payer (summary table)."},
+    "claims.dash_physician_referrals_to_rendering": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts."},
+    "claims.physician_primary_affiliation": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "One row per NPI: primary professional and institutional billing org and hospital system."},
+    "claims.physician_affiliation_p": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Every professional billing org an NPI billed under, with cases and last month."},
+    "claims.physician_affiliation_i": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Every institutional billing org an NPI billed under, with cases and last month."},
+    "claims.provider_facility_npi": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Facility NPIs with DBA and hospital system names."},
+    "claims.period": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Loaded months; its max drives the refresh window."},
     # warehouse: lookup database
-    "lookup.npi_spec_grp": {"kind": "warehouse", "description": "Specialty group code to name and taxonomy category."},
-    "lookup.diagnosis": {"kind": "warehouse", "description": "ICD-10 diagnosis code to description."},
-    "lookup.procd": {"kind": "warehouse", "description": "Procedure code to description and fee-schedule RVU columns."},
+    "lookup.npi_spec_grp": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Specialty group code to name and taxonomy category."},
+    "lookup.diagnosis": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "ICD-10 diagnosis code to description."},
+    "lookup.procd": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Procedure code to description and fee-schedule RVU columns."},
     # mart: built by this pipeline
-    "pd_provider": {"kind": "mart", "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns."},
-    "pd_provider_practice": {"kind": "mart", "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5."},
-    "pd_provider_group_practice": {"kind": "mart", "description": "Billing organizations per NPI in the window (Phase 4)."},
-    "pd_provider_hospital_affiliation": {"kind": "mart", "description": "Top 5 distinct health systems per NPI by visits (Phase 4)."},
-    "pd_provider_referral": {"kind": "mart", "description": "Top 3 referral peers per NPI per direction (Phase 5)."},
-    "pd_provider_utilization": {"kind": "mart", "description": "Care Compare categories per NPI (extras)."},
-    "pd_group_practice": {"kind": "mart", "description": "Precomputed group-practice dump, one row per org per member scope."},
-    "pd_network_npi": {"kind": "mart", "description": "NPI to hospital CCN from PDC facility affiliations (Phase 1)."},
-    "pd_refresh_state": {"kind": "mart", "description": "Current window and refresh watermark (Phase 6)."},
-    "pd_stg_window_claim": {"kind": "mart", "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2)."},
-    "pd_stg_visit": {"kind": "mart", "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2)."},
-    "pd_stg_panel_patient": {"kind": "mart", "description": "Distinct patients per NPI with age and gender (Phase 2)."},
-    "pd_stg_top_dx": {"kind": "mart", "description": "Top 3 diagnoses per NPI with visit counts (Phase 2)."},
-    "pd_stg_top_px": {"kind": "mart", "description": "Top 3 procedures per NPI with visit counts (Phase 2)."},
-    "pd_stg_visit_site": {"kind": "mart", "description": "One service location per encounter, the modal one (Phase 3)."},
-    "pd_stg_npi_sl": {"kind": "mart", "description": "Visits per NPI per location with the site cluster key (Phase 3)."},
-    "pd_stg_npi_wrvu": {"kind": "mart", "description": "RVU total and contributing visits per NPI (Phase 4)."},
-    "pd_stg_site_wrvu": {"kind": "mart", "description": "RVU per NPI per site (Phase 4)."},
-    "pd_stg_npi_payor": {"kind": "mart", "description": "Claim counts per NPI per payer class and parent (Phase 4)."},
-    "pd_stg_visit_date": {"kind": "mart", "description": "Service date per encounter, cached (Phase 5)."},
-    "pd_stg_npi_dow": {"kind": "mart", "description": "Visits per NPI per weekday (Phase 5)."},
-    "pd_stg_site_dow": {"kind": "mart", "description": "Visits per NPI per site per weekday (Phase 5)."},
-    "pd_stg_referral_edge": {"kind": "mart", "description": "Referral edges summed over the window (Phase 5)."},
-    "pd_stg_npi_wrvu_prior": {"kind": "mart", "description": "Prior-year RVU per NPI, cached (Phase 5)."},
-    "pd_stg_specialty_wrvu": {"kind": "mart", "description": "Specialty RVU average, p25, median, p75 and count (Phase 5)."},
-    "pd_stg_npi_percentile": {"kind": "mart", "description": "RVU percentile per NPI within specialty (Phase 5)."},
-    "pd_stg_npi_visits_percentile": {"kind": "mart", "description": "Visits percentile per NPI within specialty (Phase 5)."},
+    "pd_provider": {"kind": "mart", "phase": "Phase 1, overlaid by every later phase", "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns."},
+    "pd_provider_practice": {"kind": "mart", "phase": "Phase 3", "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5."},
+    "pd_provider_group_practice": {"kind": "mart", "phase": "Phase 4", "description": "Billing organizations per NPI in the window (Phase 4)."},
+    "pd_provider_hospital_affiliation": {"kind": "mart", "phase": "Phase 4", "description": "Top 5 distinct health systems per NPI by visits (Phase 4)."},
+    "pd_provider_referral": {"kind": "mart", "phase": "Phase 5", "description": "Top 3 referral peers per NPI per direction (Phase 5)."},
+    "pd_provider_utilization": {"kind": "mart", "phase": "extras", "description": "Care Compare categories per NPI (extras)."},
+    "pd_group_practice": {"kind": "mart", "phase": "Phase 2, 4, 6 and overlay-cms", "description": "Precomputed group-practice dump, one row per org per member scope."},
+    "pd_network_npi": {"kind": "mart", "phase": "Phase 1", "description": "NPI to hospital CCN from PDC facility affiliations (Phase 1)."},
+    "pd_refresh_state": {"kind": "mart", "phase": "Phase 6", "description": "Current window and refresh watermark (Phase 6)."},
+    "pd_stg_window_claim": {"kind": "mart", "phase": "Phase 2", "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2)."},
+    "pd_stg_visit": {"kind": "mart", "phase": "Phase 2", "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2)."},
+    "pd_stg_panel_patient": {"kind": "mart", "phase": "Phase 2", "description": "Distinct patients per NPI with age and gender (Phase 2)."},
+    "pd_stg_top_dx": {"kind": "mart", "phase": "Phase 2", "description": "Top 3 diagnoses per NPI with visit counts (Phase 2)."},
+    "pd_stg_top_px": {"kind": "mart", "phase": "Phase 2", "description": "Top 3 procedures per NPI with visit counts (Phase 2)."},
+    "pd_stg_visit_site": {"kind": "mart", "phase": "Phase 3", "description": "One service location per encounter, the modal one (Phase 3)."},
+    "pd_stg_npi_sl": {"kind": "mart", "phase": "Phase 3", "description": "Visits per NPI per location with the site cluster key (Phase 3)."},
+    "pd_stg_npi_wrvu": {"kind": "mart", "phase": "Phase 4", "description": "RVU total and contributing visits per NPI (Phase 4)."},
+    "pd_stg_site_wrvu": {"kind": "mart", "phase": "Phase 4", "description": "RVU per NPI per site (Phase 4)."},
+    "pd_stg_npi_payor": {"kind": "mart", "phase": "Phase 4", "description": "Claim counts per NPI per payer class and parent (Phase 4)."},
+    "pd_stg_visit_date": {"kind": "mart", "phase": "Phase 5", "description": "Service date per encounter, cached (Phase 5)."},
+    "pd_stg_npi_dow": {"kind": "mart", "phase": "Phase 5", "description": "Visits per NPI per weekday (Phase 5)."},
+    "pd_stg_site_dow": {"kind": "mart", "phase": "Phase 5", "description": "Visits per NPI per site per weekday (Phase 5)."},
+    "pd_stg_referral_edge": {"kind": "mart", "phase": "Phase 5", "description": "Referral edges summed over the window (Phase 5)."},
+    "pd_stg_npi_wrvu_prior": {"kind": "mart", "phase": "Phase 5", "description": "Prior-year RVU per NPI, cached (Phase 5)."},
+    "pd_stg_specialty_wrvu": {"kind": "mart", "phase": "Phase 5", "description": "Specialty RVU average, p25, median, p75 and count (Phase 5)."},
+    "pd_stg_npi_percentile": {"kind": "mart", "phase": "Phase 5", "description": "RVU percentile per NPI within specialty (Phase 5)."},
+    "pd_stg_npi_visits_percentile": {"kind": "mart", "phase": "Phase 5", "description": "Visits percentile per NPI within specialty (Phase 5)."},
     # cms: external public files loaded into the mart
-    "cms_pdc_clinician": {"kind": "cms", "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)", "url": _pdc(PDC_CLINICIAN_DATASET),
+    "cms_pdc_clinician": {"kind": "cms", "phase": "Phase 1", "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)", "url": _pdc(PDC_CLINICIAN_DATASET),
                           "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs."},
-    "cms_pdc_facility_affil": {"kind": "cms", "source": "CMS Provider Data Catalog: Facility Affiliation", "url": _pdc(PDC_FACILITY_DATASET),
+    "cms_pdc_facility_affil": {"kind": "cms", "phase": "Phase 1", "source": "CMS Provider Data Catalog: Facility Affiliation", "url": _pdc(PDC_FACILITY_DATASET),
                                "description": "Clinician to hospital or facility affiliations with CCN. Loaded by Phase 1."},
-    "cms_pdc_mips": {"kind": "cms", "source": "CMS Provider Data Catalog: Quality Payment Program MIPS performance", "url": _pdc(PDC_MIPS_DATASET),
+    "cms_pdc_mips": {"kind": "cms", "phase": "extras", "source": "CMS Provider Data Catalog: Quality Payment Program MIPS performance", "url": _pdc(PDC_MIPS_DATASET),
                      "description": "MIPS final and quality scores by clinician and group. Loaded by extras."},
-    "cms_pdc_utilization": {"kind": "cms", "source": "CMS Provider Data Catalog: Care Compare clinician utilization", "url": _pdc(PDC_UTILIZATION_DATASET),
+    "cms_pdc_utilization": {"kind": "cms", "phase": "extras", "source": "CMS Provider Data Catalog: Care Compare clinician utilization", "url": _pdc(PDC_UTILIZATION_DATASET),
                             "description": "Procedure categories with volume labels and percentiles. Loaded by extras."},
-    "cms_nppes_type1": {"kind": "cms", "source": "CMS NPPES monthly data dissemination file", "url": NPPES_INDEX_URL,
+    "cms_nppes_type1": {"kind": "cms", "phase": "Phase 1", "source": "CMS NPPES monthly data dissemination file", "url": NPPES_INDEX_URL,
                         "description": "National NPI registry, Type 1 rows only: names, credential, sex, taxonomy, deactivation. Loaded by Phase 1."},
-    "cms_open_payments": {"kind": "cms", "source": "CMS Open Payments", "url": OPEN_PAYMENTS_SITE,
+    "cms_open_payments": {"kind": "cms", "phase": "retired", "source": "CMS Open Payments", "url": OPEN_PAYMENTS_SITE,
                           "description": "Retired. No longer loaded; stays empty."},
 }
 
@@ -162,6 +162,7 @@ def describe_table(key: str, *, claims_db: str = "az", lookup_db: str = "azal") 
         "name": name,
         "kind": meta["kind"],
         "external": meta["kind"] == "cms",
+        "phase": meta.get("phase", ""),
         "description": meta["description"],
     }
     if meta["kind"] == "cms":
@@ -462,6 +463,153 @@ UTILIZATION: dict[str, dict[str, str]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Caveats (shown as notes) and lineage (which entries a field is built on).
+# Keys are (scope, field). Family rules below fill repeated patterns.
+# ---------------------------------------------------------------------------
+
+_RVU_SCALE = "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+_RVU_EXCL = "Visits whose procedure has no fee-schedule RVU are excluded."
+_DOUBLE = "An encounter billed by two members of the group counts twice."
+_VOLUME = "A volume rank, not a quality measure."
+_WEIGHTED = "Weighted by each member's visits."
+
+CAVEATS: dict[tuple[str, str], list[str]] = {
+    ("provider", "visits_total"): ["Only encounters with a Type 1 rendering clinician are counted.", "An encounter is one visit however many claim lines it has."],
+    ("provider", "panel_size"): ["Wider than visits: a clinician who only refers has a panel but no visits."],
+    ("provider", "panel_percent_female"): ["Unknown gender stays in the denominator, so female and male may not sum to 100."],
+    ("provider", "panel_percent_male"): ["Unknown gender stays in the denominator, so female and male may not sum to 100."],
+    ("provider", "wrvu_total"): [_RVU_SCALE, _RVU_EXCL],
+    ("provider", "wrvu_average"): [_RVU_SCALE, "The UI leads with the specialty median and percentile instead."],
+    ("provider", "wrvu_procedure_count"): [_RVU_EXCL],
+    ("provider", "wrvu_prior_year_total"): [_RVU_SCALE, _RVU_EXCL],
+    ("provider", "wrvu_prior_year_average"): [_RVU_SCALE],
+    ("provider", "wrvu_yoy_change_pct"): ["Null when the prior-year total is under 1.0; clamped to plus or minus 9999.99."],
+    ("provider", "wrvu_state_specialty_average"): ["Skewed by a few very high totals; the median is the better centre.", _RVU_SCALE],
+    ("provider", "wrvu_state_specialty_median"): [_RVU_SCALE, "Peers are same-specialty clinicians with a positive RVU total."],
+    ("provider", "wrvu_state_specialty_p25"): [_RVU_SCALE],
+    ("provider", "wrvu_state_specialty_p75"): [_RVU_SCALE],
+    ("provider", "wrvu_specialty_percentile"): [_VOLUME, "Peers are same-specialty clinicians with a positive RVU total."],
+    ("provider", "visits_specialty_percentile"): [_VOLUME, "Peers are same-specialty clinicians with at least one visit."],
+    ("provider", "activity_specialty_percentile"): [_VOLUME, "Null when the clinician has no specialty, or no visits and no RVU."],
+    ("provider", "visits_percent_third_party"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "visits_percent_medicaid"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "visits_percent_medicare_advantage"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "visits_percent_medicare_traditional"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "top_payer_percent_1"): ["A share of commercial claims, not of all claims."],
+    ("provider", "top_payer_percent_2"): ["A share of commercial claims, not of all claims."],
+    ("provider", "top_payer_percent_3"): ["A share of commercial claims, not of all claims."],
+    ("provider", "estimated_age"): ["An estimate from medical school graduation year, not a date of birth."],
+    ("provider", "gender"): ["The clinician's gender from CMS, not the patient panel."],
+    ("provider", "in_system_provider"): ["A hospital affiliation on file with CMS, not a contracted-network flag."],
+    ("provider", "group_size"): ["CMS-reported group size, not the number of members in this directory."],
+    ("provider", "mips_final_score"): ["Latest published CMS program year, which lags the claims window."],
+    ("provider", "mips_quality_score"): ["Latest published CMS program year, which lags the claims window."],
+    ("provider", "visits_percent_new_patient"): ["Office evaluation and management codes only; procedure-only visits fall in neither bucket."],
+    ("provider", "visits_new_patient"): ["Office evaluation and management codes only."],
+    ("provider", "visits_established"): ["Office evaluation and management codes only."],
+    ("group", "visits_total"): [_DOUBLE],
+    ("group", "panel_size"): ["A patient seen by two members of the group counts twice."],
+    ("group", "wrvu_total"): [_DOUBLE, _RVU_SCALE, _RVU_EXCL],
+    ("group", "wrvu_average"): [_RVU_SCALE],
+    ("group", "visits_per_provider"): [_DOUBLE],
+    ("group", "visits_percentile"): [_VOLUME, "Among all groups, not specialty peers."],
+    ("group", "activity_percentile"): [_VOLUME, "Among all groups, not specialty peers."],
+    ("group", "group_size"): ["Largest CMS-reported group size among members, not the member count."],
+    ("group", "provider_count"): ["Members are clinicians whose primary billing organization is this group."],
+    ("practice", "visit_share_pct"): ["Sites past the top 5 and visits with no location keep the shares from summing to 100."],
+    ("practice", "wrvu_share_pct"): [_RVU_SCALE],
+    ("practice", "wrvu_at_site"): [_RVU_SCALE, _RVU_EXCL],
+    ("practice", "phone"): ["Blank when CMS has no matching phone; never inferred."],
+    ("practice", "name"): ["A Type 1 location named after a clinician is shown as street and city instead."],
+    ("practice", "work_type"): ["From the place-of-service code on claims; null when neither the code nor the rollup text maps."],
+    ("hospital_affiliation", "hospital_system_name"): ["Campuses of one system are combined into one row."],
+    ("hospital_affiliation", "visit_share_pct"): ["Null on a parent-fallback row, which has no site-level visits."],
+    ("referral", "patient_count"): ["Monthly counts summed: one patient referred in three months counts three times."],
+    ("referral", "claim_count"): ["Monthly counts summed over the window."],
+}
+
+DERIVED_FROM: dict[tuple[str, str], list[str]] = {
+    ("provider", "active_provider"): ["provider.visits_total", "provider.panel_size"],
+    ("provider", "estimated_age"): ["provider.medical_school_graduation_year"],
+    ("provider", "wrvu_average"): ["provider.wrvu_total", "provider.wrvu_procedure_count"],
+    ("provider", "wrvu_prior_year_average"): ["provider.wrvu_prior_year_total", "provider.wrvu_prior_year_procedure_count"],
+    ("provider", "wrvu_yoy_change_pct"): ["provider.wrvu_total", "provider.wrvu_prior_year_total"],
+    ("provider", "wrvu_state_specialty_average"): ["provider.wrvu_total"],
+    ("provider", "wrvu_state_specialty_median"): ["provider.wrvu_total"],
+    ("provider", "wrvu_state_specialty_p25"): ["provider.wrvu_total"],
+    ("provider", "wrvu_state_specialty_p75"): ["provider.wrvu_total"],
+    ("provider", "wrvu_state_specialty_npi_count"): ["provider.wrvu_total"],
+    ("provider", "wrvu_specialty_percentile"): ["provider.wrvu_total"],
+    ("provider", "visits_specialty_percentile"): ["provider.visits_total"],
+    ("provider", "activity_specialty_percentile"): ["provider.visits_specialty_percentile", "provider.wrvu_specialty_percentile"],
+    ("provider", "visits_percent_new_patient"): ["provider.visits_new_patient", "provider.visits_established"],
+    ("provider", "provider_practices_total"): ["practice.site_rank"],
+    ("practice", "visit_share_pct"): ["practice.visits_at_site", "provider.visits_total"],
+    ("practice", "wrvu_at_site"): ["provider.wrvu_total"],
+    ("practice", "wrvu_share_pct"): ["practice.wrvu_at_site", "provider.wrvu_total"],
+    ("practice", "site_rank"): ["practice.visits_at_site"],
+    ("hospital_affiliation", "visit_share_pct"): ["hospital_affiliation.visits_at_system", "provider.visits_total"],
+    ("hospital_affiliation", "affiliation_rank"): ["hospital_affiliation.visits_at_system"],
+    ("group", "visits_per_provider"): ["group.visits_total", "group.provider_count"],
+    ("group", "visits_percentile"): ["group.visits_total"],
+    ("group", "activity_percentile"): ["group.visits_per_provider"],
+    ("group", "active_provider_count"): ["provider.active_provider"],
+    ("group", "in_system_provider_count"): ["provider.in_system_provider"],
+    ("group", "in_system_provider"): ["group.in_system_provider_count"],
+    ("group", "active_provider"): ["group.active_provider_count"],
+}
+
+_GROUP_PASSTHROUGH = {"organization_id", "organization_name", "organization_npi", "parent_id", "parent_name",
+                      "provider_count", "visits_are_summed_across_npis", "visits_per_provider", "visits_percentile",
+                      "activity_percentile", "in_system_provider", "active_provider", "primary_specialty_code",
+                      "primary_specialty_description", "active_provider_count", "in_system_provider_count"}
+
+
+def _caveats_for(scope: str, key: str) -> list[str]:
+    out = list(CAVEATS.get((scope, key), []))
+    if key.startswith("visits_top_") and key.endswith("_percent"):
+        out.append("A share of all visits; the three shares do not add to 100.")
+        if scope == "group":
+            out.append("A lower bound on the group page: only members' stored top 3 codes are summed.")
+    if key.startswith("panel_percent_age_"):
+        out.append("Ages outside 0 to 120 are ignored.")
+    if key.startswith("visits_percent_") and key[len("visits_percent_"):] in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"):
+        out.append("Visits without a valid service date are excluded.")
+    if key in ("visits_percent_office", "visits_percent_hopd", "visits_percent_asc", "visits_percent_ed",
+               "visits_percent_telehealth", "visits_percent_inpatient", "visits_percent_lab", "visits_percent_other_pos"):
+        out.append("Visits with no service location are excluded.")
+    if scope == "group" and (key.startswith("panel_percent_") or key.startswith("visits_percent_") or key == "panel_average_age"):
+        out.append(_WEIGHTED)
+    return out
+
+
+def _derived_for(scope: str, key: str) -> list[str]:
+    out = list(DERIVED_FROM.get((scope, key), []))
+    if key.startswith("visits_top_") and key.endswith("_percent"):
+        out += [f"{scope}.{key[:-len('_percent')]}", f"{scope}.visits_total"]
+    if key.startswith("panel_percent_") or key == "panel_average_age":
+        out.append(f"{scope}.panel_size")
+    if scope == "group" and key not in _GROUP_PASSTHROUGH and key in PROVIDER and (scope, key) not in DERIVED_FROM:
+        out.append(f"provider.{key}")
+    return out
+
+
+def _upstream_tables(scopes: dict[str, dict[str, dict[str, Any]]], ref: str, seen: set[str]) -> list[str]:
+    """Tables of every entry reachable through derived_from, depth-first, deduped."""
+    if ref in seen:
+        return []
+    seen.add(ref)
+    scope, key = ref.split(".", 1)
+    entry = scopes[scope][key]
+    found: list[str] = list(entry.get("tables", []))
+    for parent in entry.get("derived_from", []):
+        for table in _upstream_tables(scopes, parent, seen):
+            if table not in found:
+                found.append(table)
+    return found
+
+
 def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
     """All scopes. Drops the dev tier unless asked."""
     scopes = {
@@ -480,8 +628,20 @@ def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
             item: dict[str, Any] = {"label": entry["label"], "help": entry["help"]}
             if dev:
                 item["dev"] = entry["dev"]
+                item["caveats"] = _caveats_for(scope, key)
+                item["derived_from"] = _derived_for(scope, key)
                 item["tables"] = tables_in(entry["dev"])
             out[scope][key] = item
+    if dev:
+        for scope, fields in out.items():
+            for key, item in fields.items():
+                for ref in item["derived_from"]:
+                    pscope, pkey = ref.split(".", 1)
+                    if pkey not in out.get(pscope, {}):
+                        raise KeyError(f"{scope}.{key} derives from unknown entry {ref!r}")
+                own = list(item["tables"])
+                upstream = [t for t in _upstream_tables(out, f"{scope}.{key}", set()) if t not in own]
+                item["upstream_tables"] = upstream
     return out
 
 
@@ -511,7 +671,15 @@ def render_catalog(
                 if tier in item:
                     item[tier] = item[tier].replace("{window}", window).replace("{prior_window}", prior)
             if "tables" in item:
-                item["tables"] = [describe_table(k, claims_db=claims_db, lookup_db=lookup_db) for k in item["tables"]]
+                own = [dict(describe_table(k, claims_db=claims_db, lookup_db=lookup_db), upstream=False) for k in item["tables"]]
+                up = [dict(describe_table(k, claims_db=claims_db, lookup_db=lookup_db), upstream=True) for k in item.pop("upstream_tables", [])]
+                item["tables"] = own + up
+            if "derived_from" in item:
+                refs = []
+                for ref in item["derived_from"]:
+                    pscope, pkey = ref.split(".", 1)
+                    refs.append({"ref": ref, "scope": pscope, "field": pkey, "label": scopes[pscope][pkey]["label"]})
+                item["derived_from"] = refs
     body: dict[str, Any] = {
         "dev": dev,
         "window_start": window_start,
@@ -547,19 +715,28 @@ def catalog_markdown(rendered: dict[str, Any]) -> str:
         for key, item in fields.items():
             row = f"| `{key}` | {item['label']} | {item['help']} |"
             if dev:
-                sources = ", ".join(_table_md(t) for t in item.get("tables", []))
-                row += f" {item.get('dev', '')} | {sources} |"
+                dev_text = item.get("dev", "")
+                if item.get("derived_from"):
+                    dev_text += " Built on: " + ", ".join(f"`{r['ref']}`" for r in item["derived_from"]) + "."
+                if item.get("caveats"):
+                    dev_text += " Notes: " + " ".join(item["caveats"])
+                own = [t for t in item.get("tables", []) if not t.get("upstream")]
+                up = [t for t in item.get("tables", []) if t.get("upstream")]
+                sources = ", ".join(_table_md(t) for t in own)
+                if up:
+                    sources += " (upstream: " + ", ".join(_table_md(t) for t in up) + ")"
+                row += f" {dev_text} | {sources} |"
             lines.append(row)
         lines.append("")
     if dev:
         lines.append("## Tables")
         lines.append("")
-        lines.append("| Table | Kind | Description |")
-        lines.append("| --- | --- | --- |")
+        lines.append("| Table | Kind | Refreshed by | Description |")
+        lines.append("| --- | --- | --- | --- |")
         for table in rendered.get("tables", []):
             desc = table["description"]
             if table.get("external"):
                 desc = f"{table['source']}. {desc}"
-            lines.append(f"| {_table_md(table)} | {table['kind']} | {desc} |")
+            lines.append(f"| {_table_md(table)} | {table['kind']} | {table.get('phase', '')} | {desc} |")
         lines.append("")
     return "\n".join(lines)
