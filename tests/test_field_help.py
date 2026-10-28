@@ -6,6 +6,7 @@ from provider_directory.cli import build_parser
 from provider_directory.field_help import (
     SCOPES,
     TABLE_REGISTRY,
+    table_closure,
     catalog,
     catalog_markdown,
     describe_table,
@@ -244,3 +245,29 @@ def test_markdown_shows_built_on_notes_and_upstream():
     assert "Notes: An encounter billed by two members of the group counts twice." in md
     assert "(upstream:" in md
     assert "| Refreshed by |" in md
+
+
+def test_every_mart_table_declares_valid_built_from():
+    for key, meta in TABLE_REGISTRY.items():
+        if meta["kind"] == "mart":
+            assert meta.get("built_from"), key
+            for dep in meta["built_from"]:
+                assert dep in TABLE_REGISTRY, (key, dep)
+        else:
+            assert "built_from" not in meta, key
+    assert table_closure("pd_stg_npi_wrvu") == ["pd_stg_npi_wrvu", "pd_stg_visit", "pd_stg_window_claim", "claims.pat_dt", "lookup.procd"]
+    assert table_closure("pd_group_practice") == ["pd_group_practice"]
+
+
+def test_field_upstream_reaches_the_warehouse():
+    rendered = render_catalog(dev=True, window_start=202411, window_end=202510, claims_db="az_cms")
+    grp = rendered["scopes"]["group"]["wrvu_total"]
+    up = [t["name"] for t in grp["tables"] if t["upstream"]]
+    assert "az_cms.pat_dt" in up and "pd_stg_window_claim" in up and "azal.procd" in up
+    assert "pd_provider" not in up
+    gp = rendered["scopes"]["group_practice"]["organization_name"]
+    names = [t["name"] for t in gp["tables"]]
+    assert "az_cms.physician_affiliation_p" in names and "az_cms.physician_affiliation_i" in names
+    reg = {t["key"]: t for t in rendered["tables"]}
+    assert reg["pd_provider_group_practice"]["built_from"] == ["az_cms.physician_affiliation_p", "az_cms.physician_affiliation_i", "pd_provider"]
+    assert "built_from" not in reg["cms_pdc_clinician"]
