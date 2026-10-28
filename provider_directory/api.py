@@ -250,6 +250,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             window_end=window_end,
             prior_window_start=prior_start,
             prior_window_end=prior_end,
+            claims_db=market.claims_db,
+            lookup_db=market.lookup_db,
         )
         body["state"] = market.state
         body["mart_db"] = market.mart_db

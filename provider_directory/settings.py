@@ -119,6 +119,8 @@ PDC_METASTORE = (
     "https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items/{dataset_id}"
 )
 NPPES_INDEX_URL = "https://download.cms.gov/nppes/NPI_Files.html"
+PDC_DATASET_PAGE = "https://data.cms.gov/provider-data/dataset/{dataset_id}"
+OPEN_PAYMENTS_SITE = "https://openpaymentsdata.cms.gov/"
 OPEN_PAYMENTS_DATASETS = "https://openpaymentsdata.cms.gov/api/1/metastore/schemas/dataset/items"
 MAX_UTILIZATION_CATEGORIES = 5
 NEW_PATIENT_PX = ("99202", "99203", "99204", "99205")

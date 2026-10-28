@@ -5,10 +5,13 @@ from provider_directory.api import create_app, db_conn, dev_help_allowed
 from provider_directory.cli import build_parser
 from provider_directory.field_help import (
     SCOPES,
+    TABLE_REGISTRY,
     catalog,
     catalog_markdown,
+    describe_table,
     format_period_range,
     render_catalog,
+    tables_in,
 )
 from provider_directory.jobs import PHASES, JobRunner
 from tests.test_api import _ok, fake_connect
@@ -101,11 +104,79 @@ def test_field_help_route(tmp_path, monkeypatch):
 
     monkeypatch.setenv("PD_DEV_HELP_KEY", "letmein")
     assert client.get("/v1/field-help?state=AZ&dev=true").status_code == 403
-    res = client.get("/v1/field-help?state=AZ&dev=true", headers={"X-Dev-Key": "letmein"})
+    res = client.get("/v1/field-help?state=AZ_CMS&dev=true", headers={"X-Dev-Key": "letmein"})
     assert res.status_code == 200
-    assert "pd_stg_visit" in res.json()["scopes"]["provider"]["visits_total"]["dev"]
+    body = res.json()
+    visits = body["scopes"]["provider"]["visits_total"]
+    assert "pd_stg_visit" in visits["dev"]
+    assert visits["tables"][0]["name"] == "pd_stg_visit" and visits["tables"][0]["kind"] == "mart"
+    mips = body["scopes"]["provider"]["mips_final_score"]["tables"][0]
+    assert mips["external"] is True and mips["url"].endswith("/a174-a962")
+    assert any(t["name"] == "az_cms.pat_dt" for t in body["tables"])
 
 
 def test_cli_field_help_flags():
     args = build_parser().parse_args(["field-help", "--state", "AZ_CMS", "--dev", "--format", "json", "--no-db"])
     assert args.cmd == "field-help" and args.dev and args.format == "json" and args.no_db
+
+
+# Fields whose value is a constant or a pure derivation with no table of its own.
+NO_TABLE_FIELDS = {("group", "visits_are_summed_across_npis")}
+
+
+def test_every_dev_entry_names_registered_tables():
+    cat = catalog(dev=True)
+    for scope, fields in cat.items():
+        for key, item in fields.items():
+            if (scope, key) in NO_TABLE_FIELDS:
+                continue
+            assert item["tables"], (scope, key)
+            for table in item["tables"]:
+                assert table in TABLE_REGISTRY, (scope, key, table)
+    assert "dev" not in catalog(dev=False)["provider"]["visits_total"]
+    assert "tables" not in catalog(dev=False)["provider"]["visits_total"]
+
+
+def test_tables_in_parses_prefixes_wildcards_and_rejects_unknown():
+    found = tables_in("az_cms.pat_dt joined to azal.procd on procd_code; pd_stg_top_* visit_count / pd_provider.visits_total; cms_pdc_clinician.gndr")
+    assert found == ["claims.pat_dt", "lookup.procd", "pd_stg_top_dx", "pd_stg_top_px", "pd_provider", "cms_pdc_clinician"]
+    import pytest
+    with pytest.raises(KeyError):
+        tables_in("reads pd_stg_made_up")
+    with pytest.raises(KeyError):
+        tables_in("reads az.not_a_table")
+
+
+def test_describe_table_marks_external_with_cms_links():
+    pdc = describe_table("cms_pdc_clinician")
+    assert pdc["external"] is True and pdc["kind"] == "cms"
+    assert pdc["url"] == "https://data.cms.gov/provider-data/dataset/mj5m-pzi6"
+    assert pdc["name"] == "cms_pdc_clinician" and "National Downloadable" in pdc["source"]
+    assert describe_table("cms_nppes_type1")["url"].startswith("https://download.cms.gov/nppes/")
+    assert describe_table("cms_pdc_mips")["url"].endswith("/a174-a962")
+    assert describe_table("cms_pdc_utilization")["url"].endswith("/n0yb-util")
+    wh = describe_table("claims.pat_dt", claims_db="az_cms", lookup_db="azal")
+    assert wh == {"key": "claims.pat_dt", "name": "az_cms.pat_dt", "kind": "warehouse", "external": False, "description": TABLE_REGISTRY["claims.pat_dt"]["description"]}
+    assert describe_table("lookup.procd")["name"] == "azal.procd"
+    mart = describe_table("pd_stg_visit")
+    assert mart["kind"] == "mart" and mart["external"] is False and "url" not in mart
+
+
+def test_rendered_dev_entries_carry_tables_and_markdown_marks_external():
+    rendered = render_catalog(dev=True, window_start=202411, window_end=202510,
+                              prior_window_start=202311, prior_window_end=202410,
+                              claims_db="az_cms", lookup_db="azal")
+    rvu = rendered["scopes"]["provider"]["wrvu_total"]
+    names = [t["name"] for t in rvu["tables"]]
+    assert "azal.procd" in names and "pd_stg_visit" in names and "pd_stg_npi_wrvu" in names
+    gender = rendered["scopes"]["provider"]["gender"]
+    ext = [t for t in gender["tables"] if t["external"]]
+    assert {t["name"] for t in ext} == {"cms_pdc_clinician", "cms_nppes_type1"}
+    assert all(t["url"].startswith("https://") for t in ext)
+    assert any(t["key"] == "claims.pat_dt" and t["name"] == "az_cms.pat_dt" for t in rendered["tables"])
+    md = catalog_markdown(rendered)
+    assert "| Sources |" in md
+    assert "[`cms_pdc_clinician`](https://data.cms.gov/provider-data/dataset/mj5m-pzi6)*" in md
+    assert "## Tables" in md
+    plain = render_catalog(dev=False, window_start=202411, window_end=202510)
+    assert "tables" not in plain and "tables" not in plain["scopes"]["provider"]["gender"]

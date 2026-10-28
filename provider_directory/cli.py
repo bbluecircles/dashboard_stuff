@@ -231,6 +231,8 @@ def _cmd_field_help(args: argparse.Namespace) -> int:
         window_end=window[1],
         prior_window_start=window[2],
         prior_window_end=window[3],
+        claims_db=market.claims_db,
+        lookup_db=market.lookup_db,
     )
     rendered["state"] = market.state
     if args.format == "json":
