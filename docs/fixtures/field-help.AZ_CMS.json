@@ -1238,6 +1238,82 @@
         "label": "Display flag",
         "help": "CMS profile display indicator."
       }
+    },
+    "provider_filter": {
+      "last_name": {
+        "label": "Last name",
+        "help": "Clinicians whose last name starts with the text."
+      },
+      "npi": {
+        "label": "NPI",
+        "help": "One clinician by exact 10-digit NPI."
+      },
+      "specialty": {
+        "label": "Specialty",
+        "help": "Clinicians whose specialty code matches, or whose specialty description contains the text."
+      },
+      "organization": {
+        "label": "Organization contains",
+        "help": "Clinicians whose primary billing organization name contains the text."
+      },
+      "organization_id": {
+        "label": "Organization id",
+        "help": "Clinicians whose primary billing organization has this id."
+      },
+      "city": {
+        "label": "City contains",
+        "help": "Clinicians whose main practice site is in a city containing the text."
+      },
+      "active": {
+        "label": "Active only",
+        "help": "Show only clinicians with at least one visit or panel patient in Nov 2024 to Oct 2025. Unchecked, the list includes clinicians with no claims activity in the window."
+      },
+      "in_system": {
+        "label": "In-system only",
+        "help": "Show only clinicians with a facility affiliation on file with CMS."
+      },
+      "min_visits": {
+        "label": "Minimum visits",
+        "help": "Lower bound on the clinician's visits in Nov 2024 to Oct 2025. The default of 1 leaves out clinicians who only appear as referring physicians."
+      },
+      "max_visits": {
+        "label": "Maximum visits",
+        "help": "Upper bound on the clinician's visits in Nov 2024 to Oct 2025. Set it equal to the minimum for an exact count."
+      }
+    },
+    "group_filter": {
+      "organization": {
+        "label": "Organization contains",
+        "help": "Groups whose name contains the text."
+      },
+      "organization_id": {
+        "label": "Organization id",
+        "help": "One group by its exact billing organization id."
+      },
+      "parent": {
+        "label": "Parent organization contains",
+        "help": "Groups whose parent organization name contains the text."
+      },
+      "active": {
+        "label": "Roll up active providers only",
+        "help": "Count and sum only member clinicians with activity in Nov 2024 to Oct 2025. Unchecked, every member counts, active or not, so visits and clinician counts can be higher."
+      },
+      "in_system": {
+        "label": "Has in-system providers",
+        "help": "Show only groups with at least one member who has a facility affiliation on file with CMS."
+      },
+      "min_visits": {
+        "label": "Minimum visits",
+        "help": "Lower bound on the group's visits in Nov 2024 to Oct 2025, summed across member clinicians."
+      },
+      "max_visits": {
+        "label": "Maximum visits",
+        "help": "Upper bound on the group's summed visits in Nov 2024 to Oct 2025."
+      },
+      "min_providers": {
+        "label": "Minimum clinicians",
+        "help": "Show only groups with at least this many member clinicians in the chosen roll-up."
+      }
     }
   },
   "state": "AZ"

@@ -20702,6 +20702,763 @@
           }
         ]
       }
+    },
+    "provider_filter": {
+      "last_name": {
+        "label": "Last name",
+        "help": "Clinicians whose last name starts with the text.",
+        "dev": "pd_provider.last_name LIKE 'text%'.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "npi": {
+        "label": "NPI",
+        "help": "One clinician by exact 10-digit NPI.",
+        "dev": "pd_provider.npi = value.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "specialty": {
+        "label": "Specialty",
+        "help": "Clinicians whose specialty code matches, or whose specialty description contains the text.",
+        "dev": "pd_provider.primary_specialty_code = text OR primary_specialty_description LIKE '%text%'.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "organization": {
+        "label": "Organization contains",
+        "help": "Clinicians whose primary billing organization name contains the text.",
+        "dev": "pd_provider.primary_organization_name LIKE '%text%'.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "organization_id": {
+        "label": "Organization id",
+        "help": "Clinicians whose primary billing organization has this id.",
+        "dev": "pd_provider.primary_organization_id = value. The group profile's member list uses this.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "city": {
+        "label": "City contains",
+        "help": "Clinicians whose main practice site is in a city containing the text.",
+        "dev": "pd_provider_practice.city LIKE '%text%' on the site_rank 1 row.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider_practice",
+            "name": "pd_provider_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5.",
+            "built_from": [
+              "pd_stg_npi_sl",
+              "az_cms.sl",
+              "az_cms.provider_facility_npi",
+              "cms_pdc_clinician",
+              "pd_stg_site_wrvu",
+              "pd_stg_site_dow"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_sl",
+            "name": "pd_stg_npi_sl",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Visits per NPI per location with the site cluster key (Phase 3).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "az_cms.sl"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_site",
+            "name": "pd_stg_visit_site",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "One service location per encounter, the modal one (Phase 3).",
+            "built_from": [
+              "pd_stg_visit",
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "claims.sl",
+            "name": "az_cms.sl",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "upstream": true
+          },
+          {
+            "key": "claims.provider_facility_npi",
+            "name": "az_cms.provider_facility_npi",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Facility NPIs with DBA and hospital system names.",
+            "upstream": true
+          },
+          {
+            "key": "cms_pdc_clinician",
+            "name": "cms_pdc_clinician",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs.",
+            "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)",
+            "url": "https://data.cms.gov/provider-data/dataset/mj5m-pzi6",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_wrvu",
+            "name": "pd_stg_site_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "RVU per NPI per site (Phase 4).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_dow",
+            "name": "pd_stg_site_dow",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Visits per NPI per site per weekday (Phase 5).",
+            "built_from": [
+              "pd_stg_visit_date",
+              "pd_stg_visit_site"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_date",
+            "name": "pd_stg_visit_date",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Service date per encounter, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_stg_visit"
+            ],
+            "upstream": true
+          }
+        ]
+      },
+      "active": {
+        "label": "Active only",
+        "help": "Show only clinicians with at least one visit or panel patient in Nov 2024 to Oct 2025. Unchecked, the list includes clinicians with no claims activity in the window.",
+        "dev": "On: pd_provider.active_provider = 1. Off: no clause. Explicit false: active_provider = 0 or NULL.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "in_system": {
+        "label": "In-system only",
+        "help": "Show only clinicians with a facility affiliation on file with CMS.",
+        "dev": "On: pd_provider.in_system_provider = 1, set in Phase 1 when a cms_pdc_facility_affil row exists for the NPI. Off: no clause.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "cms_pdc_facility_affil",
+            "name": "cms_pdc_facility_affil",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician to hospital or facility affiliations with CCN. Loaded by Phase 1.",
+            "source": "CMS Provider Data Catalog: Facility Affiliation",
+            "url": "https://data.cms.gov/provider-data/dataset/27ea-46a8",
+            "upstream": false
+          }
+        ]
+      },
+      "min_visits": {
+        "label": "Minimum visits",
+        "help": "Lower bound on the clinician's visits in Nov 2024 to Oct 2025. The default of 1 leaves out clinicians who only appear as referring physicians.",
+        "dev": "IFNULL(pd_provider.visits_total, 0) >= value.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "max_visits": {
+        "label": "Maximum visits",
+        "help": "Upper bound on the clinician's visits in Nov 2024 to Oct 2025. Set it equal to the minimum for an exact count.",
+        "dev": "IFNULL(pd_provider.visits_total, 0) <= value.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      }
+    },
+    "group_filter": {
+      "organization": {
+        "label": "Organization contains",
+        "help": "Groups whose name contains the text.",
+        "dev": "pd_group_practice.organization_name LIKE '%text%'.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "organization_id": {
+        "label": "Organization id",
+        "help": "One group by its exact billing organization id.",
+        "dev": "pd_group_practice.organization_id = value.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "parent": {
+        "label": "Parent organization contains",
+        "help": "Groups whose parent organization name contains the text.",
+        "dev": "pd_group_practice.parent_name LIKE '%text%'.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "active": {
+        "label": "Roll up active providers only",
+        "help": "Count and sum only member clinicians with activity in Nov 2024 to Oct 2025. Unchecked, every member counts, active or not, so visits and clinician counts can be higher.",
+        "dev": "On: the member_scope = 'active' rows of pd_group_practice (members with pd_provider.active_provider = 1). Off: member_scope = 'all'.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "in_system": {
+        "label": "Has in-system providers",
+        "help": "Show only groups with at least one member who has a facility affiliation on file with CMS.",
+        "dev": "pd_group_practice.in_system_provider_count >= 1 (members with pd_provider.in_system_provider = 1). Explicit false: in_system_provider_count = 0.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "min_visits": {
+        "label": "Minimum visits",
+        "help": "Lower bound on the group's visits in Nov 2024 to Oct 2025, summed across member clinicians.",
+        "dev": "pd_group_practice.visits_total >= value.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "max_visits": {
+        "label": "Maximum visits",
+        "help": "Upper bound on the group's summed visits in Nov 2024 to Oct 2025.",
+        "dev": "pd_group_practice.visits_total <= value.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "min_providers": {
+        "label": "Minimum clinicians",
+        "help": "Show only groups with at least this many member clinicians in the chosen roll-up.",
+        "dev": "pd_group_practice.provider_count >= value, in the selected member_scope.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      }
     }
   },
   "tables": [
