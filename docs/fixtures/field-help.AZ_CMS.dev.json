@@ -891,7 +891,7 @@
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100."
         ],
@@ -1150,7 +1150,7 @@
       "visits_top_diagnosis_2_percent": {
         "label": "Share of visits",
         "help": "Share of visits that carried this diagnosis.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100."
         ],
@@ -1409,7 +1409,7 @@
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
         "help": "Share of visits that carried this diagnosis.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100."
         ],
@@ -1668,7 +1668,7 @@
       "visits_top_procedure_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100."
         ],
@@ -1927,7 +1927,7 @@
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of visits with this procedure.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100."
         ],
@@ -2186,7 +2186,7 @@
       "visits_top_procedure_3_percent": {
         "label": "Share of visits",
         "help": "Share of visits with this procedure.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100."
         ],
@@ -8689,7 +8689,7 @@
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 3 codes are summed.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100.",
           "A lower bound on the group page: only members' stored top 3 codes are summed."
@@ -8981,7 +8981,7 @@
       "visits_top_diagnosis_2_percent": {
         "label": "Share of visits",
         "help": "Share of visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 3 codes are summed.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100.",
           "A lower bound on the group page: only members' stored top 3 codes are summed."
@@ -9273,7 +9273,7 @@
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
         "help": "Share of visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 3 codes are summed.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100.",
           "A lower bound on the group page: only members' stored top 3 codes are summed."
@@ -9565,7 +9565,7 @@
       "visits_top_procedure_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 3 codes are summed.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100.",
           "A lower bound on the group page: only members' stored top 3 codes are summed."
@@ -9857,7 +9857,7 @@
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of visits with this procedure. On the group page this is a lower bound: only members' stored top 3 codes are summed.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100.",
           "A lower bound on the group page: only members' stored top 3 codes are summed."
@@ -10149,7 +10149,7 @@
       "visits_top_procedure_3_percent": {
         "label": "Share of visits",
         "help": "Share of visits with this procedure. On the group page this is a lower bound: only members' stored top 3 codes are summed.",
-        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
+        "dev": "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100. Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.",
         "caveats": [
           "A share of all visits; the three shares do not add to 100.",
           "A lower bound on the group page: only members' stored top 3 codes are summed."
