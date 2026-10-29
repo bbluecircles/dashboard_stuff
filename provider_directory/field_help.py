@@ -31,7 +31,8 @@ from provider_directory.settings import (
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
-SCOPES = ("provider", "group", "practice", "group_practice", "hospital_affiliation", "referral", "utilization")
+SCOPES = ("provider", "group", "practice", "group_practice", "hospital_affiliation", "referral", "utilization",
+          "provider_filter", "group_filter")
 
 
 def format_period(yyyymm: int | None) -> str:
@@ -417,6 +418,35 @@ GROUP_OVERRIDES: dict[str, dict[str, str]] = {
 _GROUP_PCT_NOTE = " On the group page this is weighted across members by their visits."
 
 
+# Search and picker controls. Keys are the query parameters of GET /v1/providers
+# (provider_filter) and GET /v1/group-practices (group_filter); the UI binds a
+# checkbox or input tooltip by scope + parameter name.
+PROVIDER_FILTER: dict[str, dict[str, str]] = {
+    "last_name": _entry("Last name", "Clinicians whose last name starts with the text.", "pd_provider.last_name LIKE 'text%'."),
+    "npi": _entry("NPI", "One clinician by exact 10-digit NPI.", "pd_provider.npi = value."),
+    "specialty": _entry("Specialty", "Clinicians whose specialty code matches, or whose specialty description contains the text.", "pd_provider.primary_specialty_code = text OR primary_specialty_description LIKE '%text%'."),
+    "organization": _entry("Organization contains", "Clinicians whose primary billing organization name contains the text.", "pd_provider.primary_organization_name LIKE '%text%'."),
+    "organization_id": _entry("Organization id", "Clinicians whose primary billing organization has this id.", "pd_provider.primary_organization_id = value. The group profile's member list uses this."),
+    "city": _entry("City contains", "Clinicians whose main practice site is in a city containing the text.", "pd_provider_practice.city LIKE '%text%' on the site_rank 1 row."),
+    "active": _entry("Active only", "Show only clinicians with at least one visit or panel patient in {window}. Unchecked, the list includes clinicians with no claims activity in the window.", "On: pd_provider.active_provider = 1. Off: no clause. Explicit false: active_provider = 0 or NULL."),
+    "in_system": _entry("In-system only", "Show only clinicians with a facility affiliation on file with CMS.", "On: pd_provider.in_system_provider = 1, set in Phase 1 when a cms_pdc_facility_affil row exists for the NPI. Off: no clause."),
+    "min_visits": _entry("Minimum visits", "Lower bound on the clinician's visits in {window}. The default of 1 leaves out clinicians who only appear as referring physicians.", "IFNULL(pd_provider.visits_total, 0) >= value."),
+    "max_visits": _entry("Maximum visits", "Upper bound on the clinician's visits in {window}. Set it equal to the minimum for an exact count.", "IFNULL(pd_provider.visits_total, 0) <= value."),
+    "membership": _entry("Membership", "With an organization id: primary lists clinicians whose primary billing organization is the group; any lists every clinician with billing under the group in {window}.", "primary: pd_provider.primary_organization_id = id. any: EXISTS a pd_provider_group_practice row for the NPI and organization_id."),
+}
+
+GROUP_FILTER: dict[str, dict[str, str]] = {
+    "organization": _entry("Organization contains", "Groups whose name contains the text.", "pd_group_practice.organization_name LIKE '%text%'."),
+    "organization_id": _entry("Organization id", "One group by its exact billing organization id.", "pd_group_practice.organization_id = value."),
+    "parent": _entry("Parent organization contains", "Groups whose parent organization name contains the text.", "pd_group_practice.parent_name LIKE '%text%'."),
+    "active": _entry("Roll up active providers only", "Count and sum only member clinicians with activity in {window}. Unchecked, every member counts, active or not, so visits and clinician counts can be higher.", "On: the member_scope = 'active' rows of pd_group_practice (members with pd_provider.active_provider = 1). Off: member_scope = 'all'."),
+    "in_system": _entry("Has in-system providers", "Show only groups with at least one member who has a facility affiliation on file with CMS.", "pd_group_practice.in_system_provider_count >= 1 (members with pd_provider.in_system_provider = 1). Explicit false: in_system_provider_count = 0."),
+    "min_visits": _entry("Minimum visits", "Lower bound on the group's visits in {window}, summed across member clinicians.", "pd_group_practice.visits_total >= value."),
+    "max_visits": _entry("Maximum visits", "Upper bound on the group's summed visits in {window}.", "pd_group_practice.visits_total <= value."),
+    "min_providers": _entry("Minimum clinicians", "Show only groups with at least this many member clinicians in the chosen roll-up.", "pd_group_practice.provider_count >= value, in the selected member_scope."),
+}
+
+
 def _group_scope() -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for key, entry in PROVIDER.items():
@@ -666,6 +696,8 @@ def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
         "hospital_affiliation": HOSPITAL_AFFILIATION,
         "referral": REFERRAL,
         "utilization": UTILIZATION,
+        "provider_filter": PROVIDER_FILTER,
+        "group_filter": GROUP_FILTER,
     }
     out: dict[str, dict[str, dict[str, Any]]] = {}
     for scope, fields in scopes.items():

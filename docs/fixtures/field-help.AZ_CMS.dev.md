@@ -357,6 +357,35 @@ Sources marked * are external CMS files; the link is the dataset page they were 
 | `percentile` | Percentile | CMS percentile for the category. | cms_pdc_utilization.percentile. | [`cms_pdc_utilization`](https://data.cms.gov/provider-data/dataset/n0yb-util)* |
 | `profile_display` | Display flag | CMS profile display indicator. | cms_pdc_utilization.profile_display_indicator. | [`cms_pdc_utilization`](https://data.cms.gov/provider-data/dataset/n0yb-util)* |
 
+## provider_filter
+
+| Field | Label | Help | Developer | Sources |
+| --- | --- | --- | --- | --- |
+| `last_name` | Last name | Clinicians whose last name starts with the text. | pd_provider.last_name LIKE 'text%'. | `pd_provider` |
+| `npi` | NPI | One clinician by exact 10-digit NPI. | pd_provider.npi = value. | `pd_provider` |
+| `specialty` | Specialty | Clinicians whose specialty code matches, or whose specialty description contains the text. | pd_provider.primary_specialty_code = text OR primary_specialty_description LIKE '%text%'. | `pd_provider` |
+| `organization` | Organization contains | Clinicians whose primary billing organization name contains the text. | pd_provider.primary_organization_name LIKE '%text%'. | `pd_provider` |
+| `organization_id` | Organization id | Clinicians whose primary billing organization has this id. | pd_provider.primary_organization_id = value. The group profile's member list uses this. | `pd_provider` |
+| `city` | City contains | Clinicians whose main practice site is in a city containing the text. | pd_provider_practice.city LIKE '%text%' on the site_rank 1 row. | `pd_provider_practice` (upstream: `pd_stg_npi_sl`, `pd_stg_visit_site`, `pd_stg_visit`, `pd_stg_window_claim`, `az_cms.pat_dt`, `az_cms.sl`, `az_cms.provider_facility_npi`, [`cms_pdc_clinician`](https://data.cms.gov/provider-data/dataset/mj5m-pzi6)*, `pd_stg_site_wrvu`, `azal.procd`, `pd_stg_site_dow`, `pd_stg_visit_date`) |
+| `active` | Active only | Show only clinicians with at least one visit or panel patient in Nov 2024 to Oct 2025. Unchecked, the list includes clinicians with no claims activity in the window. | On: pd_provider.active_provider = 1. Off: no clause. Explicit false: active_provider = 0 or NULL. | `pd_provider` |
+| `in_system` | In-system only | Show only clinicians with a facility affiliation on file with CMS. | On: pd_provider.in_system_provider = 1, set in Phase 1 when a cms_pdc_facility_affil row exists for the NPI. Off: no clause. | `pd_provider`, [`cms_pdc_facility_affil`](https://data.cms.gov/provider-data/dataset/27ea-46a8)* |
+| `min_visits` | Minimum visits | Lower bound on the clinician's visits in Nov 2024 to Oct 2025. The default of 1 leaves out clinicians who only appear as referring physicians. | IFNULL(pd_provider.visits_total, 0) >= value. | `pd_provider` |
+| `max_visits` | Maximum visits | Upper bound on the clinician's visits in Nov 2024 to Oct 2025. Set it equal to the minimum for an exact count. | IFNULL(pd_provider.visits_total, 0) <= value. | `pd_provider` |
+| `membership` | Membership | With an organization id: primary lists clinicians whose primary billing organization is the group; any lists every clinician with billing under the group in Nov 2024 to Oct 2025. | primary: pd_provider.primary_organization_id = id. any: EXISTS a pd_provider_group_practice row for the NPI and organization_id. | `pd_provider`, `pd_provider_group_practice` (upstream: `az_cms.physician_affiliation_p`, `az_cms.physician_affiliation_i`) |
+
+## group_filter
+
+| Field | Label | Help | Developer | Sources |
+| --- | --- | --- | --- | --- |
+| `organization` | Organization contains | Groups whose name contains the text. | pd_group_practice.organization_name LIKE '%text%'. | `pd_group_practice` |
+| `organization_id` | Organization id | One group by its exact billing organization id. | pd_group_practice.organization_id = value. | `pd_group_practice` |
+| `parent` | Parent organization contains | Groups whose parent organization name contains the text. | pd_group_practice.parent_name LIKE '%text%'. | `pd_group_practice` |
+| `active` | Roll up active providers only | Count and sum only member clinicians with activity in Nov 2024 to Oct 2025. Unchecked, every member counts, active or not, so visits and clinician counts can be higher. | On: the member_scope = 'active' rows of pd_group_practice (members with pd_provider.active_provider = 1). Off: member_scope = 'all'. | `pd_group_practice`, `pd_provider` |
+| `in_system` | Has in-system providers | Show only groups with at least one member who has a facility affiliation on file with CMS. | pd_group_practice.in_system_provider_count >= 1 (members with pd_provider.in_system_provider = 1). Explicit false: in_system_provider_count = 0. | `pd_group_practice`, `pd_provider` |
+| `min_visits` | Minimum visits | Lower bound on the group's visits in Nov 2024 to Oct 2025, summed across member clinicians. | pd_group_practice.visits_total >= value. | `pd_group_practice` |
+| `max_visits` | Maximum visits | Upper bound on the group's summed visits in Nov 2024 to Oct 2025. | pd_group_practice.visits_total <= value. | `pd_group_practice` |
+| `min_providers` | Minimum clinicians | Show only groups with at least this many member clinicians in the chosen roll-up. | pd_group_practice.provider_count >= value, in the selected member_scope. | `pd_group_practice` |
+
 ## Tables
 
 | Table | Kind | Refreshed by | Built from | Description |

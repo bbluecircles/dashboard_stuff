@@ -26,6 +26,8 @@ SCOPE_MODELS = {
     "hospital_affiliation": (models.HospitalAffiliation,),
     "referral": (models.ProviderReferral,),
     "utilization": (models.ProviderUtilization,),
+    "provider_filter": (),
+    "group_filter": (),
 }
 
 
@@ -298,3 +300,13 @@ def test_payer_class_labels_match_the_warehouse_codes():
     assert cat["is_primary_member"]["label"] == "Primary member"
     group = catalog(dev=True)["group"]
     assert group["member_count_any"]["label"] == "Clinicians billing here"
+def test_filter_controls_have_help_for_every_query_parameter():
+    cat = catalog(dev=False)
+    for name in ("active", "in_system", "min_visits", "max_visits", "last_name", "specialty", "organization", "organization_id", "city"):
+        assert name in cat["provider_filter"], name
+    for name in ("active", "in_system", "min_visits", "max_visits", "min_providers", "organization", "organization_id", "parent"):
+        assert name in cat["group_filter"], name
+    assert cat["group_filter"]["active"]["label"] == "Roll up active providers only"
+    assert cat["group_filter"]["in_system"]["label"] == "Has in-system providers"
+    assert cat["provider_filter"]["active"]["label"] == "Active only"
+    assert cat["provider_filter"]["in_system"]["label"] == "In-system only"
