@@ -238,7 +238,7 @@ _TOP_PX_DEV = (
     "pd_stg_visit grouped by the visit's px (MAX encounter_work_procd_code), ranked by visit count desc then code, top 3, in pd_stg_top_px. "
     "Name from azal.procd on procd_code, cut to 80 characters."
 )
-_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100."
+_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100."
 
 
 def _weekday_entries(scope_note: str, dev_note: str) -> dict[str, dict[str, str]]:
