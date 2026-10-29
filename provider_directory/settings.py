@@ -97,12 +97,35 @@ GEO_CLUSTER_DECIMALS = 4
 REFERRAL_IN = "in"
 REFERRAL_OUT = "out"
 
+# az.payor.is_payor_code classes. Class 4 is HMO (not Medicare Advantage);
+# Medicare Advantage is class 6. Class 5 Other stays out of every denominator.
 PAYOR_MEDICARE_FFS = 1
 PAYOR_MEDICAID = 2
 PAYOR_COMMERCIAL = 3
-PAYOR_HMO_MA = 4
+PAYOR_HMO = 4
 PAYOR_OTHER = 5
-PAYOR_MIX_CODES = (PAYOR_MEDICARE_FFS, PAYOR_MEDICAID, PAYOR_COMMERCIAL, PAYOR_HMO_MA)
+PAYOR_MEDICARE_ADVANTAGE = 6
+PAYOR_MEDICARE_OTHER = 7
+PAYOR_CLASSES = {
+    PAYOR_MEDICARE_FFS: "Medicare FFS",
+    PAYOR_MEDICAID: "Medicaid",
+    PAYOR_COMMERCIAL: "Commercial",
+    PAYOR_HMO: "HMO",
+    PAYOR_OTHER: "Other",
+    PAYOR_MEDICARE_ADVANTAGE: "Medicare Advantage",
+    PAYOR_MEDICARE_OTHER: "Medicare Other",
+}
+# (class, pd_provider column) for every class in the payer-mix denominator.
+PAYOR_MIX_COLUMNS = (
+    (PAYOR_MEDICARE_FFS, "visits_percent_medicare_traditional"),
+    (PAYOR_MEDICAID, "visits_percent_medicaid"),
+    (PAYOR_COMMERCIAL, "visits_percent_third_party"),
+    (PAYOR_HMO, "visits_percent_hmo"),
+    (PAYOR_MEDICARE_ADVANTAGE, "visits_percent_medicare_advantage"),
+    (PAYOR_MEDICARE_OTHER, "visits_percent_medicare_other"),
+)
+PAYOR_MIX_CODES = tuple(code for code, _column in PAYOR_MIX_COLUMNS)
+MAX_TOP_PAYERS = 5
 
 CMS_CACHE_DIR = Path(os.environ.get("PD_CMS_CACHE", str(ROOT / "data" / "cms")))
 API_JOB_STORE = Path(os.environ.get("PD_API_JOB_STORE", str(ROOT / "data" / "api_jobs.json")))

@@ -63,6 +63,37 @@ def test_list_providers_sql_filters_organization_id():
     assert params == [1234567893]
 
 
+def test_list_providers_membership_any_matches_every_billing_org():
+    from provider_directory.lookup import _provider_filter_clauses
+
+    clauses, params = _provider_filter_clauses(
+        prefix="p.", organization_id=1234567893, membership="any", mart_db="az_pd"
+    )
+    joined = " ".join(clauses)
+    assert "`az_pd`.pd_provider_group_practice g" in joined
+    assert "g.npi = p.npi AND g.organization_id = %s" in joined
+    assert "primary_organization_id = %s" not in joined
+    assert params == [1234567893]
+    with pytest.raises(ValueError):
+        _provider_filter_clauses(prefix="p.", organization_id=1, membership="everyone")
+    source = inspect.getsource(list_providers)
+    assert "AS is_primary_member" in source
+    assert "(p.primary_organization_id = %s)" in source
+    assert "membership=membership" in source
+
+
+def test_group_profile_reports_members_of_any_kind():
+    from provider_directory.group_profile import attach_group_profile, fetch_group_member_count_any
+    from provider_directory.models import GroupPracticeProfile, ProviderDumpRow
+
+    source = inspect.getsource(fetch_group_member_count_any)
+    assert "COUNT(DISTINCT g.npi)" in source
+    assert "pd_provider_group_practice g" in source
+    assert "member_count_any" in inspect.getsource(attach_group_profile)
+    assert "member_count_any" in GroupPracticeProfile.model_fields
+    assert "is_primary_member" in ProviderDumpRow.model_fields
+
+
 def test_group_dump_list_flag():
     body = GroupPracticeDumpList(
         state="AZ",

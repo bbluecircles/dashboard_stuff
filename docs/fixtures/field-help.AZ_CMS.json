@@ -222,6 +222,14 @@
         "label": "Medicare FFS",
         "help": "Share of claims paid by traditional fee-for-service Medicare."
       },
+      "visits_percent_hmo": {
+        "label": "HMO",
+        "help": "Share of claims paid by HMO plans."
+      },
+      "visits_percent_medicare_other": {
+        "label": "Medicare Other",
+        "help": "Share of claims paid by other Medicare programs, neither fee-for-service nor Medicare Advantage."
+      },
       "top_payer_name_1": {
         "label": "Top commercial payer 1",
         "help": "Largest commercial payer parent by claims."
@@ -243,6 +251,22 @@
         "help": "Third largest commercial payer parent."
       },
       "top_payer_percent_3": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
+      "top_payer_name_4": {
+        "label": "Top commercial payer 4",
+        "help": "Fourth largest commercial payer parent."
+      },
+      "top_payer_percent_4": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
+      "top_payer_name_5": {
+        "label": "Top commercial payer 5",
+        "help": "Fifth largest commercial payer parent."
+      },
+      "top_payer_percent_5": {
         "label": "Share of commercial",
         "help": "Share of the clinician's commercial claims."
       },
@@ -337,6 +361,10 @@
       "visits_specialty_percentile": {
         "label": "Visits percentile",
         "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
+      },
+      "is_primary_member": {
+        "label": "Primary member",
+        "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
       },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and RVU sum)",
@@ -688,6 +716,14 @@
         "label": "Medicare FFS",
         "help": "Share of claims paid by traditional fee-for-service Medicare. On the group page this is weighted across members by their visits."
       },
+      "visits_percent_hmo": {
+        "label": "HMO",
+        "help": "Share of claims paid by HMO plans. On the group page this is weighted across members by their visits."
+      },
+      "visits_percent_medicare_other": {
+        "label": "Medicare Other",
+        "help": "Share of claims paid by other Medicare programs, neither fee-for-service nor Medicare Advantage. On the group page this is weighted across members by their visits."
+      },
       "top_payer_name_1": {
         "label": "Top commercial payer 1",
         "help": "Largest commercial payer parent by claims."
@@ -709,6 +745,22 @@
         "help": "Third largest commercial payer parent."
       },
       "top_payer_percent_3": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
+      "top_payer_name_4": {
+        "label": "Top commercial payer 4",
+        "help": "Fourth largest commercial payer parent."
+      },
+      "top_payer_percent_4": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
+      "top_payer_name_5": {
+        "label": "Top commercial payer 5",
+        "help": "Fifth largest commercial payer parent."
+      },
+      "top_payer_percent_5": {
         "label": "Share of commercial",
         "help": "Share of the clinician's commercial claims."
       },
@@ -803,6 +855,10 @@
       "visits_specialty_percentile": {
         "label": "Visits percentile",
         "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
+      },
+      "is_primary_member": {
+        "label": "Primary member",
+        "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
       },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and RVU sum)",
@@ -983,6 +1039,10 @@
       "visits_are_summed_across_npis": {
         "label": "Summed across clinicians",
         "help": "Volume on this page is summed across member clinicians."
+      },
+      "member_count_any": {
+        "label": "Clinicians billing here",
+        "help": "Number of clinicians with any billing under this organization in Nov 2024 to Oct 2025, primary or not. The totals on this page use only primary members."
       }
     },
     "practice": {

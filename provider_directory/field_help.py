@@ -216,7 +216,8 @@ _RVU_DEV = (
     "Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4)."
 )
 _PAYER_DEV = (
-    "Share of claims in payer classes 1 to 4 (az.payor.is_payor_code). Class 5 Other and unmapped codes are outside the denominator. "
+    "Share of claims in payer classes 1, 2, 3, 4, 6 and 7 (az.payor.is_payor_code: 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage, 7 Medicare Other). "
+    "Class 5 Other and unmapped codes are outside the denominator. "
     "Native markets: az.dash_physician_payor_all claim_count by rendering_physician_code in {window}. "
     "AZ_CMS: az_cms.pat_dt lines joined to az_cms.payor on encounter_payor_code (else payor_code), counted per distinct encounter and payer, "
     "because the blend's summary table only carries native claims. Staged in pd_stg_npi_payor."
@@ -317,14 +318,20 @@ PROVIDER: dict[str, dict[str, str]] = {
     "wrvu_procedure_count": _entry("Priced visits", "Visits whose one procedure had a fee-schedule RVU and so contributed to the RVU sum.", _RVU_DEV + " COUNT(*) of contributing visits."),
     "visits_percent_third_party": _entry("Commercial", "Share of claims paid by commercial insurers.", _PAYER_DEV + " Class 3."),
     "visits_percent_medicaid": _entry("Medicaid", "Share of claims paid by Medicaid, including managed care.", _PAYER_DEV + " Class 2."),
-    "visits_percent_medicare_advantage": _entry("Medicare Advantage", "Share of claims paid by Medicare Advantage plans.", _PAYER_DEV + " Class 4."),
+    "visits_percent_medicare_advantage": _entry("Medicare Advantage", "Share of claims paid by Medicare Advantage plans.", _PAYER_DEV + " Class 6. Before the class-7 rework this column held class 4 (HMO)."),
     "visits_percent_medicare_traditional": _entry("Medicare FFS", "Share of claims paid by traditional fee-for-service Medicare.", _PAYER_DEV + " Class 1."),
+    "visits_percent_hmo": _entry("HMO", "Share of claims paid by HMO plans.", _PAYER_DEV + " Class 4."),
+    "visits_percent_medicare_other": _entry("Medicare Other", "Share of claims paid by other Medicare programs, neither fee-for-service nor Medicare Advantage.", _PAYER_DEV + " Class 7."),
     "top_payer_name_1": _entry("Top commercial payer 1", "Largest commercial payer parent by claims.", "Class 3 rows in pd_stg_npi_payor grouped by payor_parent_name (az.payor.payor_parent_name, else payor_name), ranked by claim count. Commercial only."),
     "top_payer_percent_1": _entry("Share of commercial", "This payer's share of the clinician's commercial claims, not of all claims.", "pd_stg_npi_payor claim_count / SUM(claim_count) over the NPI's class 3 rows x100."),
     "top_payer_name_2": _entry("Top commercial payer 2", "Second largest commercial payer parent.", "Rank 2 of the same pd_stg_npi_payor ranking."),
     "top_payer_percent_2": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 2."),
     "top_payer_name_3": _entry("Top commercial payer 3", "Third largest commercial payer parent.", "Rank 3 of the same pd_stg_npi_payor ranking."),
     "top_payer_percent_3": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 3."),
+    "top_payer_name_4": _entry("Top commercial payer 4", "Fourth largest commercial payer parent.", "Rank 4 of the same pd_stg_npi_payor ranking."),
+    "top_payer_percent_4": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 4."),
+    "top_payer_name_5": _entry("Top commercial payer 5", "Fifth largest commercial payer parent.", "Rank 5 of the same pd_stg_npi_payor ranking."),
+    "top_payer_percent_5": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 5."),
     "primary_organization_id": _entry("Organization id", "Billing identifier of the clinician's primary organization.",
                                       "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code. Also the key for the group-practice profile."),
     "primary_organization_name": _entry("Organization", "The organization the clinician primarily bills under.", "Group practice name on the same az.physician_primary_affiliation row."),
@@ -343,6 +350,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "wrvu_state_specialty_npi_count": _entry("Providers in specialty with an RVU sum", "Number of clinicians in the specialty with a positive RVU sum.", "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0."),
     "wrvu_specialty_percentile": _entry("RVU sum percentile within specialty", "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.", "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total."),
     "visits_specialty_percentile": _entry("Visits percentile", "Where the clinician's visit count ranks within their specialty. 100 is the highest.", "Same rank on pd_provider.visits_total among specialty NPIs with visits_total > 0 (pd_stg_npi_visits_percentile)."),
+    "is_primary_member": _entry("Primary member", "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list.", "Picker dump only: (pd_provider.primary_organization_id = requested organization_id) when organization_id is given, else NULL. With membership=any, false rows bill the group but count toward another group's totals."),
     "activity_specialty_percentile": _entry("Activity vs specialty peers (visits and RVU sum)", "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality.", "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists."),
     "group_size": _entry("Group size", "Number of clinicians in the group practice as reported to CMS.", "cms_pdc_clinician.num_org_mem on the preferred PDC row (extras)."),
     "telehealth_offered": _entry("Telehealth offered", "The clinician reports offering telehealth to CMS.", "cms_pdc_clinician.telehlth: Y/YES/TRUE/1 -> true, N/NO/FALSE/0 -> false, else null."),
@@ -395,6 +403,7 @@ GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "visits_percentile": _entry("Visits percentile", "Where this group's visit total ranks among all groups. 100 is the highest.", "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Among groups, not specialty peers."),
     "activity_percentile": _entry("Activity percentile", "Where this group's visits per clinician ranks among all groups. 100 is the highest.", "pd_group_practice: same rank on visits_total / provider_count."),
     "visits_are_summed_across_npis": _entry("Summed across clinicians", "Volume on this page is summed across member clinicians.", "Always true on the group payload; no table."),
+    "member_count_any": _entry("Clinicians billing here", "Number of clinicians with any billing under this organization in {window}, primary or not. The totals on this page use only primary members.", "Group profile only: COUNT(DISTINCT npi) of pd_provider_group_practice rows for the organization_id that exist in pd_provider. The picker with membership=any returns this many."),
     "primary_specialty_code": _entry("Specialty code", "Taxonomy code of the group's most common member specialty.", "pd_provider.primary_specialty_code of members, the code with the most summed visits."),
     "primary_specialty_description": _entry("Specialty", "The group's most common member specialty, by visits.", "pd_provider.primary_specialty_description for the member specialty code with the highest summed visits."),
     "in_system_provider": _entry("In-system", "At least one member has a CMS hospital affiliation.", "pd_group_practice.in_system_provider_count >= 1."),
@@ -525,11 +534,16 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("provider", "activity_specialty_percentile"): [_VOLUME, "Null when the clinician has no specialty, or no visits and no RVU."],
     ("provider", "visits_percent_third_party"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
     ("provider", "visits_percent_medicaid"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
-    ("provider", "visits_percent_medicare_advantage"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "visits_percent_medicare_advantage"): ["Class 5 Other and unmapped payer classes are outside the denominator.", "Payer class 6. HMO (class 4) is a separate column."],
     ("provider", "visits_percent_medicare_traditional"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "visits_percent_hmo"): ["Class 5 Other and unmapped payer classes are outside the denominator.", "Payer class 4, which is not Medicare Advantage."],
+    ("provider", "visits_percent_medicare_other"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
     ("provider", "top_payer_percent_1"): ["A share of commercial claims, not of all claims."],
     ("provider", "top_payer_percent_2"): ["A share of commercial claims, not of all claims."],
     ("provider", "top_payer_percent_3"): ["A share of commercial claims, not of all claims."],
+    ("provider", "top_payer_percent_4"): ["A share of commercial claims, not of all claims."],
+    ("provider", "top_payer_percent_5"): ["A share of commercial claims, not of all claims."],
+    ("group", "member_count_any"): ["Counts every clinician with a billing row for the group; totals on the page count only primary members."],
     ("provider", "estimated_age"): ["An estimate from medical school graduation year, not a date of birth."],
     ("provider", "gender"): ["The clinician's gender from CMS, not the patient panel."],
     ("provider", "in_system_provider"): ["A hospital affiliation on file with CMS, not a contracted-network flag."],
@@ -594,7 +608,8 @@ DERIVED_FROM: dict[tuple[str, str], list[str]] = {
 _GROUP_PASSTHROUGH = {"organization_id", "organization_name", "organization_npi", "parent_id", "parent_name",
                       "provider_count", "visits_are_summed_across_npis", "visits_per_provider", "visits_percentile",
                       "activity_percentile", "in_system_provider", "active_provider", "primary_specialty_code",
-                      "primary_specialty_description", "active_provider_count", "in_system_provider_count"}
+                      "primary_specialty_description", "active_provider_count", "in_system_provider_count",
+                      "member_count_any"}
 
 
 def _caveats_for(scope: str, key: str) -> list[str]:

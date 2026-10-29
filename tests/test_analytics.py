@@ -1,12 +1,21 @@
 from provider_directory.analytics import (
     is_hcpcs_sql,
+    payer_mix_update_sql,
     period_in_sql,
     rebuild_analytics,
+    top_payer_update_sql,
     work_rvu_sql,
     work_type_case_sql,
 )
 from provider_directory.cli import build_parser
 from provider_directory.schema import PD_PROVIDER_PHASE4_COLUMNS, TABLES, ddl_statements
+from provider_directory.settings import (
+    MAX_TOP_PAYERS,
+    PAYOR_CLASSES,
+    PAYOR_COMMERCIAL,
+    PAYOR_MIX_CODES,
+    PAYOR_MIX_COLUMNS,
+)
 from provider_directory.transforms import (
     looks_like_person_name,
     payer_mix_percents,
@@ -102,3 +111,63 @@ def test_cli_phase4():
     assert args.org_lists_only is False
     lists = build_parser().parse_args(["phase4", "--org-lists-only"])
     assert lists.org_lists_only is True
+
+
+def test_payer_mix_covers_classes_1_to_7_except_other():
+    # 4 is HMO, 6 is Medicare Advantage, 7 is Medicare Other; 5 Other is outside the denominator.
+    mix = payer_mix_percents({1: 10, 2: 10, 3: 20, 4: 10, 5: 900, 6: 40, 7: 10})
+    assert mix["visits_percent_medicare_traditional"] == 10.0
+    assert mix["visits_percent_medicaid"] == 10.0
+    assert mix["visits_percent_third_party"] == 20.0
+    assert mix["visits_percent_hmo"] == 10.0
+    assert mix["visits_percent_medicare_advantage"] == 40.0
+    assert mix["visits_percent_medicare_other"] == 10.0
+    assert set(mix) == {col for _code, col in PAYOR_MIX_COLUMNS}
+
+
+def test_payer_class_constants():
+    assert PAYOR_CLASSES[4] == "HMO"
+    assert PAYOR_CLASSES[6] == "Medicare Advantage"
+    assert PAYOR_CLASSES[7] == "Medicare Other"
+    assert 5 not in PAYOR_MIX_CODES
+    assert PAYOR_MIX_CODES == (1, 2, 3, 4, 6, 7)
+    assert dict(PAYOR_MIX_COLUMNS)[6] == "visits_percent_medicare_advantage"
+    assert dict(PAYOR_MIX_COLUMNS)[4] == "visits_percent_hmo"
+
+
+def test_payer_update_sql_uses_every_class_and_five_top_payers():
+    mix = payer_mix_update_sql("`az_pd`")
+    assert "is_payor_code IN (1, 2, 3, 4, 6, 7)" in mix
+    assert "p.visits_percent_medicare_advantage = ROUND(100.0 * m.c6" in mix
+    assert "p.visits_percent_hmo = ROUND(100.0 * m.c4" in mix
+    assert "p.visits_percent_medicare_other = ROUND(100.0 * m.c7" in mix
+    assert "is_payor_code = 5" not in mix
+    top = top_payer_update_sql("`az_pd`")
+    assert "WHERE rk <= 5" in top
+    assert "p.top_payer_name_5 = t.n5" in top
+    assert "p.top_payer_percent_5 = t.p5" in top
+    assert f"is_payor_code = {PAYOR_COMMERCIAL}" in top
+    assert MAX_TOP_PAYERS == 5
+    cols = dict(PD_PROVIDER_PHASE4_COLUMNS)
+    for name in ("visits_percent_hmo", "visits_percent_medicare_other", "top_payer_name_5", "top_payer_percent_5"):
+        assert name in cols
+    sql = "\n".join(ddl_statements("az_pd"))
+    assert "visits_percent_medicare_other" in sql
+    assert "top_payer_name_5" in sql
+
+
+def test_phase4_payers_only_flag_and_entry():
+    import inspect
+
+    from provider_directory.analytics import rebuild_payer_columns
+    from provider_directory.pipeline import run_phase4
+
+    args = build_parser().parse_args(["phase4", "--payers-only"])
+    assert args.payers_only is True
+    assert build_parser().parse_args(["phase4"]).payers_only is False
+    source = inspect.getsource(rebuild_payer_columns)
+    assert "pd_stg_npi_payor" in source
+    assert "migrate_phase4_columns" in source
+    assert "rebuild_group_summary" in source
+    assert "drop_phase4_staging" not in source
+    assert "payers_only" in inspect.getsource(run_phase4)

@@ -663,28 +663,20 @@ def polish_work_type(
 
 
 def payer_mix_percents(counts: Mapping[int, int]) -> dict[str, float | None]:
-    """Percents over is_payor 1–4. Code 5 Other is excluded from the denominator."""
-    from provider_directory.settings import (
-        PAYOR_COMMERCIAL,
-        PAYOR_HMO_MA,
-        PAYOR_MEDICAID,
-        PAYOR_MEDICARE_FFS,
-        PAYOR_MIX_CODES,
-    )
+    """Percents over the payer-mix classes (1-4, 6, 7). Class 5 Other is excluded from the denominator."""
+    from provider_directory.settings import PAYOR_MIX_COLUMNS
 
-    four = sum(int(counts.get(code, 0) or 0) for code in PAYOR_MIX_CODES)
+    denom = sum(int(counts.get(code, 0) or 0) for code, _column in PAYOR_MIX_COLUMNS)
     return {
-        "visits_percent_medicare_traditional": round_pct(int(counts.get(PAYOR_MEDICARE_FFS, 0) or 0), four),
-        "visits_percent_medicaid": round_pct(int(counts.get(PAYOR_MEDICAID, 0) or 0), four),
-        "visits_percent_third_party": round_pct(int(counts.get(PAYOR_COMMERCIAL, 0) or 0), four),
-        "visits_percent_medicare_advantage": round_pct(int(counts.get(PAYOR_HMO_MA, 0) or 0), four),
+        column: round_pct(int(counts.get(code, 0) or 0), denom)
+        for code, column in PAYOR_MIX_COLUMNS
     }
 
 
 def top_commercial_payers(
     volumes: Mapping[str, int],
     *,
-    n: int = 3,
+    n: int = 5,
 ) -> list[tuple[str, float]]:
     """Top commercial parent names. Percents are of commercial volume only."""
     ranked = sorted(

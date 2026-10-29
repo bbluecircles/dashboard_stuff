@@ -164,6 +164,26 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     by_org = client.get("/v1/providers", params={"state": "AZ", "organization_id": 1234567893})
     assert by_org.status_code == 200
 
+    seen = {}
+
+    def fake_membership(conn, **kwargs):
+        seen.update(kwargs)
+        return ProviderDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_providers", fake_membership)
+    any_members = client.get(
+        "/v1/providers",
+        params={"state": "AZ", "organization_id": 1234567893, "membership": "any"},
+    )
+    assert any_members.status_code == 200
+    assert seen["membership"] == "any"
+    assert seen["organization_id"] == 1234567893
+    default = client.get("/v1/providers", params={"state": "AZ", "organization_id": 1234567893})
+    assert default.status_code == 200
+    assert seen["membership"] == "primary"
+    bad = client.get("/v1/providers", params={"state": "AZ", "membership": "everyone"})
+    assert bad.status_code == 422
+
 
 def test_group_practice_dump(tmp_path, monkeypatch):
     from provider_directory.models import GroupPracticeDumpList, GroupPracticeDumpRow

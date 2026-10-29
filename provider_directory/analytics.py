@@ -29,12 +29,11 @@ from provider_directory.settings import (
     LOOKUP_DB,
     MART_COLLATION,
     MART_DB,
+    MAX_TOP_PAYERS,
     PAYER_SOURCES,
     PAYOR_COMMERCIAL,
-    PAYOR_HMO_MA,
-    PAYOR_MEDICAID,
-    PAYOR_MEDICARE_FFS,
     PAYOR_MIX_CODES,
+    PAYOR_MIX_COLUMNS,
     WINDOW_END,
     WINDOW_START,
     payer_source_for_claims_db,
@@ -141,6 +140,147 @@ def work_type_case_sql(sl: str = "sl") -> str:
     """
 
 
+def _payer_null_sql() -> str:
+    cols = [column for _code, column in PAYOR_MIX_COLUMNS]
+    for i in range(1, MAX_TOP_PAYERS + 1):
+        cols += [f"top_payer_name_{i}", f"top_payer_percent_{i}"]
+    return ",\n                    ".join(f"{c} = NULL" for c in cols)
+
+
+def payer_mix_update_sql(mart: str) -> str:
+    """UPDATE pd_provider payer-class shares from pd_stg_npi_payor for one NPI bucket.
+
+    Denominator is every class in PAYOR_MIX_COLUMNS (1-4, 6, 7); class 5 Other
+    and unmapped codes are outside it. Two %s params: bucket, bucket.
+    """
+    mix = ", ".join(str(c) for c in PAYOR_MIX_CODES)
+    sums = ",\n                    ".join(
+        f"SUM(CASE WHEN is_payor_code = {int(code)} THEN claim_count ELSE 0 END) AS c{int(code)}"
+        for code, _column in PAYOR_MIX_COLUMNS
+    )
+    sets = ",\n                ".join(
+        f"p.{column} = ROUND(100.0 * m.c{int(code)} / NULLIF(m.denom, 0), 2)"
+        for code, column in PAYOR_MIX_COLUMNS
+    )
+    return f"""
+            UPDATE {mart}.pd_provider p
+            INNER JOIN (
+                SELECT
+                    npi,
+                    {sums},
+                    SUM(CASE WHEN is_payor_code IN ({mix}) THEN claim_count ELSE 0 END) AS denom
+                FROM {mart}.pd_stg_npi_payor
+                WHERE MOD(npi, {PROVIDER_BUCKETS}) = %s
+                GROUP BY npi
+            ) m ON m.npi = p.npi
+            SET
+                {sets},
+                p.refreshed_at = NOW()
+            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+    """
+
+
+def top_payer_update_sql(mart: str, n: int = MAX_TOP_PAYERS) -> str:
+    """UPDATE pd_provider top_payer_name_1..n / top_payer_percent_1..n for one NPI bucket.
+
+    Commercial (class 3) parents only; percents are of commercial claims.
+    Two %s params: bucket, bucket.
+    """
+    picks = ",\n                    ".join(
+        f"MAX(CASE WHEN rk = {i} THEN payor_parent_name END) AS n{i},\n"
+        f"                    MAX(CASE WHEN rk = {i} THEN pct END) AS p{i}"
+        for i in range(1, n + 1)
+    )
+    sets = ",\n                ".join(
+        f"p.top_payer_name_{i} = t.n{i},\n                p.top_payer_percent_{i} = t.p{i}"
+        for i in range(1, n + 1)
+    )
+    return f"""
+            UPDATE {mart}.pd_provider p
+            INNER JOIN (
+                SELECT
+                    npi,
+                    {picks}
+                FROM (
+                    SELECT
+                        npi,
+                        payor_parent_name,
+                        ROUND(
+                            100.0 * claim_count
+                            / NULLIF(SUM(claim_count) OVER (PARTITION BY npi), 0),
+                            2
+                        ) AS pct,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY npi
+                            ORDER BY claim_count DESC, payor_parent_name
+                        ) AS rk
+                    FROM (
+                        SELECT npi, payor_parent_name, SUM(claim_count) AS claim_count
+                        FROM {mart}.pd_stg_npi_payor
+                        WHERE is_payor_code = {PAYOR_COMMERCIAL}
+                          AND MOD(npi, {PROVIDER_BUCKETS}) = %s
+                        GROUP BY npi, payor_parent_name
+                    ) commercial
+                ) ranked
+                WHERE rk <= {int(n)}
+                GROUP BY npi
+            ) t ON t.npi = p.npi
+            SET
+                {sets}
+            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+    """
+
+
+def _apply_payer_columns(cur, conn, mart: str) -> int:
+    """Run the mix and top-payer updates bucket by bucket. Returns providers updated."""
+    mix_sql = payer_mix_update_sql(mart)
+    top_sql = top_payer_update_sql(mart)
+    updated = 0
+    for bucket in range(PROVIDER_BUCKETS):
+        updated += _run(cur, conn, mix_sql, (bucket, bucket))
+        _run(cur, conn, top_sql, (bucket, bucket))
+        print(f"phase4 payer overlay bucket {bucket}", flush=True)
+    return updated
+
+
+def rebuild_payer_columns(conn, *, mart_db: str = MART_DB) -> dict:
+    """Refill the payer-class shares and top commercial payers from the existing
+    pd_stg_npi_payor staging, without re-reading claims (phase4 --payers-only).
+
+    Use after the payer-class mapping or column set changes. The staging table
+    is left by the last full Phase 4 run and already carries every class code.
+    """
+    if not table_has_rows(conn, mart_db, "pd_stg_npi_payor"):
+        raise Phase2Required("pd_stg_npi_payor is empty. Run a full phase4 first.")
+    from provider_directory.schema import migrate_phase4_columns
+
+    create_schema(conn, mart_db)
+    migrate_phase4_columns(conn, mart_db)
+    conn.commit()
+    mart = quote_ident(mart_db)
+    with conn.cursor() as cur:
+        _session_timeouts(cur)
+        conn.commit()
+        for bucket in range(PROVIDER_BUCKETS):
+            _run(
+                cur,
+                conn,
+                f"""
+                UPDATE {mart}.pd_provider
+                SET
+                    {_payer_null_sql()}
+                WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
+                """,
+            )
+        providers_payer = _apply_payer_columns(cur, conn, mart)
+    group_summary = rebuild_group_summary(conn, mart_db)
+    return {
+        "payers_only": True,
+        "providers_payer": providers_payer,
+        "group_summary": group_summary,
+    }
+
+
 def rebuild_analytics(
     conn,
     *,
@@ -164,7 +304,6 @@ def rebuild_analytics(
     claims = quote_ident(claims_db)
     lookup = quote_ident(lookup_db)
     dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
-    mix = ", ".join(str(c) for c in PAYOR_MIX_CODES)
     period_in = period_in_sql(window_start, window_end)
     has_visit_site = table_has_rows(conn, mart_db, "pd_stg_visit_site")
     has_npi_sl = table_has_rows(conn, mart_db, "pd_stg_npi_sl")
@@ -196,16 +335,7 @@ def rebuild_analytics(
                     wrvu_total = NULL,
                     wrvu_average = NULL,
                     wrvu_procedure_count = NULL,
-                    visits_percent_third_party = NULL,
-                    visits_percent_medicaid = NULL,
-                    visits_percent_medicare_advantage = NULL,
-                    visits_percent_medicare_traditional = NULL,
-                    top_payer_name_1 = NULL,
-                    top_payer_percent_1 = NULL,
-                    top_payer_name_2 = NULL,
-                    top_payer_percent_2 = NULL,
-                    top_payer_name_3 = NULL,
-                    top_payer_percent_3 = NULL,
+                    {_payer_null_sql()},
                     primary_organization_id = NULL,
                     primary_organization_name = NULL,
                     primary_organization_npi = NULL,
@@ -391,76 +521,7 @@ def rebuild_analytics(
                 counts["payor_rows"] += n
                 print(f"phase4 payor bucket {bucket}: {n} rows", flush=True)
 
-        mix_sql = f"""
-            UPDATE {mart}.pd_provider p
-            INNER JOIN (
-                SELECT
-                    npi,
-                    SUM(CASE WHEN is_payor_code = {PAYOR_MEDICARE_FFS} THEN claim_count ELSE 0 END) AS ffs,
-                    SUM(CASE WHEN is_payor_code = {PAYOR_MEDICAID} THEN claim_count ELSE 0 END) AS medicaid,
-                    SUM(CASE WHEN is_payor_code = {PAYOR_COMMERCIAL} THEN claim_count ELSE 0 END) AS commercial,
-                    SUM(CASE WHEN is_payor_code = {PAYOR_HMO_MA} THEN claim_count ELSE 0 END) AS ma,
-                    SUM(CASE WHEN is_payor_code IN ({mix}) THEN claim_count ELSE 0 END) AS denom
-                FROM {mart}.pd_stg_npi_payor
-                WHERE MOD(npi, {PROVIDER_BUCKETS}) = %s
-                GROUP BY npi
-            ) m ON m.npi = p.npi
-            SET
-                p.visits_percent_medicare_traditional = ROUND(100.0 * m.ffs / NULLIF(m.denom, 0), 2),
-                p.visits_percent_medicaid = ROUND(100.0 * m.medicaid / NULLIF(m.denom, 0), 2),
-                p.visits_percent_third_party = ROUND(100.0 * m.commercial / NULLIF(m.denom, 0), 2),
-                p.visits_percent_medicare_advantage = ROUND(100.0 * m.ma / NULLIF(m.denom, 0), 2),
-                p.refreshed_at = NOW()
-            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
-        """
-        top_sql = f"""
-            UPDATE {mart}.pd_provider p
-            INNER JOIN (
-                SELECT
-                    npi,
-                    MAX(CASE WHEN rk = 1 THEN payor_parent_name END) AS n1,
-                    MAX(CASE WHEN rk = 1 THEN pct END) AS p1,
-                    MAX(CASE WHEN rk = 2 THEN payor_parent_name END) AS n2,
-                    MAX(CASE WHEN rk = 2 THEN pct END) AS p2,
-                    MAX(CASE WHEN rk = 3 THEN payor_parent_name END) AS n3,
-                    MAX(CASE WHEN rk = 3 THEN pct END) AS p3
-                FROM (
-                    SELECT
-                        npi,
-                        payor_parent_name,
-                        ROUND(
-                            100.0 * claim_count
-                            / NULLIF(SUM(claim_count) OVER (PARTITION BY npi), 0),
-                            2
-                        ) AS pct,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY npi
-                            ORDER BY claim_count DESC, payor_parent_name
-                        ) AS rk
-                    FROM (
-                        SELECT npi, payor_parent_name, SUM(claim_count) AS claim_count
-                        FROM {mart}.pd_stg_npi_payor
-                        WHERE is_payor_code = {PAYOR_COMMERCIAL}
-                          AND MOD(npi, {PROVIDER_BUCKETS}) = %s
-                        GROUP BY npi, payor_parent_name
-                    ) commercial
-                ) ranked
-                WHERE rk <= 3
-                GROUP BY npi
-            ) t ON t.npi = p.npi
-            SET
-                p.top_payer_name_1 = t.n1,
-                p.top_payer_percent_1 = t.p1,
-                p.top_payer_name_2 = t.n2,
-                p.top_payer_percent_2 = t.p2,
-                p.top_payer_name_3 = t.n3,
-                p.top_payer_percent_3 = t.p3
-            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
-        """
-        for bucket in range(PROVIDER_BUCKETS):
-            counts["providers_payer"] += _run(cur, conn, mix_sql, (bucket, bucket))
-            _run(cur, conn, top_sql, (bucket, bucket))
-            print(f"phase4 payer overlay bucket {bucket}", flush=True)
+        counts["providers_payer"] = _apply_payer_columns(cur, conn, mart)
 
         org_sql = f"""
             UPDATE {mart}.pd_provider p

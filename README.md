@@ -60,7 +60,7 @@ Phase 3 JSON that looks healthy: `visit_sites` in the tens of millions, `practic
 
 ## Phase 4
 
-wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all` (on `AZ_CMS` from `az_cms.pat_dt` × the `payor` lookup instead, visit-weighted, because the blend's summary table only carries native claims; that is one extra 12-month `pat_dt` scan), primary billing org from `az.physician_primary_affiliation`, every in-window group practice from `physician_affiliation_p` / `_i`, top-in **distinct hospital systems** from visit-weighted `sl.sl_hospital_system_name` (not five campuses of the same system), and site-of-care `work_type` labels from CMS POS plus warehouse rollup. Phase 4 also replaces Type 1 `LAST, FIRST` practice names with street+city so another clinician's NPI is not shown as the site. Does not rescan `az.pat_dt`. Other / is_payor 5 is excluded from the four payer percents. Top 3 payers are commercial parents only.
+wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all` (on `AZ_CMS` from `az_cms.pat_dt` × the `payor` lookup instead, visit-weighted, because the blend's summary table only carries native claims; that is one extra 12-month `pat_dt` scan), primary billing org from `az.physician_primary_affiliation`, every in-window group practice from `physician_affiliation_p` / `_i`, top-in **distinct hospital systems** from visit-weighted `sl.sl_hospital_system_name` (not five campuses of the same system), and site-of-care `work_type` labels from CMS POS plus warehouse rollup. Phase 4 also replaces Type 1 `LAST, FIRST` practice names with street+city so another clinician's NPI is not shown as the site. Does not rescan `az.pat_dt`. Payer classes are `is_payor_code` 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage and 7 Medicare Other, each its own `visits_percent_*` column over the sum of those six; class 5 Other is excluded from the denominator. Top 5 payers are commercial parents only.
 
 ```
 python -m provider_directory.cli phase4
@@ -68,6 +68,12 @@ python -m provider_directory.cli get 1952863797
 ```
 
 Keep Phase 2–3 staging. Re-run `phase4` after `phase2`/`phase3` rebuilds.
+
+`phase4 --payers-only` refills the payer-class shares and top 5 commercial payers from the `pd_stg_npi_payor` staging the last full Phase 4 left behind (adds the new columns, no claims read, a few minutes), then rebuilds `pd_group_practice`. Run it once after pulling the class 4/6/7 change so `visits_percent_medicare_advantage` switches from class 4 (HMO, the old mislabel) to class 6.
+
+```
+python -m provider_directory.cli phase4 --state AZ_CMS --payers-only
+```
 
 ## Phase 5
 

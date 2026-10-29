@@ -284,3 +284,17 @@ def test_client_tier_never_says_hospital_system_or_bare_rvu():
     for scope, key in (("provider", "wrvu_total"), ("group", "wrvu_total"), ("practice", "wrvu_at_site"),
                        ("provider", "wrvu_state_specialty_median"), ("provider", "wrvu_state_specialty_p25")):
         assert "sum" in plain[scope][key]["label"].lower(), (scope, key)
+
+
+def test_payer_class_labels_match_the_warehouse_codes():
+    cat = catalog(dev=True)["provider"]
+    assert cat["visits_percent_hmo"]["label"] == "HMO"
+    assert "Class 4" in cat["visits_percent_hmo"]["dev"]
+    assert cat["visits_percent_medicare_advantage"]["label"] == "Medicare Advantage"
+    assert "Class 6" in cat["visits_percent_medicare_advantage"]["dev"]
+    assert cat["visits_percent_medicare_other"]["label"] == "Medicare Other"
+    assert "Class 7" in cat["visits_percent_medicare_other"]["dev"]
+    assert cat["top_payer_name_5"]["label"] == "Top commercial payer 5"
+    assert cat["is_primary_member"]["label"] == "Primary member"
+    group = catalog(dev=True)["group"]
+    assert group["member_count_any"]["label"] == "Clinicians billing here"

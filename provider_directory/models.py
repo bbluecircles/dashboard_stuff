@@ -169,12 +169,18 @@ class ProviderSpine(BaseModel):
     visits_percent_medicaid: float | None = None
     visits_percent_medicare_advantage: float | None = None
     visits_percent_medicare_traditional: float | None = None
+    visits_percent_hmo: float | None = None
+    visits_percent_medicare_other: float | None = None
     top_payer_name_1: str | None = None
     top_payer_percent_1: float | None = None
     top_payer_name_2: str | None = None
     top_payer_percent_2: float | None = None
     top_payer_name_3: str | None = None
     top_payer_percent_3: float | None = None
+    top_payer_name_4: str | None = None
+    top_payer_percent_4: float | None = None
+    top_payer_name_5: str | None = None
+    top_payer_percent_5: float | None = None
     primary_organization_id: int | None = None
     primary_organization_name: str | None = None
     primary_organization_npi: int | None = None
@@ -259,6 +265,7 @@ class ProviderDumpRow(BaseModel):
     wrvu_specialty_percentile: float | None = None
     visits_specialty_percentile: float | None = None
     activity_specialty_percentile: float | None = None
+    is_primary_member: bool | None = None
 
 
 class ProviderDumpList(BaseModel):
@@ -299,6 +306,7 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     """
 
     visits_are_summed_across_npis: bool = True
+    member_count_any: int | None = None
     primary_specialty_code: str | None = None
     primary_specialty_description: str | None = None
     in_system_provider: bool | None = None
@@ -336,12 +344,18 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     visits_percent_medicaid: float | None = None
     visits_percent_medicare_advantage: float | None = None
     visits_percent_medicare_traditional: float | None = None
+    visits_percent_hmo: float | None = None
+    visits_percent_medicare_other: float | None = None
     top_payer_name_1: str | None = None
     top_payer_percent_1: float | None = None
     top_payer_name_2: str | None = None
     top_payer_percent_2: float | None = None
     top_payer_name_3: str | None = None
     top_payer_percent_3: float | None = None
+    top_payer_name_4: str | None = None
+    top_payer_percent_4: float | None = None
+    top_payer_name_5: str | None = None
+    top_payer_percent_5: float | None = None
     visits_percent_monday: float | None = None
     visits_percent_tuesday: float | None = None
     visits_percent_wednesday: float | None = None

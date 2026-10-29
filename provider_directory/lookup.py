@@ -381,6 +381,11 @@ def get_provider(
     )[0]
 
 
+MEMBERSHIP_PRIMARY = "primary"
+MEMBERSHIP_ANY = "any"
+MEMBERSHIPS = (MEMBERSHIP_PRIMARY, MEMBERSHIP_ANY)
+
+
 def _provider_filter_clauses(
     *,
     prefix: str = "",
@@ -393,9 +398,13 @@ def _provider_filter_clauses(
     in_system: bool | None = None,
     organization: str | None = None,
     organization_id: int | None = None,
+    membership: str = MEMBERSHIP_PRIMARY,
+    mart_db: str = MART_DB,
 ) -> tuple[list[str], list]:
     if min_visits is not None and max_visits is not None and min_visits > max_visits:
         raise ValueError("min_visits cannot exceed max_visits")
+    if membership not in MEMBERSHIPS:
+        raise ValueError(f"membership must be one of {MEMBERSHIPS}, got {membership!r}")
     p = prefix
     clauses = ["1=1"]
     params: list = []
@@ -428,7 +437,16 @@ def _provider_filter_clauses(
         clauses.append(f"{p}primary_organization_name LIKE %s")
         params.append(f"%{organization.strip()}%")
     if organization_id is not None:
-        clauses.append(f"{p}primary_organization_id = %s")
+        if membership == MEMBERSHIP_ANY:
+            # Any in-window billing org (physician_affiliation_p/_i), not just the
+            # primary one, so the picker can list every provider whose profile
+            # names this group. idx_npi_org on pd_provider_group_practice serves it.
+            clauses.append(
+                f"EXISTS (SELECT 1 FROM {quote_ident(mart_db)}.pd_provider_group_practice g "
+                f"WHERE g.npi = {p}npi AND g.organization_id = %s)"
+            )
+        else:
+            clauses.append(f"{p}primary_organization_id = %s")
         params.append(organization_id)
     return clauses, params
 
@@ -498,8 +516,15 @@ def list_providers(
     mart_db: str = MART_DB,
     state: str | None = None,
     organization_id: int | None = None,
+    membership: str = MEMBERSHIP_PRIMARY,
 ) -> ProviderDumpList:
-    """Paged dump for the picker table. Does not attach nested practices/referrals."""
+    """Paged dump for the picker table. Does not attach nested practices/referrals.
+
+    membership="primary" (default) matches organization_id against the provider's
+    primary billing org, the same grain as the group dump and profile totals.
+    membership="any" matches every in-window billing org on the profile's
+    group_practices[] list and marks each row with is_primary_member.
+    """
     clauses, params = _provider_filter_clauses(
         prefix="p.",
         last_name=last_name,
@@ -511,6 +536,8 @@ def list_providers(
         in_system=in_system,
         organization=organization,
         organization_id=organization_id,
+        membership=membership,
+        mart_db=mart_db,
     )
     city_term = city.strip() if city else ""
     if city_term:
@@ -522,6 +549,10 @@ def list_providers(
     practice = f"{mart}.pd_provider_practice"
     join_sql = f"LEFT JOIN {practice} pr ON pr.npi = p.npi AND pr.site_rank = 1"
     count_from = f"{provider} {join_sql}" if city_term else provider
+    member_sql, member_params = "NULL", []
+    if organization_id is not None:
+        member_sql = "(p.primary_organization_id = %s)"
+        member_params = [organization_id]
     with conn.cursor() as cur:
         cur.execute(f"SELECT COUNT(*) AS n FROM {count_from} WHERE {where}", params)
         total = int(cur.fetchone()["n"])
@@ -546,7 +577,8 @@ def list_providers(
                 p.activity_specialty_percentile,
                 pr.name AS practice_name,
                 pr.city,
-                pr.state
+                pr.state,
+                {member_sql} AS is_primary_member
             FROM {provider}
             {join_sql}
             WHERE {where}
@@ -554,12 +586,12 @@ def list_providers(
                 p.last_name, p.first_name, p.npi
             LIMIT %s OFFSET %s
             """,
-            [*params, limit, offset],
+            [*member_params, *params, limit, offset],
         )
         rows = cur.fetchall()
     items = []
     for row in rows:
-        _as_bool(row, "in_system_provider", "active_provider")
+        _as_bool(row, "in_system_provider", "active_provider", "is_primary_member")
         items.append(ProviderDumpRow.model_validate(row))
     return ProviderDumpList(
         state=(state or "").upper() or mart_db.split("_")[0].upper(),

@@ -131,6 +131,7 @@ def _cmd_phase4(args: argparse.Namespace) -> int:
         summary = run_phase4(
             conn,
             org_lists_only=args.org_lists_only,
+            payers_only=args.payers_only,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
@@ -414,6 +415,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--org-lists-only",
         action="store_true",
         help="Rebuild pd_provider_group_practice and pd_provider_hospital_affiliation only (skip wRVU/payers)",
+    )
+    p.add_argument(
+        "--payers-only",
+        action="store_true",
+        help="Refill payer-class shares (1-4, 6, 7) and top 5 commercial payers from the existing "
+        "pd_stg_npi_payor staging; no claims read, a few minutes",
     )
     p.set_defaults(func=_cmd_phase4)
 
