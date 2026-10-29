@@ -196,7 +196,7 @@
       },
       "wrvu_total": {
         "label": "RVU sum (one procedure per visit)",
-        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review; not comparable to a wRVU report."
+        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review."
       },
       "wrvu_average": {
         "label": "RVU per priced visit",
@@ -228,7 +228,7 @@
       },
       "top_payer_percent_1": {
         "label": "Share of commercial",
-        "help": "This payer's share of the clinician's commercial claims, not of all claims."
+        "help": "This payer's share of the clinician's commercial claims."
       },
       "top_payer_name_2": {
         "label": "Top commercial payer 2",
@@ -316,7 +316,7 @@
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure."
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile of provider RVU sums",
@@ -340,7 +340,7 @@
       },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality."
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank."
       },
       "group_size": {
         "label": "Group size",
@@ -662,7 +662,7 @@
       },
       "wrvu_total": {
         "label": "Sum of members' RVU sums",
-        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review; not comparable to a wRVU report."
+        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review."
       },
       "wrvu_average": {
         "label": "RVU per priced visit, members combined",
@@ -694,7 +694,7 @@
       },
       "top_payer_percent_1": {
         "label": "Share of commercial",
-        "help": "This payer's share of the clinician's commercial claims, not of all claims."
+        "help": "This payer's share of the clinician's commercial claims."
       },
       "top_payer_name_2": {
         "label": "Top commercial payer 2",
@@ -782,7 +782,7 @@
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure."
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile of provider RVU sums",
@@ -806,7 +806,7 @@
       },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality."
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank."
       },
       "group_size": {
         "label": "Group size",

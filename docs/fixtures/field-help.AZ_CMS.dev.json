@@ -259,7 +259,7 @@
         "help": "The clinician's gender from CMS public files. Not the patient panel.",
         "dev": "cms_pdc_clinician.gndr first, else cms_nppes_type1 sex code, normalized to M or F. The warehouse carries no gender.",
         "caveats": [
-          "The clinician's gender from CMS, not the patient panel."
+          "The clinician's gender as recorded by CMS."
         ],
         "derived_from": [],
         "tables": [
@@ -343,7 +343,7 @@
         "help": "Approximate age, estimated from medical school graduation year. Not a date of birth.",
         "dev": "2024 - grd_yr + 26 (REPORT_YEAR, GRAD_AGE_OFFSET), grd_yr from cms_pdc_clinician else cms_nppes_type1. Null when grd_yr is missing, before 1950 or after 2024. Capped at 90. transforms.estimated_age.",
         "caveats": [
-          "An estimate from medical school graduation year, not a date of birth."
+          "An estimate from medical school graduation year."
         ],
         "derived_from": [
           {
@@ -455,7 +455,7 @@
         "help": "The clinician has a hospital affiliation on file with CMS.",
         "dev": "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs. Not a contracted-network flag.",
         "caveats": [
-          "A hospital affiliation on file with CMS, not a contracted-network flag."
+          "A hospital affiliation on file with CMS."
         ],
         "derived_from": [],
         "tables": [
@@ -3215,7 +3215,7 @@
       },
       "wrvu_total": {
         "label": "RVU sum (one procedure per visit)",
-        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review; not comparable to a wRVU report.",
+        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review.",
         "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM, 2).",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -3686,10 +3686,10 @@
       },
       "top_payer_percent_1": {
         "label": "Share of commercial",
-        "help": "This payer's share of the clinician's commercial claims, not of all claims.",
+        "help": "This payer's share of the clinician's commercial claims.",
         "dev": "pd_stg_npi_payor claim_count / SUM(claim_count) over the NPI's class 3 rows x100.",
         "caveats": [
-          "A share of commercial claims, not of all claims."
+          "A share of the clinician's commercial claims."
         ],
         "derived_from": [],
         "tables": [
@@ -3791,7 +3791,7 @@
         "help": "Share of the clinician's commercial claims.",
         "dev": "Same pd_stg_npi_payor formula, rank 2.",
         "caveats": [
-          "A share of commercial claims, not of all claims."
+          "A share of the clinician's commercial claims."
         ],
         "derived_from": [],
         "tables": [
@@ -3893,7 +3893,7 @@
         "help": "Share of the clinician's commercial claims.",
         "dev": "Same pd_stg_npi_payor formula, rank 3.",
         "caveats": [
-          "A share of commercial claims, not of all claims."
+          "A share of the clinician's commercial claims."
         ],
         "derived_from": [],
         "tables": [
@@ -4898,7 +4898,7 @@
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure.",
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -5360,7 +5360,7 @@
         "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.",
         "dev": "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total.",
         "caveats": [
-          "A volume rank, not a quality measure.",
+          "A volume rank.",
           "Peers are same-specialty clinicians with a positive RVU total."
         ],
         "derived_from": [
@@ -5476,7 +5476,7 @@
         "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest.",
         "dev": "Same rank on pd_provider.visits_total among specialty NPIs with visits_total > 0 (pd_stg_npi_visits_percentile).",
         "caveats": [
-          "A volume rank, not a quality measure.",
+          "A volume rank.",
           "Peers are same-specialty clinicians with at least one visit."
         ],
         "derived_from": [
@@ -5567,10 +5567,10 @@
       },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality.",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank.",
         "dev": "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists.",
         "caveats": [
-          "A volume rank, not a quality measure.",
+          "A volume rank.",
           "Null when the clinician has no specialty, or no visits and no RVU."
         ],
         "derived_from": [
@@ -5704,7 +5704,7 @@
         "help": "Number of clinicians in the group practice as reported to CMS.",
         "dev": "cms_pdc_clinician.num_org_mem on the preferred PDC row (extras).",
         "caveats": [
-          "CMS-reported group size, not the number of members in this directory."
+          "Group size as reported by CMS."
         ],
         "derived_from": [],
         "tables": [
@@ -11367,7 +11367,7 @@
       },
       "wrvu_total": {
         "label": "Sum of members' RVU sums",
-        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review; not comparable to a wRVU report.",
+        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review.",
         "dev": "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice.",
         "caveats": [
           "An encounter billed by two members of the group counts twice.",
@@ -11981,7 +11981,7 @@
       },
       "top_payer_percent_1": {
         "label": "Share of commercial",
-        "help": "This payer's share of the clinician's commercial claims, not of all claims.",
+        "help": "This payer's share of the clinician's commercial claims.",
         "dev": "pd_stg_npi_payor claim_count / SUM(claim_count) over the NPI's class 3 rows x100.",
         "caveats": [],
         "derived_from": [
@@ -13305,7 +13305,7 @@
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure.",
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -13961,7 +13961,7 @@
       },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality.",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank.",
         "dev": "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists.",
         "caveats": [],
         "derived_from": [
@@ -14087,9 +14087,9 @@
       "group_size": {
         "label": "Group size",
         "help": "Largest CMS-reported group size among members.",
-        "dev": "MAX(pd_provider.group_size) over members, not provider_count.",
+        "dev": "MAX(pd_provider.group_size) over members.",
         "caveats": [
-          "Largest CMS-reported group size among members, not the member count."
+          "Largest CMS-reported group size among members."
         ],
         "derived_from": [
           {
@@ -16837,10 +16837,10 @@
       "visits_percentile": {
         "label": "Visits percentile",
         "help": "Where this group's visit total ranks among all groups. 100 is the highest.",
-        "dev": "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Among groups, not specialty peers.",
+        "dev": "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Ranked among all groups.",
         "caveats": [
-          "A volume rank, not a quality measure.",
-          "Among all groups, not specialty peers."
+          "A volume rank.",
+          "Ranked among all groups."
         ],
         "derived_from": [
           {
@@ -16933,8 +16933,8 @@
         "help": "Where this group's visits per clinician ranks among all groups. 100 is the highest.",
         "dev": "pd_group_practice: same rank on visits_total / provider_count.",
         "caveats": [
-          "A volume rank, not a quality measure.",
-          "Among all groups, not specialty peers."
+          "A volume rank.",
+          "Ranked among all groups."
         ],
         "derived_from": [
           {
@@ -20411,7 +20411,7 @@
       "peer_npi": {
         "label": "Peer NPI",
         "help": "NPI of the referring or receiving clinician.",
-        "dev": "The other NPI on the az.dash_physician_referrals_to_rendering edge. Both must be Type 1, neither a dummy, not the same NPI.",
+        "dev": "The other NPI on the az.dash_physician_referrals_to_rendering edge. Both must be distinct Type 1 NPIs, neither a dummy.",
         "caveats": [],
         "derived_from": [],
         "tables": [
