@@ -32,7 +32,7 @@
       },
       "gender": {
         "label": "Provider gender",
-        "help": "The clinician's gender from CMS public files. Not the patient panel."
+        "help": "The clinician's gender from CMS public files."
       },
       "medical_school_name": {
         "label": "Medical school",
@@ -44,7 +44,7 @@
       },
       "estimated_age": {
         "label": "Estimated age",
-        "help": "Approximate age, estimated from medical school graduation year. Not a date of birth."
+        "help": "Approximate age, estimated from medical school graduation year."
       },
       "primary_specialty_code": {
         "label": "Specialty code",
@@ -498,7 +498,7 @@
       },
       "gender": {
         "label": "Provider gender",
-        "help": "The clinician's gender from CMS public files. Not the patient panel."
+        "help": "The clinician's gender from CMS public files."
       },
       "medical_school_name": {
         "label": "Medical school",
@@ -510,7 +510,7 @@
       },
       "estimated_age": {
         "label": "Estimated age",
-        "help": "Approximate age, estimated from medical school graduation year. Not a date of birth."
+        "help": "Approximate age, estimated from medical school graduation year."
       },
       "primary_specialty_code": {
         "label": "Specialty code",
@@ -1028,11 +1028,11 @@
       },
       "latitude": {
         "label": "Latitude",
-        "help": "Latitude of the site. Not used by the UI in v1."
+        "help": "Latitude of the site, unused by the UI in v1."
       },
       "longitude": {
         "label": "Longitude",
-        "help": "Longitude of the site. Not used by the UI in v1."
+        "help": "Longitude of the site, unused by the UI in v1."
       },
       "phone": {
         "label": "Phone",

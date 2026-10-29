@@ -256,7 +256,7 @@
       },
       "gender": {
         "label": "Provider gender",
-        "help": "The clinician's gender from CMS public files. Not the patient panel.",
+        "help": "The clinician's gender from CMS public files.",
         "dev": "cms_pdc_clinician.gndr first, else cms_nppes_type1 sex code, normalized to M or F. The warehouse carries no gender.",
         "caveats": [
           "The clinician's gender as recorded by CMS."
@@ -340,7 +340,7 @@
       },
       "estimated_age": {
         "label": "Estimated age",
-        "help": "Approximate age, estimated from medical school graduation year. Not a date of birth.",
+        "help": "Approximate age, estimated from medical school graduation year.",
         "dev": "2024 - grd_yr + 26 (REPORT_YEAR, GRAD_AGE_OFFSET), grd_yr from cms_pdc_clinician else cms_nppes_type1. Null when grd_yr is missing, before 1950 or after 2024. Capped at 90. transforms.estimated_age.",
         "caveats": [
           "An estimate from medical school graduation year."
@@ -453,7 +453,7 @@
       "in_system_provider": {
         "label": "In-system",
         "help": "The clinician has a hospital affiliation on file with CMS.",
-        "dev": "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs. Not a contracted-network flag.",
+        "dev": "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs.",
         "caveats": [
           "A hospital affiliation on file with CMS."
         ],
@@ -3218,7 +3218,7 @@
         "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review.",
         "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM, 2).",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
+          "Fee-schedule RVU, one procedure per visit, under review.",
           "Visits whose procedure has no fee-schedule RVU are excluded."
         ],
         "derived_from": [],
@@ -3285,7 +3285,7 @@
         "help": "The RVU sum divided by the number of visits that had a priced procedure.",
         "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). wrvu_total / wrvu_procedure_count, 3 decimals. The UI leads with median and percentile instead.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
+          "Fee-schedule RVU, one procedure per visit, under review.",
           "The UI leads with the specialty median and percentile instead."
         ],
         "derived_from": [
@@ -4525,7 +4525,7 @@
         "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024.",
         "dev": "Same RVU formula over az.pat_dt for Nov 2023 to Oct 2024, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5).",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
+          "Fee-schedule RVU, one procedure per visit, under review.",
           "Visits whose procedure has no fee-schedule RVU are excluded."
         ],
         "derived_from": [],
@@ -4568,7 +4568,7 @@
         "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024.",
         "dev": "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+          "Fee-schedule RVU, one procedure per visit, under review."
         ],
         "derived_from": [
           {
@@ -4786,7 +4786,7 @@
         "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
         "caveats": [
           "Skewed by a few very high totals; the median is the better centre.",
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+          "Fee-schedule RVU, one procedure per visit, under review."
         ],
         "derived_from": [
           {
@@ -4901,7 +4901,7 @@
         "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
+          "Fee-schedule RVU, one procedure per visit, under review.",
           "Peers are same-specialty clinicians with a positive RVU total."
         ],
         "derived_from": [
@@ -5017,7 +5017,7 @@
         "help": "The per-provider RVU sum at the 25th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+          "Fee-schedule RVU, one procedure per visit, under review."
         ],
         "derived_from": [
           {
@@ -5132,7 +5132,7 @@
         "help": "The per-provider RVU sum at the 75th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+          "Fee-schedule RVU, one procedure per visit, under review."
         ],
         "derived_from": [
           {
@@ -7891,7 +7891,7 @@
       },
       "gender": {
         "label": "Provider gender",
-        "help": "The clinician's gender from CMS public files. Not the patient panel.",
+        "help": "The clinician's gender from CMS public files.",
         "dev": "cms_pdc_clinician.gndr first, else cms_nppes_type1 sex code, normalized to M or F. The warehouse carries no gender.",
         "caveats": [],
         "derived_from": [
@@ -7994,7 +7994,7 @@
       },
       "estimated_age": {
         "label": "Estimated age",
-        "help": "Approximate age, estimated from medical school graduation year. Not a date of birth.",
+        "help": "Approximate age, estimated from medical school graduation year.",
         "dev": "2024 - grd_yr + 26 (REPORT_YEAR, GRAD_AGE_OFFSET), grd_yr from cms_pdc_clinician else cms_nppes_type1. Null when grd_yr is missing, before 1950 or after 2024. Capped at 90. transforms.estimated_age.",
         "caveats": [],
         "derived_from": [
@@ -11371,7 +11371,7 @@
         "dev": "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice.",
         "caveats": [
           "An encounter billed by two members of the group counts twice.",
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
+          "Fee-schedule RVU, one procedure per visit, under review.",
           "Visits whose procedure has no fee-schedule RVU are excluded."
         ],
         "derived_from": [
@@ -11487,7 +11487,7 @@
         "help": "Sum of members' RVU sums divided by members' priced visits.",
         "dev": "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+          "Fee-schedule RVU, one procedure per visit, under review."
         ],
         "derived_from": [
           {
@@ -17513,7 +17513,7 @@
       },
       "latitude": {
         "label": "Latitude",
-        "help": "Latitude of the site. Not used by the UI in v1.",
+        "help": "Latitude of the site, unused by the UI in v1.",
         "dev": "az.sl.latitude on the cluster's canonical location.",
         "caveats": [],
         "derived_from": [],
@@ -17531,7 +17531,7 @@
       },
       "longitude": {
         "label": "Longitude",
-        "help": "Longitude of the site. Not used by the UI in v1.",
+        "help": "Longitude of the site, unused by the UI in v1.",
         "dev": "az.sl.longitude on the cluster's canonical location.",
         "caveats": [],
         "derived_from": [],
@@ -18175,7 +18175,7 @@
         "help": "The clinician's one-procedure-per-visit RVU sum over visits at this site.",
         "dev": "SUM of visit-grain RVU over visits at the site (pd_stg_site_wrvu, Phase 4).",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
+          "Fee-schedule RVU, one procedure per visit, under review.",
           "Visits whose procedure has no fee-schedule RVU are excluded."
         ],
         "derived_from": [
@@ -18276,7 +18276,7 @@
         "help": "This site's part of the clinician's RVU sum.",
         "dev": "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals.",
         "caveats": [
-          "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+          "Fee-schedule RVU, one procedure per visit, under review."
         ],
         "derived_from": [
           {

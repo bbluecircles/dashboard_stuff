@@ -262,13 +262,13 @@ PROVIDER: dict[str, dict[str, str]] = {
     "suffix": _entry("Suffix", "Name suffix such as Jr or III, from claims, else CMS.", "Same merge order as first_name: az.physician, then cms_pdc_clinician, then cms_nppes_type1."),
     "credential": _entry("Credential", "Degree or credential such as MD, DO, NP, from claims, else CMS.",
                          "az.physician.degree_abbr, else cms_pdc_clinician.cred, else cms_nppes_type1 credential text."),
-    "gender": _entry("Provider gender", "The clinician's gender from CMS public files. Not the patient panel.",
+    "gender": _entry("Provider gender", "The clinician's gender from CMS public files.",
                      "cms_pdc_clinician.gndr first, else cms_nppes_type1 sex code, normalized to M or F. The warehouse carries no gender."),
     "medical_school_name": _entry("Medical school", "Medical school as reported to CMS.",
                                   "cms_pdc_clinician.med_sch on the preferred PDC row (in-state, with school, grad year, gender, phone), else NPPES. 'OTHER' is treated as blank."),
     "medical_school_graduation_year": _entry("Graduation year", "Medical school graduation year as reported to CMS.",
                                              "cms_pdc_clinician.grd_yr, else cms_nppes_type1."),
-    "estimated_age": _entry("Estimated age", "Approximate age, estimated from medical school graduation year. Not a date of birth.",
+    "estimated_age": _entry("Estimated age", "Approximate age, estimated from medical school graduation year.",
                             "2024 - grd_yr + 26 (REPORT_YEAR, GRAD_AGE_OFFSET), grd_yr from cms_pdc_clinician else cms_nppes_type1. Null when grd_yr is missing, before 1950 or after 2024. Capped at 90. transforms.estimated_age."),
     "primary_specialty_code": _entry("Specialty code", "Taxonomy code of the clinician's primary specialty.",
                                      "az.physician.npi_spec_grp_code. Also the peer group for the specialty percentiles."),
@@ -277,7 +277,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "specialty_classification": _entry("Specialty group", "Broader classification of the specialty, for example Internal Medicine.",
                                        "azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name."),
     "in_system_provider": _entry("In-system", "The clinician has a hospital affiliation on file with CMS.",
-                                 "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs. Not a contracted-network flag."),
+                                 "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs."),
     "name_source": _entry("Name source", "Which source supplied the name: claims, CMS PDC, or NPPES.", "transforms.merge_identity: 'claims' (az.physician) unless the claims last name is blank, then 'pdc' (cms_pdc_clinician), then 'nppes' (cms_nppes_type1)."),
     "gender_source": _entry("Gender source", "Which CMS file supplied the gender.", "'pdc' when cms_pdc_clinician has a gender, else 'nppes' from cms_nppes_type1, else null."),
     "school_source": _entry("School source", "Which CMS file supplied the medical school.", "'pdc' when cms_pdc_clinician has a school, else 'nppes' from cms_nppes_type1, else null."),
@@ -434,8 +434,8 @@ PRACTICE: dict[str, dict[str, str]] = {
     "county": _entry("County", "County of the site.", "az.sl.county_name, text before the first comma."),
     "state": _entry("State", "State of the site.", "az.sl.state_abbr on the canonical location."),
     "zip": _entry("ZIP", "5-digit ZIP code of the site.", "LEFT(az.sl.zip_code, 5)."),
-    "latitude": _entry("Latitude", "Latitude of the site. Not used by the UI in v1.", "az.sl.latitude on the cluster's canonical location."),
-    "longitude": _entry("Longitude", "Longitude of the site. Not used by the UI in v1.", "az.sl.longitude on the cluster's canonical location."),
+    "latitude": _entry("Latitude", "Latitude of the site, unused by the UI in v1.", "az.sl.latitude on the cluster's canonical location."),
+    "longitude": _entry("Longitude", "Longitude of the site, unused by the UI in v1.", "az.sl.longitude on the cluster's canonical location."),
     "phone": _entry("Phone", "Phone number from CMS for this clinician at this address, when one matches. Blank means no match; never invented.", "cms_pdc_clinician phone where the PDC row shares the site's ZIP5 and either the normalized street or the city."),
     "work_type": _entry("Work type", "Type of care setting, from the place-of-service code on claims.", "az.sl.pos_type_code mapped via POS_WORK_TYPE (11 Office, 22 Hospital Outpatient, 23 Emergency Department, 24 Ambulatory Surgery Center, ...); else keyword match on az.sl.im_specialty_rollup; else null."),
     "visits_at_site": _entry("Visits at site", "The clinician's visits at this site in {window}.", "SUM of pd_stg_npi_sl.visits over the cluster's locations. Each visit's location is the modal sl_code across its claim lines (pd_stg_visit_site)."),
@@ -499,7 +499,7 @@ UTILIZATION: dict[str, dict[str, str]] = {
 # Keys are (scope, field). Family rules below fill repeated patterns.
 # ---------------------------------------------------------------------------
 
-_RVU_SCALE = "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
+_RVU_SCALE = "Fee-schedule RVU, one procedure per visit, under review."
 _RVU_EXCL = "Visits whose procedure has no fee-schedule RVU are excluded."
 _DOUBLE = "An encounter billed by two members of the group counts twice."
 _VOLUME = "A volume rank."
