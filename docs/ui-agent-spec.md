@@ -2,7 +2,9 @@
 
 > **Read `docs/ui-changes-urgent.md` first.** It removes hospital-system wording and relabels every RVU figure. Where this spec and that file disagree, that file wins.
 
-Hand this to the UI agent. The Python mart is already live. The UI is a **.NET app on IIS**. FastAPI is a loopback lookup service, not a dashboard.
+Hand this to the UI agent.
+
+**Copy rule for every caption, tooltip and empty state the user sees:** say what the figure is and stop. Never write the "X, not Y" / "X; they are not Y" form ("a volume rank, not a quality measure", "...; they are not a wRVU report"). Take label and help strings from `GET /v1/field-help` or `docs/fixtures/field-help.AZ_CMS.json`; do not paraphrase them or hardcode older copies. The RVU caption is exactly: "RVU figures price one procedure per visit from the fee schedule and are under review." The Python mart is already live. The UI is a **.NET app on IIS**. FastAPI is a loopback lookup service, not a dashboard.
 
 Do **not** rerun `phase1` (it TRUNCATEs `pd_provider`). Do **not** put Phase 1–6 job buttons in the UI. Do **not** scan `pat_dt` from the app.
 
@@ -90,7 +92,7 @@ Same picker pattern, different grain: one row per **primary billing organization
 
 Page it the same way (`limit` default 50, max 500, `offset` + `total`). Default `min_visits=1` on the **sum** of member visits. Sort is server-side: `visits_total` desc, then `provider_count`, then name.
 
-**This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: visits are summed across providers, not de-duplicated encounters. `activity_percentile` / `visits_percentile` are among **all** groups, not the current search filter.
+**This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: "Visits are summed across member clinicians." `activity_percentile` / `visits_percentile` are among **all** groups, not the current search filter.
 
 Optional filters: `organization` (contains on group name), `parent` (contains on parent organization name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`.
 
