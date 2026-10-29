@@ -195,16 +195,16 @@
         "help": "Number of practice sites shown, at most 5."
       },
       "wrvu_total": {
-        "label": "RVU total",
-        "help": "Total relative value units across the clinician's visits in Nov 2024 to Oct 2025, one work procedure per visit. A volume measure, not a quality score."
+        "label": "RVU sum (one procedure per visit)",
+        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review; not comparable to a wRVU report."
       },
       "wrvu_average": {
-        "label": "RVU per visit",
-        "help": "Average RVU per visit that had a procedure with an RVU."
+        "label": "RVU per priced visit",
+        "help": "The RVU sum divided by the number of visits that had a priced procedure."
       },
       "wrvu_procedure_count": {
-        "label": "RVU visits",
-        "help": "Visits that contributed to the RVU total."
+        "label": "Priced visits",
+        "help": "Visits whose one procedure had a fee-schedule RVU and so contributed to the RVU sum."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -259,12 +259,12 @@
         "help": "NPI of the primary billing organization."
       },
       "primary_organization_parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system."
+        "label": "Parent organization id",
+        "help": "Identifier of the parent organization of the primary billing organization."
       },
       "primary_organization_parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the primary organization."
+        "label": "Parent organization",
+        "help": "Parent organization of the primary billing organization, as recorded in the warehouse."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -295,52 +295,52 @@
         "help": "Share of the clinician's visits that fell on a Sunday, by service date. Saturday and Sunday together are the weekend share."
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU",
-        "help": "RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "label": "Prior-year RVU sum",
+        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per visit",
-        "help": "Average RVU per contributing visit in Nov 2023 to Oct 2024."
+        "label": "Prior-year RVU per priced visit",
+        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year RVU visits",
-        "help": "Visits that contributed to the prior-year RVU total."
+        "label": "Prior-year priced visits",
+        "help": "Visits that contributed to the prior-year RVU sum."
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU change",
-        "help": "Percent change in RVU total versus the prior year."
+        "label": "RVU sum change vs prior year",
+        "help": "Percent change of the RVU sum against the prior-year RVU sum."
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty average RVU",
-        "help": "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median."
+        "label": "Specialty mean of provider RVU sums",
+        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it."
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median RVU",
-        "help": "Median RVU total among clinicians in the same specialty statewide."
+        "label": "Specialty median of provider RVU sums",
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure."
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile",
-        "help": "RVU total at the 25th percentile of the specialty."
+        "label": "Specialty 25th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 25th percentile of the specialty."
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile",
-        "help": "RVU total at the 75th percentile of the specialty."
+        "label": "Specialty 75th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 75th percentile of the specialty."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Specialty peers",
-        "help": "Number of clinicians in the specialty with an RVU total."
+        "label": "Providers in specialty with an RVU sum",
+        "help": "Number of clinicians in the specialty with a positive RVU sum."
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU percentile",
-        "help": "Where the clinician's RVU total ranks within their specialty. 100 is the highest."
+        "label": "RVU sum percentile within specialty",
+        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
         "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers",
-        "help": "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality."
+        "label": "Activity vs specialty peers (visits and RVU sum)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality."
       },
       "group_size": {
         "label": "Group size",
@@ -447,8 +447,8 @@
         "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first."
       },
       "hospital_affiliations": {
-        "label": "Hospital affiliations",
-        "help": "Up to 5 distinct health systems where the clinician's visits took place, by visit share."
+        "label": "Facility affiliations (not shown)",
+        "help": "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
       },
       "referrals": {
         "label": "Referrals",
@@ -661,16 +661,16 @@
         "help": "Number of practice sites shown, at most 5."
       },
       "wrvu_total": {
-        "label": "RVU total",
-        "help": "Sum of member clinicians' RVU totals."
+        "label": "Sum of members' RVU sums",
+        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review; not comparable to a wRVU report."
       },
       "wrvu_average": {
-        "label": "RVU per visit",
-        "help": "Group RVU total divided by contributing visits across members."
+        "label": "RVU per priced visit, members combined",
+        "help": "Sum of members' RVU sums divided by members' priced visits."
       },
       "wrvu_procedure_count": {
-        "label": "RVU visits",
-        "help": "Sum of member visits that contributed an RVU."
+        "label": "Priced visits, members combined",
+        "help": "Sum of member visits that contributed to an RVU sum."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -725,12 +725,12 @@
         "help": "NPI of the primary billing organization."
       },
       "primary_organization_parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system."
+        "label": "Parent organization id",
+        "help": "Identifier of the parent organization of the primary billing organization."
       },
       "primary_organization_parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the primary organization."
+        "label": "Parent organization",
+        "help": "Parent organization of the primary billing organization, as recorded in the warehouse."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -761,52 +761,52 @@
         "help": "Share of the clinician's visits that fell on a Sunday, by service date. Saturday and Sunday together are the weekend share. On the group page this is weighted across members by their visits."
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU",
-        "help": "RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "label": "Prior-year RVU sum",
+        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per visit",
-        "help": "Average RVU per contributing visit in Nov 2023 to Oct 2024."
+        "label": "Prior-year RVU per priced visit",
+        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year RVU visits",
-        "help": "Visits that contributed to the prior-year RVU total."
+        "label": "Prior-year priced visits",
+        "help": "Visits that contributed to the prior-year RVU sum."
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU change",
-        "help": "Percent change in RVU total versus the prior year."
+        "label": "RVU sum change vs prior year",
+        "help": "Percent change of the RVU sum against the prior-year RVU sum."
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty average RVU",
-        "help": "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median."
+        "label": "Specialty mean of provider RVU sums",
+        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it."
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median RVU",
-        "help": "Median RVU total among clinicians in the same specialty statewide."
+        "label": "Specialty median of provider RVU sums",
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure."
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile",
-        "help": "RVU total at the 25th percentile of the specialty."
+        "label": "Specialty 25th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 25th percentile of the specialty."
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile",
-        "help": "RVU total at the 75th percentile of the specialty."
+        "label": "Specialty 75th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 75th percentile of the specialty."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Specialty peers",
-        "help": "Number of clinicians in the specialty with an RVU total."
+        "label": "Providers in specialty with an RVU sum",
+        "help": "Number of clinicians in the specialty with a positive RVU sum."
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU percentile",
-        "help": "Where the clinician's RVU total ranks within their specialty. 100 is the highest."
+        "label": "RVU sum percentile within specialty",
+        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
         "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers",
-        "help": "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality."
+        "label": "Activity vs specialty peers (visits and RVU sum)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality."
       },
       "group_size": {
         "label": "Group size",
@@ -913,8 +913,8 @@
         "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first."
       },
       "hospital_affiliations": {
-        "label": "Hospital affiliations",
-        "help": "Up to 5 distinct health systems where the clinician's visits took place, by visit share."
+        "label": "Facility affiliations (not shown)",
+        "help": "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
       },
       "referrals": {
         "label": "Referrals",
@@ -949,12 +949,12 @@
         "help": "NPI of the billing organization."
       },
       "parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system."
+        "label": "Parent organization id",
+        "help": "Identifier of the group's parent organization."
       },
       "parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the group."
+        "label": "Parent organization",
+        "help": "Parent organization of the group, as recorded in the warehouse."
       },
       "provider_count": {
         "label": "Clinicians",
@@ -1071,12 +1071,12 @@
         "help": "The warehouse has no coordinates for this location."
       },
       "wrvu_at_site": {
-        "label": "RVU at site",
-        "help": "The clinician's RVU total at this site."
+        "label": "RVU sum at site",
+        "help": "The clinician's one-procedure-per-visit RVU sum over visits at this site."
       },
       "wrvu_share_pct": {
-        "label": "RVU share",
-        "help": "Share of the clinician's RVU total earned at this site."
+        "label": "Share of RVU sum at site",
+        "help": "This site's part of the clinician's RVU sum."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -1152,31 +1152,31 @@
       },
       "affiliation_rank": {
         "label": "Rank",
-        "help": "Health systems ordered by the clinician's visits there. At most 5 distinct systems."
+        "help": "Not shown in the UI. Affiliated organizations ordered by the clinician's visits there, at most 5."
       },
       "hospital_system_name": {
-        "label": "Health system",
-        "help": "Parent health system where the clinician's visits took place. Campuses of one system are combined."
+        "label": "Affiliated organization (not shown)",
+        "help": "Not shown in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined."
       },
       "facility_name": {
-        "label": "Campus",
-        "help": "The busiest campus or facility within the system, when it has its own name."
+        "label": "Facility",
+        "help": "The busiest facility within the organization, when it has its own name."
       },
       "sl_code": {
         "label": "Location code",
         "help": "Warehouse code of the busiest campus."
       },
       "visits_at_system": {
-        "label": "Visits at system",
-        "help": "The clinician's visits across all sites of this system in Nov 2024 to Oct 2025."
+        "label": "Visits at organization",
+        "help": "The clinician's visits across all sites of this organization in Nov 2024 to Oct 2025."
       },
       "visit_share_pct": {
         "label": "Visit share",
-        "help": "Share of the clinician's visits that took place at this system."
+        "help": "Share of the clinician's visits that took place at this organization."
       },
       "provider_count": {
         "label": "Clinicians",
-        "help": "On a group page, number of member clinicians affiliated with this system."
+        "help": "On a group page, number of member clinicians affiliated with this organization."
       }
     },
     "referral": {

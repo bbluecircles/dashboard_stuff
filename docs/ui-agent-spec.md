@@ -1,5 +1,7 @@
 # .NET UI agent spec — provider directory
 
+> **Read `docs/ui-changes-urgent.md` first.** It removes hospital-system wording and relabels every RVU figure. Where this spec and that file disagree, that file wins.
+
 Hand this to the UI agent. The Python mart is already live. The UI is a **.NET app on IIS**. FastAPI is a loopback lookup service, not a dashboard.
 
 Do **not** rerun `phase1` (it TRUNCATEs `pd_provider`). Do **not** put Phase 1–6 job buttons in the UI. Do **not** scan `pat_dt` from the app.
@@ -90,12 +92,12 @@ Page it the same way (`limit` default 50, max 500, `offset` + `total`). Default 
 
 **This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: visits are summed across providers, not de-duplicated encounters. `activity_percentile` / `visits_percentile` are among **all** groups, not the current search filter.
 
-Optional filters: `organization` (contains on group name), `parent` (contains on parent system name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`.
+Optional filters: `organization` (contains on group name), `parent` (contains on parent organization name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`.
 
 | JSON | Table column |
 | --- | --- |
 | `organization_name` | Group |
-| `parent_name` | Parent system |
+| `parent_name` | Parent organization |
 | `provider_count` | Type 1 NPIs |
 | `active_provider_count` | Active in window |
 | `in_system_provider_count` | In-system members |

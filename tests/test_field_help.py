@@ -206,7 +206,7 @@ def test_lineage_pulls_upstream_tables_through_the_chain():
                               claims_db="az_cms", lookup_db="azal")
     grp = rendered["scopes"]["group"]["wrvu_total"]
     assert [r["ref"] for r in grp["derived_from"]] == ["provider.wrvu_total"]
-    assert grp["derived_from"][0]["label"] == "RVU total"
+    assert grp["derived_from"][0]["label"] == "RVU sum (one procedure per visit)"
     own = [t["name"] for t in grp["tables"] if not t["upstream"]]
     up = [t["name"] for t in grp["tables"] if t["upstream"]]
     assert own == ["pd_provider", "pd_group_practice"]
@@ -271,3 +271,16 @@ def test_field_upstream_reaches_the_warehouse():
     reg = {t["key"]: t for t in rendered["tables"]}
     assert reg["pd_provider_group_practice"]["built_from"] == ["az_cms.physician_affiliation_p", "az_cms.physician_affiliation_i", "pd_provider"]
     assert "built_from" not in reg["cms_pdc_clinician"]
+
+
+def test_client_tier_never_says_hospital_system_or_bare_rvu():
+    plain = catalog(dev=False)
+    banned = ("hospital system", "health system", "parent system")
+    for scope, fields in plain.items():
+        for key, item in fields.items():
+            text = (item["label"] + " " + item["help"]).lower()
+            for word in banned:
+                assert word not in text, (scope, key, word)
+    for scope, key in (("provider", "wrvu_total"), ("group", "wrvu_total"), ("practice", "wrvu_at_site"),
+                       ("provider", "wrvu_state_specialty_median"), ("provider", "wrvu_state_specialty_p25")):
+        assert "sum" in plain[scope][key]["label"].lower(), (scope, key)

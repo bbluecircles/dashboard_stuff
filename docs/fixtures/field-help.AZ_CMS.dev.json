@@ -3214,8 +3214,8 @@
         ]
       },
       "wrvu_total": {
-        "label": "RVU total",
-        "help": "Total relative value units across the clinician's visits in Nov 2024 to Oct 2025, one work procedure per visit. A volume measure, not a quality score.",
+        "label": "RVU sum (one procedure per visit)",
+        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review; not comparable to a wRVU report.",
         "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM, 2).",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -3281,8 +3281,8 @@
         ]
       },
       "wrvu_average": {
-        "label": "RVU per visit",
-        "help": "Average RVU per visit that had a procedure with an RVU.",
+        "label": "RVU per priced visit",
+        "help": "The RVU sum divided by the number of visits that had a priced procedure.",
         "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). wrvu_total / wrvu_procedure_count, 3 decimals. The UI leads with median and percentile instead.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -3293,13 +3293,13 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           },
           {
             "ref": "provider.wrvu_procedure_count",
             "scope": "provider",
             "field": "wrvu_procedure_count",
-            "label": "RVU visits"
+            "label": "Priced visits"
           }
         ],
         "tables": [
@@ -3361,8 +3361,8 @@
         ]
       },
       "wrvu_procedure_count": {
-        "label": "RVU visits",
-        "help": "Visits that contributed to the RVU total.",
+        "label": "Priced visits",
+        "help": "Visits whose one procedure had a fee-schedule RVU and so contributed to the RVU sum.",
         "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). COUNT(*) of contributing visits.",
         "caveats": [
           "Visits whose procedure has no fee-schedule RVU are excluded."
@@ -3995,8 +3995,8 @@
         ]
       },
       "primary_organization_parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system.",
+        "label": "Parent organization id",
+        "help": "Identifier of the parent organization of the primary billing organization.",
         "dev": "IP_hospital_system_code, else OP_hospital_system_code on az.physician_primary_affiliation.",
         "caveats": [],
         "derived_from": [],
@@ -4013,8 +4013,8 @@
         ]
       },
       "primary_organization_parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the primary organization.",
+        "label": "Parent organization",
+        "help": "Parent organization of the primary billing organization, as recorded in the warehouse.",
         "dev": "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation.",
         "caveats": [],
         "derived_from": [],
@@ -4521,8 +4521,8 @@
         ]
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU",
-        "help": "RVU total for the 12 months before the window, Nov 2023 to Oct 2024.",
+        "label": "Prior-year RVU sum",
+        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024.",
         "dev": "Same RVU formula over az.pat_dt for Nov 2023 to Oct 2024, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5).",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -4564,8 +4564,8 @@
         ]
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per visit",
-        "help": "Average RVU per contributing visit in Nov 2023 to Oct 2024.",
+        "label": "Prior-year RVU per priced visit",
+        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024.",
         "dev": "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
@@ -4575,13 +4575,13 @@
             "ref": "provider.wrvu_prior_year_total",
             "scope": "provider",
             "field": "wrvu_prior_year_total",
-            "label": "Prior-year RVU"
+            "label": "Prior-year RVU sum"
           },
           {
             "ref": "provider.wrvu_prior_year_procedure_count",
             "scope": "provider",
             "field": "wrvu_prior_year_procedure_count",
-            "label": "Prior-year RVU visits"
+            "label": "Prior-year priced visits"
           }
         ],
         "tables": [
@@ -4619,8 +4619,8 @@
         ]
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year RVU visits",
-        "help": "Visits that contributed to the prior-year RVU total.",
+        "label": "Prior-year priced visits",
+        "help": "Visits that contributed to the prior-year RVU sum.",
         "dev": "pd_stg_npi_wrvu_prior.procedure_count: contributing visits in Nov 2023 to Oct 2024.",
         "caveats": [],
         "derived_from": [],
@@ -4659,8 +4659,8 @@
         ]
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU change",
-        "help": "Percent change in RVU total versus the prior year.",
+        "label": "RVU sum change vs prior year",
+        "help": "Percent change of the RVU sum against the prior-year RVU sum.",
         "dev": "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql.",
         "caveats": [
           "Null when the prior-year total is under 1.0; clamped to plus or minus 9999.99."
@@ -4670,13 +4670,13 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           },
           {
             "ref": "provider.wrvu_prior_year_total",
             "scope": "provider",
             "field": "wrvu_prior_year_total",
-            "label": "Prior-year RVU"
+            "label": "Prior-year RVU sum"
           }
         ],
         "tables": [
@@ -4781,8 +4781,8 @@
         ]
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty average RVU",
-        "help": "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median.",
+        "label": "Specialty mean of provider RVU sums",
+        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it.",
         "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
         "caveats": [
           "Skewed by a few very high totals; the median is the better centre.",
@@ -4793,7 +4793,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -4897,8 +4897,8 @@
         ]
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median RVU",
-        "help": "Median RVU total among clinicians in the same specialty statewide.",
+        "label": "Specialty median of provider RVU sums",
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -4909,7 +4909,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -5013,8 +5013,8 @@
         ]
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile",
-        "help": "RVU total at the 25th percentile of the specialty.",
+        "label": "Specialty 25th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 25th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
@@ -5024,7 +5024,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -5128,8 +5128,8 @@
         ]
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile",
-        "help": "RVU total at the 75th percentile of the specialty.",
+        "label": "Specialty 75th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 75th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
@@ -5139,7 +5139,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -5243,8 +5243,8 @@
         ]
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Specialty peers",
-        "help": "Number of clinicians in the specialty with an RVU total.",
+        "label": "Providers in specialty with an RVU sum",
+        "help": "Number of clinicians in the specialty with a positive RVU sum.",
         "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -5252,7 +5252,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -5356,8 +5356,8 @@
         ]
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU percentile",
-        "help": "Where the clinician's RVU total ranks within their specialty. 100 is the highest.",
+        "label": "RVU sum percentile within specialty",
+        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.",
         "dev": "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total.",
         "caveats": [
           "A volume rank, not a quality measure.",
@@ -5368,7 +5368,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -5566,8 +5566,8 @@
         ]
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers",
-        "help": "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality.",
+        "label": "Activity vs specialty peers (visits and RVU sum)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality.",
         "dev": "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists.",
         "caveats": [
           "A volume rank, not a quality measure.",
@@ -5584,7 +5584,7 @@
             "ref": "provider.wrvu_specialty_percentile",
             "scope": "provider",
             "field": "wrvu_specialty_percentile",
-            "label": "RVU percentile"
+            "label": "RVU sum percentile within specialty"
           }
         ],
         "tables": [
@@ -6873,8 +6873,8 @@
         ]
       },
       "hospital_affiliations": {
-        "label": "Hospital affiliations",
-        "help": "Up to 5 distinct health systems where the clinician's visits took place, by visit share.",
+        "label": "Facility affiliations (not shown)",
+        "help": "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display.",
         "dev": "pd_provider_hospital_affiliation rows. See the hospital_affiliation scope.",
         "caveats": [],
         "derived_from": [],
@@ -11366,8 +11366,8 @@
         ]
       },
       "wrvu_total": {
-        "label": "RVU total",
-        "help": "Sum of member clinicians' RVU totals.",
+        "label": "Sum of members' RVU sums",
+        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review; not comparable to a wRVU report.",
         "dev": "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice.",
         "caveats": [
           "An encounter billed by two members of the group counts twice.",
@@ -11379,7 +11379,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -11483,8 +11483,8 @@
         ]
       },
       "wrvu_average": {
-        "label": "RVU per visit",
-        "help": "Group RVU total divided by contributing visits across members.",
+        "label": "RVU per priced visit, members combined",
+        "help": "Sum of members' RVU sums divided by members' priced visits.",
         "dev": "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
@@ -11494,7 +11494,7 @@
             "ref": "provider.wrvu_average",
             "scope": "provider",
             "field": "wrvu_average",
-            "label": "RVU per visit"
+            "label": "RVU per priced visit"
           }
         ],
         "tables": [
@@ -11586,8 +11586,8 @@
         ]
       },
       "wrvu_procedure_count": {
-        "label": "RVU visits",
-        "help": "Sum of member visits that contributed an RVU.",
+        "label": "Priced visits, members combined",
+        "help": "Sum of member visits that contributed to an RVU sum.",
         "dev": "SUM(pd_provider.wrvu_procedure_count) over members.",
         "caveats": [],
         "derived_from": [
@@ -11595,7 +11595,7 @@
             "ref": "provider.wrvu_procedure_count",
             "scope": "provider",
             "field": "wrvu_procedure_count",
-            "label": "RVU visits"
+            "label": "Priced visits"
           }
         ],
         "tables": [
@@ -12340,8 +12340,8 @@
         ]
       },
       "primary_organization_parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system.",
+        "label": "Parent organization id",
+        "help": "Identifier of the parent organization of the primary billing organization.",
         "dev": "IP_hospital_system_code, else OP_hospital_system_code on az.physician_primary_affiliation.",
         "caveats": [],
         "derived_from": [
@@ -12349,7 +12349,7 @@
             "ref": "provider.primary_organization_parent_id",
             "scope": "provider",
             "field": "primary_organization_parent_id",
-            "label": "Parent id"
+            "label": "Parent organization id"
           }
         ],
         "tables": [
@@ -12365,8 +12365,8 @@
         ]
       },
       "primary_organization_parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the primary organization.",
+        "label": "Parent organization",
+        "help": "Parent organization of the primary billing organization, as recorded in the warehouse.",
         "dev": "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation.",
         "caveats": [],
         "derived_from": [
@@ -12374,7 +12374,7 @@
             "ref": "provider.primary_organization_parent_name",
             "scope": "provider",
             "field": "primary_organization_parent_name",
-            "label": "Parent system"
+            "label": "Parent organization"
           }
         ],
         "tables": [
@@ -12936,8 +12936,8 @@
         ]
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU",
-        "help": "RVU total for the 12 months before the window, Nov 2023 to Oct 2024.",
+        "label": "Prior-year RVU sum",
+        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024.",
         "dev": "Same RVU formula over az.pat_dt for Nov 2023 to Oct 2024, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5).",
         "caveats": [],
         "derived_from": [
@@ -12945,7 +12945,7 @@
             "ref": "provider.wrvu_prior_year_total",
             "scope": "provider",
             "field": "wrvu_prior_year_total",
-            "label": "Prior-year RVU"
+            "label": "Prior-year RVU sum"
           }
         ],
         "tables": [
@@ -12983,8 +12983,8 @@
         ]
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per visit",
-        "help": "Average RVU per contributing visit in Nov 2023 to Oct 2024.",
+        "label": "Prior-year RVU per priced visit",
+        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024.",
         "dev": "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals.",
         "caveats": [],
         "derived_from": [
@@ -12992,7 +12992,7 @@
             "ref": "provider.wrvu_prior_year_average",
             "scope": "provider",
             "field": "wrvu_prior_year_average",
-            "label": "Prior-year RVU per visit"
+            "label": "Prior-year RVU per priced visit"
           }
         ],
         "tables": [
@@ -13030,8 +13030,8 @@
         ]
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year RVU visits",
-        "help": "Visits that contributed to the prior-year RVU total.",
+        "label": "Prior-year priced visits",
+        "help": "Visits that contributed to the prior-year RVU sum.",
         "dev": "pd_stg_npi_wrvu_prior.procedure_count: contributing visits in Nov 2023 to Oct 2024.",
         "caveats": [],
         "derived_from": [
@@ -13039,7 +13039,7 @@
             "ref": "provider.wrvu_prior_year_procedure_count",
             "scope": "provider",
             "field": "wrvu_prior_year_procedure_count",
-            "label": "Prior-year RVU visits"
+            "label": "Prior-year priced visits"
           }
         ],
         "tables": [
@@ -13077,8 +13077,8 @@
         ]
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU change",
-        "help": "Percent change in RVU total versus the prior year.",
+        "label": "RVU sum change vs prior year",
+        "help": "Percent change of the RVU sum against the prior-year RVU sum.",
         "dev": "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql.",
         "caveats": [],
         "derived_from": [
@@ -13086,7 +13086,7 @@
             "ref": "provider.wrvu_yoy_change_pct",
             "scope": "provider",
             "field": "wrvu_yoy_change_pct",
-            "label": "RVU change"
+            "label": "RVU sum change vs prior year"
           }
         ],
         "tables": [
@@ -13191,8 +13191,8 @@
         ]
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty average RVU",
-        "help": "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median.",
+        "label": "Specialty mean of provider RVU sums",
+        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it.",
         "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
         "caveats": [],
         "derived_from": [
@@ -13200,7 +13200,7 @@
             "ref": "provider.wrvu_state_specialty_average",
             "scope": "provider",
             "field": "wrvu_state_specialty_average",
-            "label": "Specialty average RVU"
+            "label": "Specialty mean of provider RVU sums"
           }
         ],
         "tables": [
@@ -13304,8 +13304,8 @@
         ]
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median RVU",
-        "help": "Median RVU total among clinicians in the same specialty statewide.",
+        "label": "Specialty median of provider RVU sums",
+        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of sums, not of RVU per procedure.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -13313,7 +13313,7 @@
             "ref": "provider.wrvu_state_specialty_median",
             "scope": "provider",
             "field": "wrvu_state_specialty_median",
-            "label": "Specialty median RVU"
+            "label": "Specialty median of provider RVU sums"
           }
         ],
         "tables": [
@@ -13417,8 +13417,8 @@
         ]
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile",
-        "help": "RVU total at the 25th percentile of the specialty.",
+        "label": "Specialty 25th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 25th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking.",
         "caveats": [],
         "derived_from": [
@@ -13426,7 +13426,7 @@
             "ref": "provider.wrvu_state_specialty_p25",
             "scope": "provider",
             "field": "wrvu_state_specialty_p25",
-            "label": "Specialty 25th percentile"
+            "label": "Specialty 25th percentile of provider RVU sums"
           }
         ],
         "tables": [
@@ -13530,8 +13530,8 @@
         ]
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile",
-        "help": "RVU total at the 75th percentile of the specialty.",
+        "label": "Specialty 75th percentile of provider RVU sums",
+        "help": "The per-provider RVU sum at the 75th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking.",
         "caveats": [],
         "derived_from": [
@@ -13539,7 +13539,7 @@
             "ref": "provider.wrvu_state_specialty_p75",
             "scope": "provider",
             "field": "wrvu_state_specialty_p75",
-            "label": "Specialty 75th percentile"
+            "label": "Specialty 75th percentile of provider RVU sums"
           }
         ],
         "tables": [
@@ -13643,8 +13643,8 @@
         ]
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Specialty peers",
-        "help": "Number of clinicians in the specialty with an RVU total.",
+        "label": "Providers in specialty with an RVU sum",
+        "help": "Number of clinicians in the specialty with a positive RVU sum.",
         "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -13652,7 +13652,7 @@
             "ref": "provider.wrvu_state_specialty_npi_count",
             "scope": "provider",
             "field": "wrvu_state_specialty_npi_count",
-            "label": "Specialty peers"
+            "label": "Providers in specialty with an RVU sum"
           }
         ],
         "tables": [
@@ -13756,8 +13756,8 @@
         ]
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU percentile",
-        "help": "Where the clinician's RVU total ranks within their specialty. 100 is the highest.",
+        "label": "RVU sum percentile within specialty",
+        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.",
         "dev": "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total.",
         "caveats": [],
         "derived_from": [
@@ -13765,7 +13765,7 @@
             "ref": "provider.wrvu_specialty_percentile",
             "scope": "provider",
             "field": "wrvu_specialty_percentile",
-            "label": "RVU percentile"
+            "label": "RVU sum percentile within specialty"
           }
         ],
         "tables": [
@@ -13960,8 +13960,8 @@
         ]
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers",
-        "help": "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality.",
+        "label": "Activity vs specialty peers (visits and RVU sum)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. Volume, not quality.",
         "dev": "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists.",
         "caveats": [],
         "derived_from": [
@@ -13969,7 +13969,7 @@
             "ref": "provider.activity_specialty_percentile",
             "scope": "provider",
             "field": "activity_specialty_percentile",
-            "label": "Activity vs specialty peers"
+            "label": "Activity vs specialty peers (visits and RVU sum)"
           }
         ],
         "tables": [
@@ -15487,8 +15487,8 @@
         ]
       },
       "hospital_affiliations": {
-        "label": "Hospital affiliations",
-        "help": "Up to 5 distinct health systems where the clinician's visits took place, by visit share.",
+        "label": "Facility affiliations (not shown)",
+        "help": "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display.",
         "dev": "pd_provider_hospital_affiliation rows. See the hospital_affiliation scope.",
         "caveats": [],
         "derived_from": [
@@ -15496,7 +15496,7 @@
             "ref": "provider.hospital_affiliations",
             "scope": "provider",
             "field": "hospital_affiliations",
-            "label": "Hospital affiliations"
+            "label": "Facility affiliations (not shown)"
           }
         ],
         "tables": [
@@ -16407,8 +16407,8 @@
         ]
       },
       "parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system.",
+        "label": "Parent organization id",
+        "help": "Identifier of the group's parent organization.",
         "dev": "MAX(pd_provider.primary_organization_parent_id) over members, in pd_group_practice.",
         "caveats": [],
         "derived_from": [],
@@ -16458,8 +16458,8 @@
         ]
       },
       "parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the group.",
+        "label": "Parent organization",
+        "help": "Parent organization of the group, as recorded in the warehouse.",
         "dev": "MAX(pd_provider.primary_organization_parent_name) over members, in pd_group_practice.",
         "caveats": [],
         "derived_from": [],
@@ -18171,8 +18171,8 @@
         ]
       },
       "wrvu_at_site": {
-        "label": "RVU at site",
-        "help": "The clinician's RVU total at this site.",
+        "label": "RVU sum at site",
+        "help": "The clinician's one-procedure-per-visit RVU sum over visits at this site.",
         "dev": "SUM of visit-grain RVU over visits at the site (pd_stg_site_wrvu, Phase 4).",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report.",
@@ -18183,7 +18183,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -18272,8 +18272,8 @@
         ]
       },
       "wrvu_share_pct": {
-        "label": "RVU share",
-        "help": "Share of the clinician's RVU total earned at this site.",
+        "label": "Share of RVU sum at site",
+        "help": "This site's part of the clinician's RVU sum.",
         "dev": "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals.",
         "caveats": [
           "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
@@ -18283,13 +18283,13 @@
             "ref": "practice.wrvu_at_site",
             "scope": "practice",
             "field": "wrvu_at_site",
-            "label": "RVU at site"
+            "label": "RVU sum at site"
           },
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU total"
+            "label": "RVU sum (one procedure per visit)"
           }
         ],
         "tables": [
@@ -19560,7 +19560,7 @@
       },
       "affiliation_rank": {
         "label": "Rank",
-        "help": "Health systems ordered by the clinician's visits there. At most 5 distinct systems.",
+        "help": "Not shown in the UI. Affiliated organizations ordered by the clinician's visits there, at most 5.",
         "dev": "pd_provider_hospital_affiliation: ROW_NUMBER per npi by visits_at_system desc, then system name (Phase 4).",
         "caveats": [],
         "derived_from": [
@@ -19568,7 +19568,7 @@
             "ref": "hospital_affiliation.visits_at_system",
             "scope": "hospital_affiliation",
             "field": "visits_at_system",
-            "label": "Visits at system"
+            "label": "Visits at organization"
           }
         ],
         "tables": [
@@ -19697,8 +19697,8 @@
         ]
       },
       "hospital_system_name": {
-        "label": "Health system",
-        "help": "Parent health system where the clinician's visits took place. Campuses of one system are combined.",
+        "label": "Affiliated organization (not shown)",
+        "help": "Not shown in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined.",
         "dev": "az.sl.sl_hospital_system_name, else hospital system name on az.provider_facility_npi joined on sl_code; blank and Unknown dropped; grouped case-insensitively across pd_stg_npi_sl sites.",
         "caveats": [
           "Campuses of one system are combined into one row."
@@ -19785,8 +19785,8 @@
         ]
       },
       "facility_name": {
-        "label": "Campus",
-        "help": "The busiest campus or facility within the system, when it has its own name.",
+        "label": "Facility",
+        "help": "The busiest facility within the organization, when it has its own name.",
         "dev": "az.sl DBA or name (or az.provider_facility_npi DBA) of the site with the most visits in the system; null when it equals the system name.",
         "caveats": [],
         "derived_from": [],
@@ -19889,8 +19889,8 @@
         ]
       },
       "visits_at_system": {
-        "label": "Visits at system",
-        "help": "The clinician's visits across all sites of this system in Nov 2024 to Oct 2025.",
+        "label": "Visits at organization",
+        "help": "The clinician's visits across all sites of this organization in Nov 2024 to Oct 2025.",
         "dev": "SUM(pd_stg_npi_sl.visits) over the system's sites. Parent fallback rows carry visits_total.",
         "caveats": [],
         "derived_from": [],
@@ -19967,7 +19967,7 @@
       },
       "visit_share_pct": {
         "label": "Visit share",
-        "help": "Share of the clinician's visits that took place at this system.",
+        "help": "Share of the clinician's visits that took place at this organization.",
         "dev": "pd_provider_hospital_affiliation.visits_at_system / pd_provider.visits_total x100. Null on the parent-fallback row.",
         "caveats": [
           "Null on a parent-fallback row, which has no site-level visits."
@@ -19977,7 +19977,7 @@
             "ref": "hospital_affiliation.visits_at_system",
             "scope": "hospital_affiliation",
             "field": "visits_at_system",
-            "label": "Visits at system"
+            "label": "Visits at organization"
           },
           {
             "ref": "provider.visits_total",
@@ -20113,7 +20113,7 @@
       },
       "provider_count": {
         "label": "Clinicians",
-        "help": "On a group page, number of member clinicians affiliated with this system.",
+        "help": "On a group page, number of member clinicians affiliated with this organization.",
         "dev": "Group profile only: COUNT(DISTINCT npi) of pd_provider_hospital_affiliation members with the system. Null on a provider.",
         "caveats": [],
         "derived_from": [],
