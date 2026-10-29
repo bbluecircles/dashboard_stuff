@@ -38,7 +38,7 @@ Until the RVU calculation is reworked, no figure may be presented as "RVU" or "w
 | group `wrvu_total` | Sum of members' RVU sums |
 | group `wrvu_average` | RVU per priced visit, members combined |
 
-Add one caption under the RVU numbers on Overview, provider and group: **"RVU figures price one procedure per visit from the fee schedule and are under review."** The developer tooltip already explains the formula.
+Copy rule for all of this: say what the figure is and stop; never the "X, not Y" or "X; they are not Y" form anywhere in the UI. Replace every existing copy of the older caption that ended "; they are not a wRVU report". Add one caption under the RVU numbers on Overview, provider and group: **"RVU figures price one procedure per visit from the fee schedule and are under review."** The developer tooltip already explains the formula.
 
 ## Not in this change
 
