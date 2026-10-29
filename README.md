@@ -30,6 +30,14 @@ Do **not** rerun `phase1` — that TRUNCATEs `pd_provider` and you would have to
 
 Same DB env as `db_snapshot.py`: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`. `--state AZ` selects `az` / `azal` / `az_pd` (and `TX` → `tx` / `txal` / `tx_pd`). `--state AZ_CMS` is the blended Arizona warehouse: `az_cms` / `azal` / `az_pd` (USPS still `AZ` for PDC/NPPES). Optional env: `PD_MARKET_STATE` (default `AZ`; set `AZ_CMS` on the blended box). `PD_CLAIMS_DB` / `PD_LOOKUP_DB` / `PD_MART_DB` remain the import defaults when code does not pass `--state`.
 
+**Reference server.** `master_ref.111_physician` and `master_ref.cms_group_practice` live on a different MariaDB host. Put its connection in the same `.env`: `REF_DB_HOST`, `REF_DB_PORT` (3306), `REF_DB_USER`, `REF_DB_PASSWORD`. When `REF_DB_HOST` is unset the pipeline assumes the tables are on the claims server and reuses `DB_*`. Optional: `PD_REF_DB` (`master_ref`), `PD_REF_PHYSICIAN_TABLE` (`111_physician`), `PD_REF_GROUP_PRACTICE_TABLE` (`cms_group_practice`), `PD_REF_COPY_PAGE_ROWS` (20000 rows per page) and `PD_REF_COPY_MAX_STATEMENT_SECONDS` (30). The pipeline never joins across servers: it copies those two tables into the mart with short keyset-paged reads on an autocommit, READ UNCOMMITTED session with a per-statement time limit, so it holds no locks on `111_physician`, and builds from the copy. Check the details with:
+
+```
+python -m provider_directory.cli ref-check
+```
+
+It prints host, user, engine, approximate rows, primary key, columns and one sample row for each table. Read-only.
+
 ## Phase 2
 
 Activity, panel, and top codes for `period_code` 202308–202407. Reads `az.pat_dt` / `azal.diagnosis` / `azal.procd`. Writes only `az_pd`.

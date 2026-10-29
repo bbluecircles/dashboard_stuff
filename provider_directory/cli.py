@@ -26,7 +26,7 @@ import argparse
 import json
 import sys
 
-from provider_directory.db import ConfigError, ensure_mart_database, get_connection
+from provider_directory.db import ConfigError, ensure_mart_database, get_connection, quote_ident
 from provider_directory.field_help import catalog_markdown, render_catalog
 from provider_directory.locations import Phase2Required
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
@@ -612,7 +612,68 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=25)
     p.add_argument("--offset", type=int, default=0)
     p.set_defaults(func=_cmd_groups)
+
+    p = sub.add_parser(
+        "ref-check",
+        help="Connect to the reference server (REF_DB_*) and describe master_ref.111_physician "
+        "and cms_group_practice: columns, keys, approximate rows, one sample row. Read-only.",
+    )
+    p.set_defaults(func=_cmd_ref_check)
     return parser
+
+
+def _cmd_ref_check(args: argparse.Namespace) -> int:
+    """Connect to the reference server and describe the two source tables.
+    Reads information_schema and one LIMIT 1 row each; no scans, no locks."""
+    from provider_directory.db import get_ref_connection, ref_db_config
+    from provider_directory.settings import REF_DB, REF_GROUP_PRACTICE_TABLE, REF_PHYSICIAN_TABLE
+
+    cfg = ref_db_config()
+    out: dict = {
+        "host": cfg["host"],
+        "port": cfg["port"],
+        "user": cfg["user"],
+        "same_server_as_claims": bool(cfg.get("same_server")),
+        "database": REF_DB,
+        "tables": {},
+    }
+    with get_ref_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT @@hostname AS hostname, @@version AS version, @@tx_isolation AS isolation")
+        out["server"] = cur.fetchone()
+        for table in (REF_PHYSICIAN_TABLE, REF_GROUP_PRACTICE_TABLE):
+            cur.execute(
+                """
+                SELECT ENGINE AS engine, TABLE_ROWS AS approx_rows, UPDATE_TIME AS update_time
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                """,
+                (REF_DB, table),
+            )
+            meta = cur.fetchone()
+            if not meta:
+                out["tables"][table] = {"found": False}
+                continue
+            cur.execute(
+                """
+                SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, COLUMN_KEY AS key_type
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                ORDER BY ORDINAL_POSITION
+                """,
+                (REF_DB, table),
+            )
+            cols = cur.fetchall()
+            cur.execute(f"SELECT * FROM {quote_ident(REF_DB)}.{quote_ident(table)} LIMIT 1")
+            sample = cur.fetchone()
+            out["tables"][table] = {
+                "found": True,
+                **meta,
+                "primary_key": [c["name"] for c in cols if c["key_type"] == "PRI"],
+                "columns": [f"{c['name']} {c['type']}" for c in cols],
+                "sample": sample,
+            }
+    print(json.dumps(out, indent=2, default=str))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

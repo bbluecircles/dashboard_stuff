@@ -75,6 +75,17 @@ MARKET_ALIASES = {
 
 PAYER_SOURCES = ("dash", "pat_dt")
 
+# Reference server (master_ref). A different MariaDB host from the claims warehouse,
+# so the pipeline never joins across it: it copies the two tables below into the
+# mart (pd_src_*) with short keyset-paged reads and builds from the copy.
+# Connection: REF_DB_HOST / REF_DB_PORT / REF_DB_USER / REF_DB_PASSWORD, falling
+# back to the DB_* values only when REF_DB_HOST is unset (same box).
+REF_DB = os.environ.get("PD_REF_DB", "master_ref")
+REF_PHYSICIAN_TABLE = os.environ.get("PD_REF_PHYSICIAN_TABLE", "111_physician")
+REF_GROUP_PRACTICE_TABLE = os.environ.get("PD_REF_GROUP_PRACTICE_TABLE", "cms_group_practice")
+REF_COPY_PAGE_ROWS = int(os.environ.get("PD_REF_COPY_PAGE_ROWS", "20000"))
+REF_COPY_MAX_STATEMENT_SECONDS = int(os.environ.get("PD_REF_COPY_MAX_STATEMENT_SECONDS", "30"))
+
 
 def payer_source_for_claims_db(claims_db: str) -> str:
     """Payer source for a claims database, by its market alias; "dash" otherwise."""

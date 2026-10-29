@@ -1,3 +1,5 @@
+import pytest
+
 from provider_directory.analytics import (
     is_hcpcs_sql,
     payer_mix_update_sql,
@@ -171,3 +173,31 @@ def test_phase4_payers_only_flag_and_entry():
     assert "rebuild_group_summary" in source
     assert "drop_phase4_staging" not in source
     assert "payers_only" in inspect.getsource(run_phase4)
+
+
+def test_ref_server_settings_and_connection_are_separate(monkeypatch):
+    import inspect
+
+    from provider_directory import db, settings
+
+    assert settings.REF_DB == "master_ref"
+    assert settings.REF_PHYSICIAN_TABLE == "111_physician"
+    assert settings.REF_GROUP_PRACTICE_TABLE == "cms_group_practice"
+    monkeypatch.setenv("DB_USER", "claims")
+    monkeypatch.setenv("DB_PASSWORD", "pw")
+    monkeypatch.delenv("REF_DB_HOST", raising=False)
+    same = db.ref_db_config()
+    assert same["same_server"] is True and same["user"] == "claims"
+    monkeypatch.setenv("REF_DB_HOST", "ref.example")
+    monkeypatch.setenv("REF_DB_PORT", "3307")
+    monkeypatch.setenv("REF_DB_USER", "ref")
+    monkeypatch.setenv("REF_DB_PASSWORD", "refpw")
+    other = db.ref_db_config()
+    assert other == {"host": "ref.example", "port": 3307, "user": "ref", "password": "refpw", "same_server": False}
+    monkeypatch.delenv("REF_DB_USER")
+    monkeypatch.delenv("DB_USER")
+    with pytest.raises(db.ConfigError):
+        db.ref_db_config()
+    source = inspect.getsource(db.get_ref_connection)
+    assert "READ UNCOMMITTED" in source and "max_statement_time" in source and "autocommit=True" in source
+    assert build_parser().parse_args(["ref-check"]).func.__name__ == "_cmd_ref_check"
