@@ -114,7 +114,7 @@ def _cmd_phase1(args: argparse.Namespace) -> int:
 
 def _cmd_phase2(args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
-        summary = run_phase2(conn, **_market_kwargs(args))
+        summary = run_phase2(conn, top_codes_only=args.top_codes_only, **_market_kwargs(args))
     print(json.dumps(summary, indent=2, default=str))
     return 0
 
@@ -396,6 +396,12 @@ def build_parser() -> argparse.ArgumentParser:
         "phase2",
         parents=[state_parent],
         help="Activity + panel + top dx/px for period_code 202308–202407",
+    )
+    p.add_argument(
+        "--top-codes-only",
+        action="store_true",
+        help="Re-rank top diagnoses, procedures and primary procedures from the existing "
+        "pd_stg_visit and overlay those columns only; no claims read, minutes",
     )
     p.set_defaults(func=_cmd_phase2)
 

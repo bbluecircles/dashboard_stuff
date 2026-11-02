@@ -27,6 +27,8 @@ from provider_directory.models import (
     ProviderUtilization,
 )
 from provider_directory.settings import (
+    TOP_CODE_KINDS,
+    TOP_N,
     MART_DB,
     MAX_HOSPITAL_AFFILIATIONS,
     MIN_HOSPITAL_AFFILIATION_SHARE_PCT,
@@ -296,10 +298,7 @@ def fetch_top_code_percents(
     placeholders = ", ".join(["%s"] * len(npis))
     mart = quote_ident(mart_db)
     by_npi = empty
-    for table, prefix in (
-        ("pd_stg_top_dx", "visits_top_diagnosis"),
-        ("pd_stg_top_px", "visits_top_procedure"),
-    ):
+    for prefix, table in TOP_CODE_KINDS:
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -321,7 +320,7 @@ def fetch_top_code_percents(
             raise
         for row in rows:
             rk = int(row["rk"])
-            if rk < 1 or rk > 3 or row.get("pct") is None:
+            if rk < 1 or rk > TOP_N or row.get("pct") is None:
                 continue
             by_npi.setdefault(int(row["npi"]), {})[f"{prefix}_{rk}_percent"] = float(row["pct"])
     return by_npi

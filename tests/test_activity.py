@@ -116,3 +116,46 @@ def test_encounter_id_is_signed_and_buckets_use_abs():
         source = open(mod.__file__, encoding="utf-8").read()
         for match in re.findall(r"MOD\(([^,]+encounter_id[^,]*),\s*\{VISIT_BUCKETS\}\)", source):
             assert match.startswith("ABS("), f"{mod.__name__}: {match}"
+
+
+def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
+    import inspect
+
+    from provider_directory.activity import (
+        rebuild_top_codes,
+        reset_activity_columns_sql,
+        top_code_overlay_sql,
+        top_code_statements,
+    )
+    from provider_directory.cli import build_parser
+    from provider_directory.pipeline import run_phase2
+    from provider_directory.schema import PD_PROVIDER_PHASE2_COLUMNS, TOP_CODE_TABLES
+    from provider_directory.settings import TOP_N
+    from provider_directory.transforms import is_em_code_sql, primary_procedure_filter_sql, strict_work_rvu_sql
+
+    assert TOP_N == 5
+    st = top_code_statements("`az_pd`", "`azal`")
+    assert set(st) == set(TOP_CODE_TABLES)
+    for sql in st.values():
+        assert "WHERE ranked.rk <= 5" in sql
+        assert "%" not in sql.replace("%%", "").replace("%s", "")
+    primary = st["pd_stg_top_primary_px"]
+    assert "INNER JOIN `azal`.procd pr" in primary
+    assert "> 1.0" in primary
+    assert "BETWEEN '99202' AND '99499'" in primary
+    assert "REGEXP '^[0-9]{4}F$'" in primary
+    assert "nf_total_rvu" not in strict_work_rvu_sql("pr")
+    assert "99202" in is_em_code_sql("x") and "NOT" in primary_procedure_filter_sql("v.px", "pr")
+    joins, sets = top_code_overlay_sql("`az_pd`")
+    assert "pd_stg_top_primary_px" in joins
+    assert "p.visits_top_primary_procedure_5_name = t_primary_px.c5_name" in sets
+    assert "p.visits_top_diagnosis_4 = t_dx.c4" in sets
+    reset = reset_activity_columns_sql("az_pd", bucket=0)
+    assert "visits_top_primary_procedure_1 = NULL" in reset and "visits_top_procedure_5_name = NULL" in reset
+    cols = dict(PD_PROVIDER_PHASE2_COLUMNS)
+    assert "visits_top_diagnosis_5_name" in cols and "visits_top_primary_procedure_3" in cols
+    source = inspect.getsource(rebuild_top_codes)
+    body = source[source.index('"""', source.index('"""') + 3) + 3:]  # after the docstring
+    assert "TRUNCATE TABLE" in body and "pd_stg_window_claim" not in body and "load_window_claims" not in body
+    assert "top_codes_only" in inspect.getsource(run_phase2)
+    assert build_parser().parse_args(["phase2", "--top-codes-only"]).top_codes_only is True

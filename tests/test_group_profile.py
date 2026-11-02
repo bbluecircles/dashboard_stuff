@@ -30,8 +30,11 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
     blob = "\n".join([metrics, sites, refs, codes, payers, attach])
     assert "pd_stg_visit" not in codes
     assert "pd_stg_visit" not in attach
-    assert "pd_stg_top_dx" in codes
+    assert "TOP_CODE_TABLES" in codes
+    assert "LIMIT {int(TOP_N)}" in codes
     assert "pd_stg_top_px" in attach
+    assert "pd_stg_top_primary_px" in attach
+    assert 'prefix="visits_top_primary_procedure"' in attach
     assert "SUM(d.visit_count)" in codes
     assert "visit_count" in codes
     assert "_percent" in codes
@@ -51,8 +54,8 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
 
 def test_provider_top_code_percents_use_staging_counts():
     source = inspect.getsource(fetch_top_code_percents)
-    assert "pd_stg_top_dx" in source
-    assert "pd_stg_top_px" in source
+    assert "TOP_CODE_KINDS" in source
+    assert "rk > TOP_N" in source
     assert "visit_count" in source
     assert ".pat_dt" not in source
     assert "_percent" in source

@@ -88,8 +88,9 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
     "pd_stg_window_claim": {"kind": "mart", "phase": "Phase 2", "built_from": ['claims.pat_dt'], "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2)."},
     "pd_stg_visit": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_window_claim'], "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2)."},
     "pd_stg_panel_patient": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_window_claim', 'pd_provider'], "description": "Distinct patients per NPI with age and gender (Phase 2)."},
-    "pd_stg_top_dx": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.diagnosis'], "description": "Top 3 diagnoses per NPI with visit counts (Phase 2)."},
-    "pd_stg_top_px": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "Top 3 procedures per NPI with visit counts (Phase 2)."},
+    "pd_stg_top_dx": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.diagnosis'], "description": "Top 5 diagnoses per NPI with visit counts (Phase 2)."},
+    "pd_stg_top_px": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "Top 5 procedures per NPI with visit counts (Phase 2)."},
+    "pd_stg_top_primary_px": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "Top 5 primary procedures per NPI: strict work RVU above 1, no E/M or Category II codes (Phase 2)."},
     "pd_stg_visit_site": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_visit', 'pd_stg_window_claim'], "description": "One service location per encounter, the modal one (Phase 3)."},
     "pd_stg_npi_sl": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_visit_site', 'claims.sl'], "description": "Visits per NPI per location with the site cluster key (Phase 3)."},
     "pd_stg_npi_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "RVU total and contributing visits per NPI (Phase 4)."},
@@ -231,14 +232,40 @@ _POS_DEV = (
     "else by the site's work_type label; else other. Share = bucket / visits with a site. Built by extras."
 )
 _TOP_DX_DEV = (
-    "pd_stg_visit grouped by the visit's dx (MAX encounter_diagnosis_code over the encounter's lines), ranked by visit count desc then code, top 3, "
+    "pd_stg_visit grouped by the visit's dx (MAX encounter_diagnosis_code over the encounter's lines), ranked by visit count desc then code, top 5, "
     "in pd_stg_top_dx. Name from azal.diagnosis on diagnosis_code, cut to 80 characters."
 )
 _TOP_PX_DEV = (
-    "pd_stg_visit grouped by the visit's px (MAX encounter_work_procd_code), ranked by visit count desc then code, top 3, in pd_stg_top_px. "
+    "pd_stg_visit grouped by the visit's px (MAX encounter_work_procd_code), ranked by visit count desc then code, top 5, in pd_stg_top_px. "
     "Name from azal.procd on procd_code, cut to 80 characters."
 )
-_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the three do not add to 100."
+_ORDINAL = {1: "Most common", 2: "Second most common", 3: "Third most common", 4: "Fourth most common", 5: "Fifth most common"}
+_TOP_PRIMARY_PX_DEV = (
+    "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU "
+    "(WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) "
+    "is above 1.0, the code is not an evaluation-and-management visit code (99202 to 99499) and not a Category II code (dddd F). "
+    "Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2)."
+)
+
+
+def _top_code_entries() -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    kinds = (
+        ("visits_top_diagnosis", "Top diagnosis", "diagnosis code across the clinician's visits in {window}", "diagnosis", "that carried this diagnosis", _TOP_DX_DEV),
+        ("visits_top_procedure", "Top procedure", "procedure (CPT/HCPCS) across the clinician's visits in {window}", "procedure", "with this procedure", _TOP_PX_DEV),
+        ("visits_top_primary_procedure", "Top primary procedure", "procedure among those with a physician work RVU above 1, leaving out office visit codes, across the clinician's visits in {window}", "primary procedure", "with this procedure", _TOP_PRIMARY_PX_DEV),
+    )
+    for prefix, label, first_help, noun, share_help, dev in kinds:
+        for i in range(1, 6):
+            ordinal = _ORDINAL[i]
+            help_code = f"{ordinal} {first_help}." if i == 1 else f"{ordinal} {noun} code."
+            out[f"{prefix}_{i}"] = _entry(f"{label} {i}", help_code, dev)
+            out[f"{prefix}_{i}_name"] = _entry(f"{label} {i}", f"Description of the {ordinal.lower()} {noun}.", dev)
+            out[f"{prefix}_{i}_percent"] = _entry("Share of visits", f"Share of the clinician's visits {share_help}.", _TOP_PCT_DEV)
+    return out
+
+
+_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the five do not add to 100."
 
 
 def _weekday_entries(scope_note: str, dev_note: str) -> dict[str, dict[str, str]]:
@@ -285,24 +312,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "active_provider": _entry("Active", "The clinician had at least one visit or one panel patient in {window}.",
                               "pd_provider.active_provider = 1 when visits_total > 0 or panel_size > 0 (Phase 2 overlay)."),
     "visits_total": _entry("Visits", _VISIT, "COUNT(*) of pd_stg_visit rows where rendering_npi = this NPI. pd_stg_visit is one row per encounter_id from pd_stg_window_claim; rendering_npi = MAX(encounter_rendering_physician_code)."),
-    "visits_top_diagnosis_1": _entry("Top diagnosis 1", "Most common diagnosis code across the clinician's visits in {window}.", _TOP_DX_DEV),
-    "visits_top_diagnosis_1_name": _entry("Top diagnosis 1", "Description of the most common diagnosis.", _TOP_DX_DEV),
-    "visits_top_diagnosis_1_percent": _entry("Share of visits", "Share of the clinician's visits that carried this diagnosis.", _TOP_PCT_DEV),
-    "visits_top_diagnosis_2": _entry("Top diagnosis 2", "Second most common diagnosis code.", _TOP_DX_DEV),
-    "visits_top_diagnosis_2_name": _entry("Top diagnosis 2", "Description of the second most common diagnosis.", _TOP_DX_DEV),
-    "visits_top_diagnosis_2_percent": _entry("Share of visits", "Share of visits that carried this diagnosis.", _TOP_PCT_DEV),
-    "visits_top_diagnosis_3": _entry("Top diagnosis 3", "Third most common diagnosis code.", _TOP_DX_DEV),
-    "visits_top_diagnosis_3_name": _entry("Top diagnosis 3", "Description of the third most common diagnosis.", _TOP_DX_DEV),
-    "visits_top_diagnosis_3_percent": _entry("Share of visits", "Share of visits that carried this diagnosis.", _TOP_PCT_DEV),
-    "visits_top_procedure_1": _entry("Top procedure 1", "Most common procedure (CPT/HCPCS) across the clinician's visits in {window}.", _TOP_PX_DEV),
-    "visits_top_procedure_1_name": _entry("Top procedure 1", "Description of the most common procedure.", _TOP_PX_DEV),
-    "visits_top_procedure_1_percent": _entry("Share of visits", "Share of the clinician's visits with this procedure.", _TOP_PCT_DEV),
-    "visits_top_procedure_2": _entry("Top procedure 2", "Second most common procedure code.", _TOP_PX_DEV),
-    "visits_top_procedure_2_name": _entry("Top procedure 2", "Description of the second most common procedure.", _TOP_PX_DEV),
-    "visits_top_procedure_2_percent": _entry("Share of visits", "Share of visits with this procedure.", _TOP_PCT_DEV),
-    "visits_top_procedure_3": _entry("Top procedure 3", "Third most common procedure code.", _TOP_PX_DEV),
-    "visits_top_procedure_3_name": _entry("Top procedure 3", "Description of the third most common procedure.", _TOP_PX_DEV),
-    "visits_top_procedure_3_percent": _entry("Share of visits", "Share of visits with this procedure.", _TOP_PCT_DEV),
+    **_top_code_entries(),
     "panel_size": _entry("Panel size", _PANEL + " A clinician who only refers has a panel but no visits.", _PANEL_DEV + " panel_size = COUNT(*) per npi."),
     "panel_average_age": _entry("Average patient age", "Mean age of the clinician's panel patients.", _PANEL_DEV + " AVG(age_code) over ages 0 to 120, 1 decimal."),
     "panel_percent_age_0_19": _entry("Age 0 to 19", "Share of panel patients aged 0 to 19.", _PANEL_DEV + " Patients with age_code 0 to 19 / panel_size x100."),
@@ -449,9 +459,8 @@ GROUP_FILTER: dict[str, dict[str, str]] = {
 def _group_scope() -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for key, entry in PROVIDER.items():
-        if key in ("visits_top_diagnosis_1_percent", "visits_top_diagnosis_2_percent", "visits_top_diagnosis_3_percent",
-                   "visits_top_procedure_1_percent", "visits_top_procedure_2_percent", "visits_top_procedure_3_percent"):
-            out[key] = _entry(entry["label"], entry["help"] + " On the group page this is a lower bound: only members' stored top 3 codes are summed.",
+        if key.startswith("visits_top_") and key.endswith("_percent"):
+            out[key] = _entry(entry["label"], entry["help"] + " On the group page this is a lower bound: only members' stored top 5 codes are summed.",
                               entry["dev"] + " Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.")
         elif key.startswith("panel_percent_") or key.startswith("visits_percent_") or key == "panel_average_age":
             out[key] = _entry(entry["label"], entry["help"] + _GROUP_PCT_NOTE, entry["dev"] + " Group: member percent weighted by member visits_total (group_profile.weighted_pct_sql).")
@@ -645,9 +654,11 @@ _GROUP_PASSTHROUGH = {"organization_id", "organization_name", "organization_npi"
 def _caveats_for(scope: str, key: str) -> list[str]:
     out = list(CAVEATS.get((scope, key), []))
     if key.startswith("visits_top_") and key.endswith("_percent"):
-        out.append("A share of all visits; the three shares do not add to 100.")
+        out.append("A share of all visits; the shares do not add to 100.")
+    if key.startswith("visits_top_primary_procedure_"):
+        out.append("Office visit (E/M) codes, Category II codes and procedures with a work RVU of 1 or less are not ranked.")
         if scope == "group":
-            out.append("A lower bound on the group page: only members' stored top 3 codes are summed.")
+            out.append("A lower bound on the group page: only members' stored top 5 codes are summed.")
     if key.startswith("panel_percent_age_"):
         out.append("Ages outside 0 to 120 are ignored.")
     if key.startswith("visits_percent_") and key[len("visits_percent_"):] in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"):

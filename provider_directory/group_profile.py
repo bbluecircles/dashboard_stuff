@@ -21,7 +21,9 @@ from provider_directory.settings import (
     MAX_REFERRAL_PEERS,
     MAX_TOP_PAYERS,
     PAYOR_COMMERCIAL,
+    TOP_N,
 )
+from provider_directory.schema import TOP_CODE_TABLES
 
 VISIT_WEIGHTED = (
     "visits_percent_third_party",
@@ -213,14 +215,14 @@ def fetch_group_top_codes(
     visits_total: int | None,
     mart_db: str = MART_DB,
 ) -> dict:
-    """Top 3 from members' stored top codes (pd_stg_top_*). Stay off visit staging on GET.
+    """Top TOP_N from members' stored top codes (pd_stg_top_*). Stay off visit staging on GET.
 
     visit_count on those rows is the NPI's true count for that code. Summing them
-    undercounts members who had the code outside their personal top 3. Percent is
+    undercounts members who had the code outside their personal top list. Percent is
     that sum / group visits_total (lower bound of the org-wide share).
     """
-    if table not in ("pd_stg_top_dx", "pd_stg_top_px"):
-        raise ValueError(f"table must be pd_stg_top_dx or pd_stg_top_px, not {table!r}")
+    if table not in TOP_CODE_TABLES:
+        raise ValueError(f"table must be one of {TOP_CODE_TABLES}, got {table!r}")
     mart = quote_ident(mart_db)
     denom = int(visits_total or 0)
     sql = f"""
@@ -239,7 +241,7 @@ def fetch_group_top_codes(
               AND NULLIF(TRIM(d.code), '') IS NOT NULL
             GROUP BY d.code
             ORDER BY visit_count DESC, d.code
-            LIMIT 3
+            LIMIT {int(TOP_N)}
         ) ranked
     """
     rows = _fetch(conn, sql, (denom, denom, organization_id))
@@ -487,6 +489,16 @@ def attach_group_profile(
             organization_id,
             table="pd_stg_top_px",
             prefix="visits_top_procedure",
+            visits_total=row.visits_total,
+            mart_db=mart_db,
+        )
+    )
+    extras.update(
+        fetch_group_top_codes(
+            conn,
+            organization_id,
+            table="pd_stg_top_primary_px",
+            prefix="visits_top_primary_procedure",
             visits_total=row.visits_total,
             mart_db=mart_db,
         )

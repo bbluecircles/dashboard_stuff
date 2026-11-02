@@ -158,7 +158,7 @@ def test_every_dev_entry_names_registered_tables():
 
 def test_tables_in_parses_prefixes_wildcards_and_rejects_unknown():
     found = tables_in("az_cms.pat_dt joined to azal.procd on procd_code; pd_stg_top_* visit_count / pd_provider.visits_total; cms_pdc_clinician.gndr")
-    assert found == ["claims.pat_dt", "lookup.procd", "pd_stg_top_dx", "pd_stg_top_px", "pd_provider", "cms_pdc_clinician"]
+    assert found == ["claims.pat_dt", "lookup.procd", "pd_stg_top_dx", "pd_stg_top_px", "pd_stg_top_primary_px", "pd_provider", "cms_pdc_clinician"]
     import pytest
     with pytest.raises(KeyError):
         tables_in("reads pd_stg_made_up")
@@ -310,3 +310,16 @@ def test_filter_controls_have_help_for_every_query_parameter():
     assert cat["group_filter"]["in_system"]["label"] == "Has in-system providers"
     assert cat["provider_filter"]["active"]["label"] == "Active only"
     assert cat["provider_filter"]["in_system"]["label"] == "In-system only"
+
+
+def test_top_code_help_covers_five_ranks_and_primary_procedures():
+    cat = catalog(dev=True)["provider"]
+    for prefix in ("visits_top_diagnosis", "visits_top_procedure", "visits_top_primary_procedure"):
+        for i in range(1, 6):
+            assert f"{prefix}_{i}" in cat and f"{prefix}_{i}_name" in cat and f"{prefix}_{i}_percent" in cat, (prefix, i)
+    assert cat["visits_top_primary_procedure_1"]["label"] == "Top primary procedure 1"
+    assert "work RVU above 1" in cat["visits_top_primary_procedure_1"]["help"]
+    assert "pd_stg_top_primary_px" in cat["visits_top_primary_procedure_1"]["tables"]
+    assert any("E/M" in c for c in cat["visits_top_primary_procedure_2"]["caveats"])
+    group = catalog(dev=True)["group"]
+    assert "stored top 5" in group["visits_top_primary_procedure_1_percent"]["help"]

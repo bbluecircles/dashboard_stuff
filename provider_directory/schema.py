@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
-from provider_directory.settings import MART_CHARSET, MART_COLLATION, MART_DB, require_ident
+from provider_directory.settings import MART_CHARSET, MART_COLLATION, MART_DB, require_ident, TOP_CODE_KINDS, TOP_N
 
 TABLES = (
     "cms_pdc_clinician",
@@ -27,6 +27,7 @@ TABLES = (
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
     "pd_stg_top_px",
+    "pd_stg_top_primary_px",
     "pd_stg_visit_site",
     "pd_stg_npi_sl",
     "pd_stg_npi_wrvu",
@@ -48,6 +49,7 @@ PHASE2_STAGING_TABLES = (
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
     "pd_stg_top_px",
+    "pd_stg_top_primary_px",
 )
 
 PHASE2_DERIVED_TABLES = (
@@ -55,7 +57,10 @@ PHASE2_DERIVED_TABLES = (
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
     "pd_stg_top_px",
+    "pd_stg_top_primary_px",
 )
+
+TOP_CODE_TABLES = tuple(table for _prefix, table in TOP_CODE_KINDS)
 
 PHASE3_STAGING_TABLES = (
     "pd_stg_visit_site",
@@ -100,21 +105,21 @@ def table_options() -> str:
     return f"ENGINE={MART_ENGINE} DEFAULT CHARSET={charset} COLLATE={collation}"
 
 
+def _top_code_columns() -> tuple[tuple[str, str], ...]:
+    cols: list[tuple[str, str]] = []
+    for prefix, _table in TOP_CODE_KINDS:
+        for i in range(1, TOP_N + 1):
+            cols.append((f"{prefix}_{i}", "VARCHAR(10) NULL"))
+            cols.append((f"{prefix}_{i}_name", "VARCHAR(80) NULL"))
+    return tuple(cols)
+
+
+TOP_CODE_COLUMNS = _top_code_columns()
+
 PD_PROVIDER_PHASE2_COLUMNS = (
     ("active_provider", "TINYINT NULL"),
     ("visits_total", "INT UNSIGNED NULL"),
-    ("visits_top_diagnosis_1", "VARCHAR(10) NULL"),
-    ("visits_top_diagnosis_1_name", "VARCHAR(80) NULL"),
-    ("visits_top_diagnosis_2", "VARCHAR(10) NULL"),
-    ("visits_top_diagnosis_2_name", "VARCHAR(80) NULL"),
-    ("visits_top_diagnosis_3", "VARCHAR(10) NULL"),
-    ("visits_top_diagnosis_3_name", "VARCHAR(80) NULL"),
-    ("visits_top_procedure_1", "VARCHAR(10) NULL"),
-    ("visits_top_procedure_1_name", "VARCHAR(80) NULL"),
-    ("visits_top_procedure_2", "VARCHAR(10) NULL"),
-    ("visits_top_procedure_2_name", "VARCHAR(80) NULL"),
-    ("visits_top_procedure_3", "VARCHAR(10) NULL"),
-    ("visits_top_procedure_3_name", "VARCHAR(80) NULL"),
+    *TOP_CODE_COLUMNS,
     ("panel_size", "INT UNSIGNED NULL"),
     ("panel_average_age", "DECIMAL(5,1) NULL"),
     ("panel_percent_age_0_19", "DECIMAL(6,2) NULL"),
@@ -229,6 +234,10 @@ PD_PROVIDER_EXTRAS_COLUMNS = (
 )
 
 
+def top_code_ddl() -> str:
+    return ",\n            ".join(f"{name} {definition}" for name, definition in TOP_CODE_COLUMNS) + ","
+
+
 def ddl_statements(mart_db: str = MART_DB) -> list[str]:
     db = quote_ident(require_ident(mart_db, "mart database"))
     return [
@@ -319,18 +328,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             school_source VARCHAR(16),
             active_provider TINYINT NULL,
             visits_total INT UNSIGNED NULL,
-            visits_top_diagnosis_1 VARCHAR(10) NULL,
-            visits_top_diagnosis_1_name VARCHAR(80) NULL,
-            visits_top_diagnosis_2 VARCHAR(10) NULL,
-            visits_top_diagnosis_2_name VARCHAR(80) NULL,
-            visits_top_diagnosis_3 VARCHAR(10) NULL,
-            visits_top_diagnosis_3_name VARCHAR(80) NULL,
-            visits_top_procedure_1 VARCHAR(10) NULL,
-            visits_top_procedure_1_name VARCHAR(80) NULL,
-            visits_top_procedure_2 VARCHAR(10) NULL,
-            visits_top_procedure_2_name VARCHAR(80) NULL,
-            visits_top_procedure_3 VARCHAR(10) NULL,
-            visits_top_procedure_3_name VARCHAR(80) NULL,
+            {top_code_ddl()}
             panel_size INT UNSIGNED NULL,
             panel_average_age DECIMAL(5,1) NULL,
             panel_percent_age_0_19 DECIMAL(6,2) NULL,
@@ -548,6 +546,17 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_px (
+            npi BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            name VARCHAR(80),
+            visit_count INT UNSIGNED NOT NULL,
+            rk TINYINT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, rk),
+            KEY idx_npi (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_primary_px (
             npi BIGINT UNSIGNED NOT NULL,
             code VARCHAR(10) NOT NULL,
             name VARCHAR(80),

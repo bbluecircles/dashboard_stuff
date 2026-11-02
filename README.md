@@ -53,6 +53,12 @@ This scan is large (12 months of `pat_dt`). Galera cannot replicate one giant tr
 
 Keep Phase 2 staging (`pd_stg_visit`, `pd_stg_window_claim`) around for Phase 3.
 
+`phase2 --top-codes-only` re-ranks the top 5 diagnoses, top 5 procedures and the top 5 **primary procedures** (codes whose strict physician work RVU is above 1, leaving out evaluation-and-management visit codes 99202–99499 and Category II codes) from the existing `pd_stg_visit`, overlays only those columns and rebuilds `pd_group_practice`. No claims are read; minutes. Run it once after pulling the top 5 change.
+
+```
+python -m provider_directory.cli phase2 --state AZ_CMS --top-codes-only
+```
+
 ## Phase 3
 
 Claims-weighted practice locations. Site names come from `az.sl` only: `sl_dba_name`, else `sl_name`, else `sl_common_name`, else street and city; blank, `Unknown` and `LAST, FIRST` values fall through, so no site is ever named Unknown. `provider_facility_npi` is no longer read.  One site per visit from the modal `sl_code` on Phase 2 staging, clustered by street+ZIP (suite variants collapse), ranked to five sites, PDC phone overlaid when ZIP+street or ZIP+city match. Does not rescan `az.pat_dt` and does not write NPPES/PDC streets over claims sites.

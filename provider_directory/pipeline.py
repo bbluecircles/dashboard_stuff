@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlparse
 import requests
 
 from provider_directory.affiliations import rebuild_org_lists
-from provider_directory.activity import rebuild_activity
+from provider_directory.activity import rebuild_activity, rebuild_top_codes
 from provider_directory.analytics import rebuild_analytics, rebuild_payer_columns
 from provider_directory.complete import rebuild_complete
 from provider_directory.cms import (
@@ -141,10 +141,17 @@ def run_phase2(
     claims_db: str = CLAIMS_DB,
     lookup_db: str = LOOKUP_DB,
     market_state: str = MARKET_STATE,
+    top_codes_only: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
+    if top_codes_only:
+        summary = rebuild_top_codes(conn, mart_db=mart_db, lookup_db=lookup_db)
+        summary["window_start"] = window_start
+        summary["window_end"] = window_end
+        summary["state"] = market_state
+        return summary
     summary = rebuild_activity(
         conn,
         mart_db=mart_db,

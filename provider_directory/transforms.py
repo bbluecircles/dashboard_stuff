@@ -348,7 +348,7 @@ def summarize_panel(patients: list[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def top_n_codes(counts: Mapping[str, int], n: int = 3) -> list[str]:
+def top_n_codes(counts: Mapping[str, int], n: int = 5) -> list[str]:
     ranked = sorted(
         ((code, cnt) for code, cnt in counts.items() if nonempty(code) is not None),
         key=lambda item: (-item[1], item[0]),
@@ -451,6 +451,56 @@ def org_name_sql(expr: str) -> str:
     """
 MIN_PLAUSIBLE_WORK_RVU = 0.05
 MIN_PLAUSIBLE_TOTAL_RVU = 0.5
+
+
+def strict_work_rvu_sql(alias: str = "pr") -> str:
+    """Physician work RVU only: WORK_RVU when plausible, else total minus practice
+    expense minus malpractice (non-facility, then facility). No nf_total_rvu
+    fallback, so practice expense never masquerades as work."""
+    a = alias
+    min_w = MIN_PLAUSIBLE_WORK_RVU
+    return f"""
+        COALESCE(
+            CASE WHEN {a}.WORK_RVU >= {min_w} THEN {a}.WORK_RVU END,
+            CASE
+                WHEN {a}.NON_FACILITY_TOTAL IS NOT NULL
+                 AND {a}.NON_FAC_PE_RVU IS NOT NULL
+                 AND {a}.MP_RVU IS NOT NULL
+                 AND ({a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU) >= {min_w}
+                THEN {a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU
+            END,
+            CASE
+                WHEN {a}.FACILITY_TOTAL IS NOT NULL
+                 AND {a}.FACILITY_PE_RVU IS NOT NULL
+                 AND {a}.MP_RVU IS NOT NULL
+                 AND ({a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU) >= {min_w}
+                THEN {a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU
+            END
+        )
+    """
+
+
+def is_category_ii_sql(expr: str) -> str:
+    """CPT Category II tracking codes (four digits + F) carry no work."""
+    return f"TRIM({expr}) REGEXP '^[0-9]{{4}}F$'"
+
+
+def is_em_code_sql(expr: str) -> str:
+    """Evaluation and management CPT range (office and other visits), excluded from Top Primary Procedures."""
+    from provider_directory.settings import EM_CODE_MAX, EM_CODE_MIN
+
+    return f"(TRIM({expr}) REGEXP '^[0-9]{{5}}$' AND TRIM({expr}) BETWEEN '{EM_CODE_MIN}' AND '{EM_CODE_MAX}')"
+
+
+def primary_procedure_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:
+    """WHERE fragment for Top Primary Procedures: strict work RVU above the floor,
+    not an E/M visit code, not a Category II code."""
+    from provider_directory.settings import PRIMARY_PROCEDURE_MIN_WORK_RVU
+
+    return (
+        f"{strict_work_rvu_sql(procd_alias)} > {PRIMARY_PROCEDURE_MIN_WORK_RVU} "
+        f"AND NOT {is_em_code_sql(code_expr)} AND NOT {is_category_ii_sql(code_expr)}"
+    )
 
 
 def is_po_box(street: Any) -> bool:

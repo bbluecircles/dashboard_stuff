@@ -104,6 +104,19 @@ MAX_PRACTICE_SITES = 5
 MAX_HOSPITAL_AFFILIATIONS = 5
 MIN_HOSPITAL_AFFILIATION_SHARE_PCT = 2.0
 MAX_REFERRAL_PEERS = 3
+# Ranked lists on the profile (diagnoses, procedures, primary procedures) are top TOP_N.
+TOP_N = 5
+# (pd_provider column prefix, staging table) for each ranked code list.
+TOP_CODE_KINDS = (
+    ("visits_top_diagnosis", "pd_stg_top_dx"),
+    ("visits_top_procedure", "pd_stg_top_px"),
+    ("visits_top_primary_procedure", "pd_stg_top_primary_px"),
+)
+# Top Primary Procedures: codes whose strict physician work RVU is above this,
+# excluding evaluation-and-management office visit codes and Category II codes.
+PRIMARY_PROCEDURE_MIN_WORK_RVU = 1.0
+EM_CODE_MIN = "99202"
+EM_CODE_MAX = "99499"
 GEO_CLUSTER_DECIMALS = 4
 REFERRAL_IN = "in"
 REFERRAL_OUT = "out"
