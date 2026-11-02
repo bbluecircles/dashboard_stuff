@@ -114,4 +114,11 @@ def test_group_parent_is_the_modal_member_parent_not_max():
     assert "ORDER BY COUNT(*) DESC, SUM(IFNULL(p.visits_total, 0)) DESC" in sql
     assert "NOT IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE')" in sql
     assert "MAX(par.parent_name) AS parent_name" in sql
+    # modal parent is scope-independent: the active rows never filter the parent pick
+    active = group_scored_sql("az_pd", "active")
+    modal = active[active.index("ROW_NUMBER() OVER (\n                    PARTITION BY p.primary_organization_id"):active.index(") ranked")]
+    assert "active_provider" not in modal
+    from provider_directory.cli import build_parser
+
+    assert build_parser().parse_args(["group-summary", "--state", "AZ_CMS"]).func.__name__ == "_cmd_group_summary"
     assert "par ON par.organization_id = p.primary_organization_id" in sql

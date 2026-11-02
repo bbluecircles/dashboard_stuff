@@ -614,12 +614,31 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_groups)
 
     p = sub.add_parser(
+        "group-summary",
+        parents=[state_parent],
+        help="Rebuild pd_group_practice from pd_provider only (seconds); no claims read",
+    )
+    p.set_defaults(func=_cmd_group_summary)
+
+    p = sub.add_parser(
         "ref-check",
         help="Connect to the reference server (REF_DB_*) and describe master_ref.111_physician "
         "and cms_group_practice: columns, keys, approximate rows, one sample row. Read-only.",
     )
     p.set_defaults(func=_cmd_ref_check)
     return parser
+
+
+def _cmd_group_summary(args: argparse.Namespace) -> int:
+    """Rebuild pd_group_practice only (seconds). Use after a change to the group
+    scoring rule, such as the parent-organization pick."""
+    from provider_directory.group_summary import rebuild_group_summary
+
+    market = _market_kwargs(args)
+    with get_connection(autocommit=False) as conn:
+        counts = rebuild_group_summary(conn, market["mart_db"])
+    print(json.dumps({"state": market["market_state"], "group_summary": counts}, indent=2))
+    return 0
 
 
 def _cmd_ref_check(args: argparse.Namespace) -> int:

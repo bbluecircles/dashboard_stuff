@@ -647,6 +647,9 @@ def group_scored_sql(mart_db: str, scope: str) -> str:
     member_where = group_member_where(scope)
     # Parent organization is the one most members carry (ties: most visits, then
     # name), never MAX(): a few members with an odd parent used to rename the group.
+    # Counted over every member whatever the scope, so the active and inactive
+    # rows of a group name the same parent as the all row.
+    parent_where = group_member_where(GROUP_SCOPE_ALL)
     modal_parent = f"""
         SELECT organization_id, parent_id, parent_name
         FROM (
@@ -660,7 +663,7 @@ def group_scored_sql(mart_db: str, scope: str) -> str:
                         p.primary_organization_parent_name
                 ) AS rk
             FROM {mart}.pd_provider p
-            WHERE {member_where}
+            WHERE {parent_where}
               AND NULLIF(TRIM(p.primary_organization_parent_name), '') IS NOT NULL
               AND UPPER(TRIM(p.primary_organization_parent_name)) NOT IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE')
             GROUP BY p.primary_organization_id, p.primary_organization_parent_id, p.primary_organization_parent_name
