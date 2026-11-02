@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
-from provider_directory.analytics import work_type_case_sql
+from provider_directory.transforms import work_type_case_sql
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,

@@ -105,3 +105,13 @@ def test_group_dump_list_flag():
     )
     assert body.visits_are_summed_across_npis is True
     assert body.items[0].organization_id == 1
+
+
+def test_group_parent_is_the_modal_member_parent_not_max():
+    sql = group_scored_sql("az_pd", "all")
+    assert "MAX(p.primary_organization_parent_name)" not in sql
+    assert "PARTITION BY p.primary_organization_id" in sql
+    assert "ORDER BY COUNT(*) DESC, SUM(IFNULL(p.visits_total, 0)) DESC" in sql
+    assert "NOT IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE')" in sql
+    assert "MAX(par.parent_name) AS parent_name" in sql
+    assert "par ON par.organization_id = p.primary_organization_id" in sql

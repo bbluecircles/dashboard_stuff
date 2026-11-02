@@ -27,11 +27,13 @@ def test_schema_has_affiliation_mart_tables():
 def test_hospital_system_sql_drops_unknown():
     sql = hospital_system_name_sql()
     assert "sl_hospital_system_name" in sql
-    assert "provider_facility_npi_hospital_system_name" in sql
+    assert "provider_facility_npi" not in sql
     assert "'UNKNOWN'" in sql
     fac = hospital_facility_name_sql()
-    assert "npi_type = '2'" in fac
+    assert "provider_facility_npi" not in fac
     assert "sl_hospital_system_name" not in fac
+    assert "'UNKNOWN'" in fac
+    assert "provider_facility_npi" not in inspect.getsource(rebuild_org_lists)
 
 
 def test_org_list_sql_uses_affiliation_tables_not_pat_dt():

@@ -39,6 +39,8 @@ from provider_directory.settings import (
     payer_source_for_claims_db,
 )
 from provider_directory.transforms import (
+    EMPTY_NAME_SQL_LIST,
+    work_type_case_sql,
     MIN_PLAUSIBLE_TOTAL_RVU,
     MIN_PLAUSIBLE_WORK_RVU,
     POS_WORK_TYPE,
@@ -103,39 +105,6 @@ def work_rvu_sql(alias: str = "pr") -> str:
                 THEN {a}.nf_total_rvu
             END,
             CASE WHEN {a}.WORK_RVU > 0 THEN {a}.WORK_RVU END
-        )
-    """
-
-
-def work_type_case_sql(sl: str = "sl") -> str:
-    pos_whens = "\n".join(
-        f"WHEN {int(code)} THEN '{label}'" for code, label in sorted(POS_WORK_TYPE.items())
-    )
-    roll = f"LOWER(IFNULL({sl}.im_specialty_rollup, ''))"
-    # CONCAT('%%', ...) so pymysql %s formatting leaves a SQL LIKE wildcard.
-    return f"""
-        COALESCE(
-            CASE {sl}.pos_type_code
-                {pos_whens}
-                ELSE NULL
-            END,
-            CASE
-                WHEN {roll} LIKE CONCAT('%%', 'urgent', '%%') THEN 'Urgent Care'
-                WHEN {roll} LIKE CONCAT('%%', 'emergency', '%%') THEN 'Emergency Department'
-                WHEN {roll} LIKE CONCAT('%%', 'ambulatory surg', '%%') THEN 'Ambulatory Surgery Center'
-                WHEN {roll} LIKE CONCAT('%%', 'skilled nursing', '%%') THEN 'Skilled Nursing Facility'
-                WHEN {roll} LIKE CONCAT('%%', 'hospice', '%%') THEN 'Hospice'
-                WHEN {roll} LIKE CONCAT('%%', 'dialysis', '%%')
-                  OR {roll} LIKE CONCAT('%%', 'end-stage', '%%') THEN 'End-Stage Renal Disease Facility'
-                WHEN {roll} LIKE CONCAT('%%', 'acute care hospital', '%%')
-                  OR {roll} LIKE CONCAT('%%', 'general acute', '%%') THEN 'Short Term Acute Care Hospital'
-                WHEN {roll} LIKE CONCAT('%%', 'outpatient hospital', '%%') THEN 'Hospital Outpatient'
-                WHEN {roll} LIKE CONCAT('%%', 'office specialty', '%%') THEN 'Single Specialty Group'
-                WHEN {roll} LIKE CONCAT('%%', 'office', '%%') THEN 'Office'
-                ELSE NULL
-            END,
-            NULLIF(TRIM({sl}.pos_type_name), ''),
-            NULLIF(TRIM({sl}.im_specialty_rollup), '')
         )
     """
 
@@ -587,9 +556,11 @@ def rebuild_analytics(
                     NULLIF(TRIM(pr.city), '')
                 ))
                 WHERE MOD(pr.npi, {PROVIDER_BUCKETS}) = %s
-                  AND IFNULL(pr.npi_type, '') = '1'
-                  AND pr.name IS NOT NULL
-                  AND {is_person_practice_name_sql("pr.name")}
+                  AND (
+                      pr.name IS NULL
+                      OR UPPER(TRIM(pr.name)) IN {EMPTY_NAME_SQL_LIST}
+                      OR {is_person_practice_name_sql("pr.name")}
+                  )
                   AND (
                       NULLIF(TRIM(pr.street), '') IS NOT NULL
                       OR NULLIF(TRIM(pr.city), '') IS NOT NULL

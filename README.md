@@ -55,7 +55,7 @@ Keep Phase 2 staging (`pd_stg_visit`, `pd_stg_window_claim`) around for Phase 3.
 
 ## Phase 3
 
-Claims-weighted practice locations. One site per visit from the modal `sl_code` on Phase 2 staging, clustered by street+ZIP (suite variants collapse), ranked to five sites, PDC phone overlaid when ZIP+street or ZIP+city match. Does not rescan `az.pat_dt` and does not write NPPES/PDC streets over claims sites.
+Claims-weighted practice locations. Site names come from `az.sl` only: `sl_dba_name`, else `sl_name`, else `sl_common_name`, else street and city; blank, `Unknown` and `LAST, FIRST` values fall through, so no site is ever named Unknown. `provider_facility_npi` is no longer read.  One site per visit from the modal `sl_code` on Phase 2 staging, clustered by street+ZIP (suite variants collapse), ranked to five sites, PDC phone overlaid when ZIP+street or ZIP+city match. Does not rescan `az.pat_dt` and does not write NPPES/PDC streets over claims sites.
 
 ```
 python -m provider_directory.cli phase3
@@ -68,7 +68,7 @@ Phase 3 JSON that looks healthy: `visit_sites` in the tens of millions, `practic
 
 ## Phase 4
 
-wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all` (on `AZ_CMS` from `az_cms.pat_dt` × the `payor` lookup instead, visit-weighted, because the blend's summary table only carries native claims; that is one extra 12-month `pat_dt` scan), primary billing org from `az.physician_primary_affiliation`, every in-window group practice from `physician_affiliation_p` / `_i`, top-in **distinct hospital systems** from visit-weighted `sl.sl_hospital_system_name` (not five campuses of the same system), and site-of-care `work_type` labels from CMS POS plus warehouse rollup. Phase 4 also replaces Type 1 `LAST, FIRST` practice names with street+city so another clinician's NPI is not shown as the site. Does not rescan `az.pat_dt`. Payer classes are `is_payor_code` 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage and 7 Medicare Other, each its own `visits_percent_*` column over the sum of those six; class 5 Other is excluded from the denominator. Top 5 payers are commercial parents only.
+wRVU (5-character CPT/HCPCS work procedure × a plausible physician work RVU from `azal.procd`: `WORK_RVU` when it is at least 0.05, otherwise total − PE − MP), payer mix from `az.dash_physician_payor_all` (on `AZ_CMS` from `az_cms.pat_dt` × the `payor` lookup instead, visit-weighted, because the blend's summary table only carries native claims; that is one extra 12-month `pat_dt` scan), primary billing org from `az.physician_primary_affiliation`, every in-window group practice from `physician_affiliation_p` / `_i`, top-in **distinct hospital systems** from visit-weighted `sl.sl_hospital_system_name` (not five campuses of the same system), and site-of-care `work_type` labels from CMS POS plus warehouse rollup (the same rule Phase 3 uses). Phase 4 also rewrites any practice name that is blank, Unknown or `LAST, FIRST` to street+city so a site is never shown as Unknown or as another clinician's name. Does not rescan `az.pat_dt`. Payer classes are `is_payor_code` 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage and 7 Medicare Other, each its own `visits_percent_*` column over the sum of those six; class 5 Other is excluded from the denominator. Top 5 payers are commercial parents only.
 
 ```
 python -m provider_directory.cli phase4

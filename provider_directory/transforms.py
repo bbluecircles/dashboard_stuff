@@ -421,6 +421,34 @@ ORG_NAME_REGEXP = (
     "SYSTEM|[[:space:]]PC"
 )
 PERSON_NAME_REGEXP = "^[^,]+,[[:space:]]*[^,]+$"
+# Warehouse sentinels that mean "no value". Mirrors _EMPTY for SQL.
+EMPTY_NAME_SQL_LIST = "('', 'NA', 'N/A', 'NONE', 'NULL', 'UNKNOWN', 'UNKNOWN GROUP PRACTICE', '.', '-')"
+
+
+def clean_name_sql(expr: str) -> str:
+    """NULL for blank or sentinel text (Unknown, NA, ...), else the trimmed value
+    with a trailing TYPE-2-ENTITY marker removed."""
+    cleaned = f"TRIM(REGEXP_REPLACE(IFNULL({expr}, ''), '[[:space:]]*TYPE-2-ENTITY[[:space:]]*$', ''))"
+    return f"""
+        CASE
+            WHEN UPPER({cleaned}) IN {EMPTY_NAME_SQL_LIST} THEN NULL
+            ELSE {cleaned}
+        END
+    """
+
+
+def org_name_sql(expr: str) -> str:
+    """clean_name_sql plus the person-name rule: LAST, FIRST without an
+    organization word is NULL, so a clinician's own name never names a site."""
+    cleaned = clean_name_sql(expr)
+    return f"""
+        CASE
+            WHEN {cleaned} IS NULL THEN NULL
+            WHEN UPPER({cleaned}) REGEXP '{ORG_NAME_REGEXP}' THEN {cleaned}
+            WHEN {cleaned} REGEXP '{PERSON_NAME_REGEXP}' THEN NULL
+            ELSE {cleaned}
+        END
+    """
 MIN_PLAUSIBLE_WORK_RVU = 0.05
 MIN_PLAUSIBLE_TOTAL_RVU = 0.5
 
@@ -523,28 +551,17 @@ def street_city_label(*, street: Any = None, city: Any = None) -> str | None:
 def pick_practice_name(
     *,
     npi_type: Any = None,
-    hospital_system: Any = None,
     dba_name: Any = None,
-    common_name: Any = None,
     sl_name: Any = None,
-    facility_dba: Any = None,
-    facility_hospital_system: Any = None,
+    common_name: Any = None,
     street: Any = None,
     city: Any = None,
+    **_ignored: Any,
 ) -> str | None:
-    """Prefer system / Type 2 DBA over a Type 1 clone of a person's name."""
-    ntype = nonempty(npi_type)
-    candidates = [
-        hospital_system,
-        facility_hospital_system,
-        dba_name if ntype == "2" else None,
-        sl_name if ntype == "2" else None,
-        facility_dba,
-        common_name,
-        dba_name,
-        sl_name,
-    ]
-    for value in candidates:
+    """Python twin of practice_name_sql: DBA, then name, then common name, each
+    cleaned of sentinels and of LAST, FIRST clones; else street and city. Never
+    returns Unknown."""
+    for value in (dba_name, sl_name, common_name):
         found = strip_entity_suffix(value)
         if found is None or looks_like_person_name(found):
             continue
@@ -660,6 +677,42 @@ def polish_work_type(
     if nonempty(hospital_system) and "hospital" in roll:
         return "Short Term Acute Care Hospital"
     return nonempty(pos_type_name) or nonempty(im_specialty_rollup)
+
+
+def work_type_case_sql(sl: str = "sl") -> str:
+    """Site-of-care label: CMS POS code first, then rollup keywords, then the
+    warehouse's own pos_type_name / im_specialty_rollup text. Sentinels such as
+    Unknown fall through to NULL instead of becoming a work type."""
+    pos_whens = "\n".join(
+        f"WHEN {int(code)} THEN '{label}'" for code, label in sorted(POS_WORK_TYPE.items())
+    )
+    roll = f"LOWER(IFNULL({sl}.im_specialty_rollup, ''))"
+    # CONCAT('%%', ...) so pymysql %s formatting leaves a SQL LIKE wildcard.
+    return f"""
+        COALESCE(
+            CASE {sl}.pos_type_code
+                {pos_whens}
+                ELSE NULL
+            END,
+            CASE
+                WHEN {roll} LIKE CONCAT('%%', 'urgent', '%%') THEN 'Urgent Care'
+                WHEN {roll} LIKE CONCAT('%%', 'emergency', '%%') THEN 'Emergency Department'
+                WHEN {roll} LIKE CONCAT('%%', 'ambulatory surg', '%%') THEN 'Ambulatory Surgery Center'
+                WHEN {roll} LIKE CONCAT('%%', 'skilled nursing', '%%') THEN 'Skilled Nursing Facility'
+                WHEN {roll} LIKE CONCAT('%%', 'hospice', '%%') THEN 'Hospice'
+                WHEN {roll} LIKE CONCAT('%%', 'dialysis', '%%')
+                  OR {roll} LIKE CONCAT('%%', 'end-stage', '%%') THEN 'End-Stage Renal Disease Facility'
+                WHEN {roll} LIKE CONCAT('%%', 'acute care hospital', '%%')
+                  OR {roll} LIKE CONCAT('%%', 'general acute', '%%') THEN 'Short Term Acute Care Hospital'
+                WHEN {roll} LIKE CONCAT('%%', 'outpatient hospital', '%%') THEN 'Hospital Outpatient'
+                WHEN {roll} LIKE CONCAT('%%', 'office specialty', '%%') THEN 'Single Specialty Group'
+                WHEN {roll} LIKE CONCAT('%%', 'office', '%%') THEN 'Office'
+                ELSE NULL
+            END,
+            {clean_name_sql(f"{sl}.pos_type_name")},
+            {clean_name_sql(f"{sl}.im_specialty_rollup")}
+        )
+    """
 
 
 def payer_mix_percents(counts: Mapping[int, int]) -> dict[str, float | None]:

@@ -1010,7 +1010,7 @@
       },
       "parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the group, as recorded in the warehouse."
+        "help": "Parent organization of the group: the one most of its member clinicians are recorded under."
       },
       "provider_count": {
         "label": "Clinicians",
@@ -1064,7 +1064,7 @@
       },
       "name": {
         "label": "Site name",
-        "help": "Name of the practice site."
+        "help": "Name of the practice site: its DBA name, else its registered name, else street and city."
       },
       "street": {
         "label": "Street",

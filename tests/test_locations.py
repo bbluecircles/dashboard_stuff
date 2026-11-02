@@ -47,19 +47,37 @@ def test_cluster_key_prefers_street_zip_over_geo():
     assert raw == "s:999"
 
 
-def test_pick_practice_name_prefers_type2_and_strips_entity():
+def test_pick_practice_name_dba_first_never_unknown():
     type2 = pick_practice_name(
         npi_type="2",
         dba_name="VALLEY HEART TYPE-2-ENTITY",
         sl_name="VALLEY HEART TYPE-2-ENTITY",
     )
-    hospital = pick_practice_name(
+    assert type2 == "VALLEY HEART"
+    # The hospital-system string no longer names a site; a clinician's own DBA falls to the address.
+    person = pick_practice_name(
         npi_type="1",
         dba_name="SMITH, SEAN",
         hospital_system="Banner Health",
+        street="1 Main St",
+        city="Mesa",
     )
-    assert type2 == "VALLEY HEART"
-    assert hospital == "Banner Health"
+    assert person == "1 Main St, Mesa"
+    mayo = pick_practice_name(
+        npi_type="2",
+        dba_name="Mayo Clinic Scottsdale",
+        hospital_system="Unknown",
+    )
+    assert mayo == "Mayo Clinic Scottsdale"
+    unknown = pick_practice_name(
+        npi_type="2",
+        dba_name="Unknown",
+        sl_name="UNKNOWN",
+        common_name="",
+        street="13400 E Shea Blvd",
+        city="Scottsdale",
+    )
+    assert unknown == "13400 E Shea Blvd, Scottsdale"
     clone = pick_practice_name(
         npi_type="1",
         dba_name="ROBETORYE, RYAN",
@@ -70,6 +88,24 @@ def test_pick_practice_name_prefers_type2_and_strips_entity():
     assert clone == "13400 E Shea Blvd, Scottsdale"
     own = pick_practice_name(npi_type="1", dba_name="SMITH, SEAN", sl_name="SMITH, SEAN")
     assert own is None
+
+
+def test_practice_name_sql_guards_unknown_and_drops_facility_npi():
+    from provider_directory.transforms import clean_name_sql, work_type_case_sql
+
+    name_sql = practice_name_sql()
+    assert "sl_hospital_system_name" not in name_sql
+    assert "provider_facility_npi" not in name_sql
+    assert "'UNKNOWN'" in name_sql and "'UNKNOWN GROUP PRACTICE'" in name_sql
+    assert name_sql.index("sl.sl_dba_name") < name_sql.index("sl.sl_name") < name_sql.index("sl.sl_common_name")
+    assert "TYPE-2-ENTITY" in name_sql
+    assert "npi_type = '2'" not in name_sql
+    assert "'UNKNOWN'" in clean_name_sql("x.pos_type_name")
+    wt = work_type_case_sql("sl")
+    assert "'UNKNOWN'" in wt and "pos_type_name" in wt
+    # pymysql %s formatting must survive: no bare % in the generated SQL
+    for sql in (name_sql, wt):
+        assert "%" not in sql.replace("%%", "")
 
 
 def test_work_type_and_rank_clusters():
@@ -109,7 +145,7 @@ def test_phase3_sql_stays_on_staging_and_mart():
     assert "TRUNCATE TABLE" in source
     assert "FROM az.pat_dt" not in source
     assert "cms_pdc_clinician" in source
-    assert "provider_facility_npi" in source
+    assert "provider_facility_npi" not in source
     assert "claims_sl" in source
     street = street_key_sql("sl.street")
     assert "STE|SUITE" in street
@@ -117,8 +153,6 @@ def test_phase3_sql_stays_on_staging_and_mart():
     assert "%" not in po_box_sql("sl.street")
     "SELECT 1 WHERE x = %s AND NOT ({})".format(po_box_sql("sl.street")) % (0,)
     name_sql = practice_name_sql()
-    assert "npi_type = '2'" in name_sql
-    assert "sl_hospital_system_name" in name_sql
     assert "sl.street" in name_sql
     assert PERSON_NAME_REGEXP in name_sql or "^[^,]+," in name_sql
     key = cluster_key_sql("sl.street", "sl.zip_code", "sl.latitude", "sl.longitude", "sl.sl_code")

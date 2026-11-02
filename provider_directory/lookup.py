@@ -645,13 +645,35 @@ def group_scored_sql(mart_db: str, scope: str) -> str:
     """
     mart = quote_ident(mart_db)
     member_where = group_member_where(scope)
+    # Parent organization is the one most members carry (ties: most visits, then
+    # name), never MAX(): a few members with an odd parent used to rename the group.
+    modal_parent = f"""
+        SELECT organization_id, parent_id, parent_name
+        FROM (
+            SELECT
+                p.primary_organization_id AS organization_id,
+                p.primary_organization_parent_id AS parent_id,
+                p.primary_organization_parent_name AS parent_name,
+                ROW_NUMBER() OVER (
+                    PARTITION BY p.primary_organization_id
+                    ORDER BY COUNT(*) DESC, SUM(IFNULL(p.visits_total, 0)) DESC,
+                        p.primary_organization_parent_name
+                ) AS rk
+            FROM {mart}.pd_provider p
+            WHERE {member_where}
+              AND NULLIF(TRIM(p.primary_organization_parent_name), '') IS NOT NULL
+              AND UPPER(TRIM(p.primary_organization_parent_name)) NOT IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE')
+            GROUP BY p.primary_organization_id, p.primary_organization_parent_id, p.primary_organization_parent_name
+        ) ranked
+        WHERE ranked.rk = 1
+    """
     grouped = f"""
         SELECT
             p.primary_organization_id AS organization_id,
             MAX(p.primary_organization_name) AS organization_name,
             MAX(p.primary_organization_npi) AS organization_npi,
-            MAX(p.primary_organization_parent_id) AS parent_id,
-            MAX(p.primary_organization_parent_name) AS parent_name,
+            MAX(par.parent_id) AS parent_id,
+            MAX(par.parent_name) AS parent_name,
             COUNT(*) AS provider_count,
             SUM(CASE WHEN p.active_provider = 1 THEN 1 ELSE 0 END) AS active_provider_count,
             SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) AS in_system_provider_count,
@@ -659,6 +681,7 @@ def group_scored_sql(mart_db: str, scope: str) -> str:
             SUM(IFNULL(p.panel_size, 0)) AS panel_size,
             SUM(IFNULL(p.wrvu_total, 0)) AS wrvu_total
         FROM {mart}.pd_provider p
+        LEFT JOIN ({modal_parent}) par ON par.organization_id = p.primary_organization_id
         WHERE {member_where}
         GROUP BY p.primary_organization_id
     """

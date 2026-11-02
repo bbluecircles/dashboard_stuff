@@ -1,4 +1,4 @@
-"""Phase 4 lists: every in-window group practice, top-in hospital systems.
+"""Phase 4 lists: every in-window group practice, plus the hidden per-organization visit list.
 
 Reads affiliation P/I and sl from the claims DB. Writes mart tables only.
 Does not rescan pat_dt. Sites (street+ZIP) stay on pd_provider_practice.
@@ -319,8 +319,6 @@ def rebuild_org_lists(
                                 {facility_sql} AS facility_name
                             FROM {mart}.pd_stg_npi_sl s
                             INNER JOIN {claims}.sl sl ON sl.sl_code = s.sl_code
-                            LEFT JOIN {claims}.provider_facility_npi fac
-                                ON fac.PROVIDER_FACILITY_NPI_code = sl.sl_code
                             WHERE MOD(s.npi, {PROVIDER_BUCKETS}) = %s
                         ) x
                         WHERE x.hospital_system_name IS NOT NULL

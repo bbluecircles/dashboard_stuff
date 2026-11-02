@@ -3067,7 +3067,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -3140,15 +3139,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -7004,7 +6994,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -7077,15 +7066,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -7238,7 +7218,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "pd_provider"
             ],
             "upstream": false
@@ -7309,15 +7288,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -7474,7 +7444,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -7547,15 +7516,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -7637,7 +7597,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -7710,15 +7669,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -7800,7 +7750,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -7873,15 +7822,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -11568,7 +11508,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -11641,15 +11580,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -16003,7 +15933,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -16076,15 +16005,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -16251,7 +16171,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "pd_provider"
             ],
             "upstream": false
@@ -16322,15 +16241,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -16508,7 +16418,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -16581,15 +16490,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -16678,7 +16578,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -16751,15 +16650,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -16848,7 +16738,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -16921,15 +16810,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -17150,7 +17030,7 @@
       "parent_id": {
         "label": "Parent organization id",
         "help": "Identifier of the group's parent organization.",
-        "dev": "MAX(pd_provider.primary_organization_parent_id) over members, in pd_group_practice.",
+        "dev": "The pd_provider.primary_organization_parent_id carried by the most members (ties: most visits, then name), in pd_group_practice.",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -17200,9 +17080,11 @@
       },
       "parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the group, as recorded in the warehouse.",
-        "dev": "MAX(pd_provider.primary_organization_parent_name) over members, in pd_group_practice.",
-        "caveats": [],
+        "help": "Parent organization of the group: the one most of its member clinicians are recorded under.",
+        "dev": "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice.",
+        "caveats": [
+          "The parent most members carry; a minority of members may be recorded under a different parent."
+        ],
         "derived_from": [],
         "tables": [
           {
@@ -17863,7 +17745,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -17936,15 +17817,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -18046,7 +17918,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -18106,15 +17977,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -18217,10 +18079,10 @@
       },
       "name": {
         "label": "Site name",
-        "help": "Name of the practice site.",
-        "dev": "az.sl.sl_dba_name, then az.sl.sl_name for Type 2 locations. A Type 1 site named LAST, FIRST is rewritten to street and city in Phase 4.",
+        "help": "Name of the practice site: its DBA name, else its registered name, else street and city.",
+        "dev": "az.sl.sl_dba_name, else sl_name, else sl_common_name, else street and city (Phase 3). Blank, Unknown and LAST, FIRST values fall through, so a site is never named Unknown. Phase 4 rewrites any remaining blank, Unknown or LAST, FIRST name to street and city.",
         "caveats": [
-          "A Type 1 location named after a clinician is shown as street and city instead."
+          "A location named after a clinician, or with no usable name, is shown as street and city instead."
         ],
         "derived_from": [],
         "tables": [
@@ -18637,7 +18499,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -18710,15 +18571,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -18800,7 +18652,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -18873,15 +18724,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -20258,7 +20100,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "pd_provider"
             ],
             "upstream": false
@@ -20329,15 +20170,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -20396,7 +20228,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "pd_provider"
             ],
             "upstream": false
@@ -20470,15 +20301,6 @@
             "upstream": true
           },
           {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
-            "upstream": true
-          },
-          {
             "key": "pd_provider",
             "name": "pd_provider",
             "kind": "mart",
@@ -20513,7 +20335,7 @@
       "hospital_system_name": {
         "label": "Affiliated organization (not shown)",
         "help": "Not shown in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined.",
-        "dev": "az.sl.sl_hospital_system_name, else hospital system name on az.provider_facility_npi joined on sl_code; blank and Unknown dropped; grouped case-insensitively across pd_stg_npi_sl sites.",
+        "dev": "az.sl.sl_hospital_system_name; blank and Unknown dropped; grouped case-insensitively across pd_stg_npi_sl sites. Hidden pending the single affiliation from the reference server.",
         "caveats": [
           "Campuses of one system are combined into one row."
         ],
@@ -20526,15 +20348,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": false
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": false
           },
           {
@@ -20601,7 +20414,7 @@
       "facility_name": {
         "label": "Facility",
         "help": "The busiest facility within the organization, when it has its own name.",
-        "dev": "az.sl DBA or name (or az.provider_facility_npi DBA) of the site with the most visits in the system; null when it equals the system name.",
+        "dev": "az.sl.sl_dba_name, else sl_name, else sl_common_name of the site with the most visits in the organization; null when it equals the organization name.",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -20612,15 +20425,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": false
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": false
           }
         ]
@@ -20811,7 +20615,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "pd_provider"
             ],
             "upstream": false
@@ -20913,15 +20716,6 @@
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
             "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
-            "upstream": true
           }
         ]
       },
@@ -20942,7 +20736,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "pd_provider"
             ],
             "upstream": false
@@ -21013,15 +20806,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -21730,7 +21514,6 @@
             "built_from": [
               "pd_stg_npi_sl",
               "az_cms.sl",
-              "az_cms.provider_facility_npi",
               "cms_pdc_clinician",
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
@@ -21803,15 +21586,6 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
-            "upstream": true
-          },
-          {
-            "key": "claims.provider_facility_npi",
-            "name": "az_cms.provider_facility_npi",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Facility NPIs with DBA and hospital system names.",
             "upstream": true
           },
           {
@@ -22420,14 +22194,6 @@
       "description": "Every institutional billing org an NPI billed under, with cases and last month."
     },
     {
-      "key": "claims.provider_facility_npi",
-      "name": "az_cms.provider_facility_npi",
-      "kind": "warehouse",
-      "external": false,
-      "phase": "warehouse load, outside this pipeline",
-      "description": "Facility NPIs with DBA and hospital system names."
-    },
-    {
       "key": "claims.period",
       "name": "az_cms.period",
       "kind": "warehouse",
@@ -22498,7 +22264,6 @@
       "built_from": [
         "pd_stg_npi_sl",
         "az_cms.sl",
-        "az_cms.provider_facility_npi",
         "cms_pdc_clinician",
         "pd_stg_site_wrvu",
         "pd_stg_site_dow"
@@ -22527,7 +22292,6 @@
       "built_from": [
         "pd_stg_npi_sl",
         "az_cms.sl",
-        "az_cms.provider_facility_npi",
         "pd_provider"
       ]
     },

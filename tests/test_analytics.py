@@ -201,3 +201,13 @@ def test_ref_server_settings_and_connection_are_separate(monkeypatch):
     source = inspect.getsource(db.get_ref_connection)
     assert "READ UNCOMMITTED" in source and "max_statement_time" in source and "autocommit=True" in source
     assert build_parser().parse_args(["ref-check"]).func.__name__ == "_cmd_ref_check"
+
+
+def test_phase4_name_polish_rewrites_blank_unknown_and_person_names_for_any_npi_type():
+    import inspect
+
+    source = inspect.getsource(rebuild_analytics)
+    assert "UPPER(TRIM(pr.name)) IN {EMPTY_NAME_SQL_LIST}" in source
+    assert "pr.name IS NULL" in source
+    assert "IFNULL(pr.npi_type, '') = '1'" not in source
+    assert "provider_facility_npi" not in source
