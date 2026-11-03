@@ -100,6 +100,7 @@ def test_claims_tiebreak_picks_the_cms_group_matching_bills_under():
     assert "pd_src_group_practice g" in sql and "billing_organization_name" in sql
     assert "primary_organization_parent_name" in sql
     assert "LIKE CONCAT('%%', LEFT(" in sql and "p.primary_organization_id <> m.group_pac_id" in sql
+    assert "p.affiliation_code = p.primary_organization_id THEN m.group_pac_id" in sql and "'claims'" in sql
     assert "%" not in sql.replace("%%", "")
     src = inspect.getsource(ref.overlay_reference)
     assert "claims_group_tiebreak_sql" in src and "claims_tiebreaks" in src

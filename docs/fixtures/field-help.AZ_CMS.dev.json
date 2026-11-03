@@ -579,8 +579,8 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the reference file had an affiliation for the clinician; blank otherwise.",
-        "dev": "'master_ref' when affiliation_code or affiliation_name was filled from pd_src_physician, else null.",
+        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise.",
+        "dev": "'master_ref' when filled from pd_src_physician; 'claims' when the claims tie-break replaced a stale group and the affiliation followed; else null.",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -10477,7 +10477,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out.",
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits, so they are shared-patient flow rather than written referral orders. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out.",
         "dev": "pd_provider_referral rows. See the referral scope.",
         "caveats": [],
         "derived_from": [],
@@ -10513,7 +10513,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": true
           },
           {
@@ -11868,8 +11868,8 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the reference file had an affiliation for the clinician; blank otherwise.",
-        "dev": "'master_ref' when affiliation_code or affiliation_name was filled from pd_src_physician, else null.",
+        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise.",
+        "dev": "'master_ref' when filled from pd_src_physician; 'claims' when the claims tie-break replaced a stale group and the affiliation followed; else null.",
         "caveats": [],
         "derived_from": [
           {
@@ -22961,7 +22961,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out.",
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits, so they are shared-patient flow rather than written referral orders. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out.",
         "dev": "pd_provider_referral rows. See the referral scope.",
         "caveats": [],
         "derived_from": [
@@ -23004,7 +23004,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": true
           },
           {
@@ -27849,7 +27849,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": true
           },
           {
@@ -27886,7 +27886,7 @@
       },
       "direction": {
         "label": "Direction",
-        "help": "in: clinicians who send patients to this clinician. out: clinicians this clinician sends patients to.",
+        "help": "in: clinicians whose patients went on to see this clinician. out: clinicians this clinician's patients went on to see.",
         "dev": "'in' = this NPI is rendering_physician_code; 'out' = this NPI is implied_all_referring_physician_code on az.dash_physician_referrals_to_rendering.",
         "caveats": [],
         "derived_from": [],
@@ -27897,7 +27897,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": false
           }
         ]
@@ -27970,7 +27970,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": true
           }
         ]
@@ -27988,7 +27988,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": false
           }
         ]
@@ -28073,7 +28073,7 @@
       },
       "patient_count": {
         "label": "Patients",
-        "help": "Patients referred between the two clinicians in Nov 2024 to Oct 2025. Monthly counts are summed, so a patient referred in three months counts three times.",
+        "help": "Patients who saw both clinicians in sequence in Nov 2024 to Oct 2025, as inferred by the warehouse from visit order. Monthly counts are summed, so a patient counted in three months counts three times.",
         "dev": "SUM(patient_count) over window months on az.dash_physician_referrals_to_rendering, staged in pd_stg_referral_edge.",
         "caveats": [
           "Monthly counts summed: one patient referred in three months counts three times."
@@ -28086,7 +28086,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": false
           },
           {
@@ -28118,7 +28118,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
             "upstream": false
           }
         ]
@@ -29231,7 +29231,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians who refer to this clinician and top 5 this clinician refers to. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out.",
+        "help": "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. Inferred by the warehouse from the sequence of visits, so this is shared-patient flow rather than written referral orders. Same-organization, pathology, radiology, anesthesia and lab clinicians are left out.",
         "dev": "UI heading over referrals[] in and out; no table.",
         "caveats": [],
         "derived_from": [],
@@ -29239,7 +29239,7 @@
       },
       "referrals_in": {
         "label": "Referrals in",
-        "help": "Clinicians who send patients to this clinician.",
+        "help": "Clinicians whose patients went on to see this clinician.",
         "dev": "referral.direction = 'in'; no table.",
         "caveats": [],
         "derived_from": [],
@@ -29247,7 +29247,7 @@
       },
       "referrals_out": {
         "label": "Referrals out",
-        "help": "Clinicians this clinician sends patients to.",
+        "help": "Clinicians this clinician's patients went on to see.",
         "dev": "referral.direction = 'out'; no table.",
         "caveats": [],
         "derived_from": [],
@@ -29350,7 +29350,7 @@
       "kind": "warehouse",
       "external": false,
       "phase": "warehouse load, outside this pipeline",
-      "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts."
+      "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order."
     },
     {
       "key": "claims.physician_primary_affiliation",

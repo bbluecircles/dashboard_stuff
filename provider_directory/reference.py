@@ -373,6 +373,15 @@ def claims_group_tiebreak_sql(mart: str, bucket: int) -> str:
             WHERE x.rk = 1
         ) m ON m.npi = p.npi
         SET
+            p.affiliation_code = CASE
+                WHEN p.affiliation_code IS NULL OR p.affiliation_code = p.primary_organization_id THEN m.group_pac_id
+                ELSE p.affiliation_code END,
+            p.affiliation_name = CASE
+                WHEN p.affiliation_code IS NULL OR p.affiliation_code = p.primary_organization_id THEN LEFT(TRIM(m.group_name), 180)
+                ELSE p.affiliation_name END,
+            p.affiliation_source = CASE
+                WHEN p.affiliation_code IS NULL OR p.affiliation_code = p.primary_organization_id THEN 'claims'
+                ELSE p.affiliation_source END,
             p.primary_organization_id = m.group_pac_id,
             p.primary_organization_name = LEFT(TRIM(m.group_name), 180),
             p.refreshed_at = NOW()

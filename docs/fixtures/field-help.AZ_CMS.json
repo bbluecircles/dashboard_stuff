@@ -72,7 +72,7 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the reference file had an affiliation for the clinician; blank otherwise."
+        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
       },
       "reference_group_id": {
         "label": "Reference group id",
@@ -616,7 +616,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out."
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits, so they are shared-patient flow rather than written referral orders. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -702,7 +702,7 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the reference file had an affiliation for the clinician; blank otherwise."
+        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
       },
       "reference_group_id": {
         "label": "Reference group id",
@@ -1246,7 +1246,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out."
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits, so they are shared-patient flow rather than written referral orders. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -1518,7 +1518,7 @@
       },
       "direction": {
         "label": "Direction",
-        "help": "in: clinicians who send patients to this clinician. out: clinicians this clinician sends patients to."
+        "help": "in: clinicians whose patients went on to see this clinician. out: clinicians this clinician's patients went on to see."
       },
       "peer_rank": {
         "label": "Rank",
@@ -1538,7 +1538,7 @@
       },
       "patient_count": {
         "label": "Patients",
-        "help": "Patients referred between the two clinicians in Nov 2024 to Oct 2025. Monthly counts are summed, so a patient referred in three months counts three times."
+        "help": "Patients who saw both clinicians in sequence in Nov 2024 to Oct 2025, as inferred by the warehouse from visit order. Monthly counts are summed, so a patient counted in three months counts three times."
       },
       "claim_count": {
         "label": "Claims",
@@ -1702,15 +1702,15 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians who refer to this clinician and top 5 this clinician refers to. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
+        "help": "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. Inferred by the warehouse from the sequence of visits, so this is shared-patient flow rather than written referral orders. Same-organization, pathology, radiology, anesthesia and lab clinicians are left out."
       },
       "referrals_in": {
         "label": "Referrals in",
-        "help": "Clinicians who send patients to this clinician."
+        "help": "Clinicians whose patients went on to see this clinician."
       },
       "referrals_out": {
         "label": "Referrals out",
-        "help": "Clinicians this clinician sends patients to."
+        "help": "Clinicians this clinician's patients went on to see."
       },
       "sites": {
         "label": "Sites",
