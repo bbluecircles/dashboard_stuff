@@ -53,7 +53,7 @@ This scan is large (12 months of `pat_dt`). Galera cannot replicate one giant tr
 
 Keep Phase 2 staging (`pd_stg_visit`, `pd_stg_window_claim`) around for Phase 3.
 
-`phase2 --top-codes-only` re-ranks the top 5 diagnoses, top 5 procedures and the top 5 **primary procedures** (codes whose strict physician work RVU is above 1, leaving out evaluation-and-management visit codes 99202–99499 and Category II codes) from the existing `pd_stg_visit`, overlays only those columns and rebuilds `pd_group_practice`. No claims are read; minutes. Run it once after pulling the top 5 change.
+`phase2 --top-codes-only` re-ranks the top 5 diagnoses, top 5 procedures and the top 5 **primary procedures** (codes whose strict physician work RVU is above 1, leaving out visit-type services: E/M and telehealth visits, eye exams, psychiatry, therapy evaluations, wellness G codes, plus Category II and lab-panel codes; the list is `settings.PRIMARY_PROCEDURE_EXCLUDED_*`) from the existing `pd_stg_visit`, overlays only those columns and rebuilds `pd_group_practice`. No claims are read; minutes. Run it once after pulling the top 5 change.
 
 ```
 python -m provider_directory.cli phase2 --state AZ_CMS --top-codes-only

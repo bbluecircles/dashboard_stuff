@@ -243,7 +243,9 @@ _ORDINAL = {1: "Most common", 2: "Second most common", 3: "Third most common", 4
 _TOP_PRIMARY_PX_DEV = (
     "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU "
     "(WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) "
-    "is above 1.0, the code is not an evaluation-and-management visit code (99202 to 99499) and not a Category II code (dddd F). "
+    "is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, "
+    "psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy 92507-92508, wellness and clinic visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444), "
+    "Category II (dddd F) and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. "
     "Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2)."
 )
 
@@ -253,7 +255,7 @@ def _top_code_entries() -> dict[str, dict[str, str]]:
     kinds = (
         ("visits_top_diagnosis", "Top diagnosis", "diagnosis code across the clinician's visits in {window}", "diagnosis", "that carried this diagnosis", _TOP_DX_DEV),
         ("visits_top_procedure", "Top procedure", "procedure (CPT/HCPCS) across the clinician's visits in {window}", "procedure", "with this procedure", _TOP_PX_DEV),
-        ("visits_top_primary_procedure", "Top primary procedure", "procedure among those with a physician work RVU above 1, leaving out office visit codes, across the clinician's visits in {window}", "primary procedure", "with this procedure", _TOP_PRIMARY_PX_DEV),
+        ("visits_top_primary_procedure", "Top primary procedure", "procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in {window}", "primary procedure", "with this procedure", _TOP_PRIMARY_PX_DEV),
     )
     for prefix, label, first_help, noun, share_help, dev in kinds:
         for i in range(1, 6):
@@ -656,7 +658,7 @@ def _caveats_for(scope: str, key: str) -> list[str]:
     if key.startswith("visits_top_") and key.endswith("_percent"):
         out.append("A share of all visits; the shares do not add to 100.")
     if key.startswith("visits_top_primary_procedure_"):
-        out.append("Office visit (E/M) codes, Category II codes and procedures with a work RVU of 1 or less are not ranked.")
+        out.append("Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.")
         if scope == "group":
             out.append("A lower bound on the group page: only members' stored top 5 codes are summed.")
     if key.startswith("panel_percent_age_"):

@@ -143,7 +143,12 @@ def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
     assert "INNER JOIN `azal`.procd pr" in primary
     assert "> 1.0" in primary
     assert "BETWEEN '99202' AND '99499'" in primary
-    assert "REGEXP '^[0-9]{4}F$'" in primary
+    assert "BETWEEN '98000' AND '98016'" in primary
+    assert "BETWEEN '92002' AND '92014'" in primary
+    assert "BETWEEN '90785' AND '90899'" in primary
+    assert "BETWEEN '97161' AND '97168'" in primary
+    assert "'G0439'" in primary and "'G0463'" in primary
+    assert "REGEXP '^[0-9]{4}F$'" in primary and "REGEXP '^[0-9]{4}U$'" in primary
     assert "nf_total_rvu" not in strict_work_rvu_sql("pr")
     assert "99202" in is_em_code_sql("x") and "NOT" in primary_procedure_filter_sql("v.px", "pr")
     joins, sets = top_code_overlay_sql("`az_pd`")

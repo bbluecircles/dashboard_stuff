@@ -486,20 +486,42 @@ def is_category_ii_sql(expr: str) -> str:
 
 
 def is_em_code_sql(expr: str) -> str:
-    """Evaluation and management CPT range (office and other visits), excluded from Top Primary Procedures."""
+    """Evaluation and management CPT range (office and other visits)."""
     from provider_directory.settings import EM_CODE_MAX, EM_CODE_MIN
 
     return f"(TRIM({expr}) REGEXP '^[0-9]{{5}}$' AND TRIM({expr}) BETWEEN '{EM_CODE_MIN}' AND '{EM_CODE_MAX}')"
 
 
+def is_visit_code_sql(expr: str) -> str:
+    """True for every code family that is a visit, exam or evaluation rather than a
+    procedure, plus tracking and lab-panel codes: settings.PRIMARY_PROCEDURE_EXCLUDED_*."""
+    from provider_directory.settings import (
+        PRIMARY_PROCEDURE_EXCLUDED_CODES,
+        PRIMARY_PROCEDURE_EXCLUDED_PATTERNS,
+        PRIMARY_PROCEDURE_EXCLUDED_RANGES,
+    )
+
+    code = f"TRIM({expr})"
+    parts = [
+        f"({code} REGEXP '^[0-9]{{5}}$' AND {code} BETWEEN '{lo}' AND '{hi}')"
+        for lo, hi, _why in PRIMARY_PROCEDURE_EXCLUDED_RANGES
+    ]
+    if PRIMARY_PROCEDURE_EXCLUDED_CODES:
+        listed = ", ".join(f"'{c}'" for c in PRIMARY_PROCEDURE_EXCLUDED_CODES)
+        parts.append(f"UPPER({code}) IN ({listed})")
+    for pattern in PRIMARY_PROCEDURE_EXCLUDED_PATTERNS:
+        parts.append(f"{code} REGEXP '{pattern}'")
+    return "(" + "\n                   OR ".join(parts) + ")"
+
+
 def primary_procedure_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:
-    """WHERE fragment for Top Primary Procedures: strict work RVU above the floor,
-    not an E/M visit code, not a Category II code."""
+    """WHERE fragment for Top Primary Procedures: strict work RVU above the floor
+    and not a visit-type, tracking or lab-panel code."""
     from provider_directory.settings import PRIMARY_PROCEDURE_MIN_WORK_RVU
 
     return (
         f"{strict_work_rvu_sql(procd_alias)} > {PRIMARY_PROCEDURE_MIN_WORK_RVU} "
-        f"AND NOT {is_em_code_sql(code_expr)} AND NOT {is_category_ii_sql(code_expr)}"
+        f"AND NOT {is_visit_code_sql(code_expr)}"
     )
 
 

@@ -204,7 +204,7 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visit codes, across the clinician's visits in Nov 2024 to Oct 2025."
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
@@ -806,7 +806,7 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visit codes, across the clinician's visits in Nov 2024 to Oct 2025."
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",

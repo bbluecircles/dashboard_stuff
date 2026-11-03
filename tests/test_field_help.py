@@ -320,6 +320,6 @@ def test_top_code_help_covers_five_ranks_and_primary_procedures():
     assert cat["visits_top_primary_procedure_1"]["label"] == "Top primary procedure 1"
     assert "work RVU above 1" in cat["visits_top_primary_procedure_1"]["help"]
     assert "pd_stg_top_primary_px" in cat["visits_top_primary_procedure_1"]["tables"]
-    assert any("E/M" in c for c in cat["visits_top_primary_procedure_2"]["caveats"])
+    assert any("Visit-type codes" in c for c in cat["visits_top_primary_procedure_2"]["caveats"])
     group = catalog(dev=True)["group"]
     assert "stored top 5" in group["visits_top_primary_procedure_1_percent"]["help"]

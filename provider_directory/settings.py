@@ -113,8 +113,26 @@ TOP_CODE_KINDS = (
     ("visits_top_primary_procedure", "pd_stg_top_primary_px"),
 )
 # Top Primary Procedures: codes whose strict physician work RVU is above this,
-# excluding evaluation-and-management office visit codes and Category II codes.
+# excluding visit-type services (ranges and codes below) and tracking / lab codes.
 PRIMARY_PROCEDURE_MIN_WORK_RVU = 1.0
+# Inclusive CPT ranges that are visits or evaluations rather than procedures.
+PRIMARY_PROCEDURE_EXCLUDED_RANGES = (
+    ("99202", "99499", "evaluation and management visits"),
+    ("98000", "98016", "telemedicine evaluation and management visits"),
+    ("92002", "92014", "ophthalmology exams"),
+    ("90785", "90899", "psychiatric evaluations and psychotherapy"),
+    ("97161", "97168", "physical and occupational therapy evaluations"),
+    ("92507", "92508", "speech therapy visits"),
+)
+# HCPCS visit codes outside those ranges.
+PRIMARY_PROCEDURE_EXCLUDED_CODES = (
+    "G0402", "G0438", "G0439",  # Medicare preventive / annual wellness visits
+    "G0463",                    # hospital outpatient clinic visit
+    "G2211", "G2212",           # visit complexity / prolonged visit add-ons
+    "G0442", "G0443", "G0444",  # screening and counseling visits
+)
+# Regex patterns: Category II tracking codes (dddd F) and proprietary lab analyses (dddd U).
+PRIMARY_PROCEDURE_EXCLUDED_PATTERNS = ("^[0-9]{4}F$", "^[0-9]{4}U$")
 EM_CODE_MIN = "99202"
 EM_CODE_MAX = "99499"
 GEO_CLUSTER_DECIMALS = 4
