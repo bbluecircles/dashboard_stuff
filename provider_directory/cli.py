@@ -209,6 +209,17 @@ def _cmd_sync(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ref_overlay(args: argparse.Namespace) -> int:
+    from provider_directory.reference import overlay_reference
+
+    market = _market_kwargs(args)
+    with get_connection(autocommit=False) as conn:
+        out = overlay_reference(conn, mart_db=market["mart_db"])
+    out["state"] = market["market_state"]
+    print(json.dumps(out, indent=2, default=str))
+    return 0
+
+
 def _cmd_ref_compare(args: argparse.Namespace) -> int:
     from provider_directory.reference import reference_compare
 
@@ -572,6 +583,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the window plan and what would run; do not write the mart",
     )
     p.set_defaults(func=_cmd_sync)
+
+    p = sub.add_parser(
+        "ref-overlay",
+        parents=[state_parent],
+        help="Re-apply affiliation_* / reference_group_* from the existing pd_src_physician copy (seconds); no reference-server read",
+    )
+    p.set_defaults(func=_cmd_ref_overlay)
 
     p = sub.add_parser(
         "ref-compare",

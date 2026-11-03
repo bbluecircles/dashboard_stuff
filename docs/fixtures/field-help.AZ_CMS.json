@@ -62,6 +62,26 @@
         "label": "In-system",
         "help": "The clinician has a hospital affiliation on file with CMS."
       },
+      "affiliation_name": {
+        "label": "Affiliation",
+        "help": "The organization the clinician is affiliated with in the master reference file. One per clinician; blank when none is on file."
+      },
+      "affiliation_code": {
+        "label": "Affiliation id",
+        "help": "Reference identifier of the affiliated organization."
+      },
+      "affiliation_source": {
+        "label": "Affiliation source",
+        "help": "master_ref when the reference file had an affiliation for the clinician; blank otherwise."
+      },
+      "reference_group_id": {
+        "label": "Reference group id",
+        "help": "Group practice id for the clinician in the master reference file, kept alongside the billing organization for comparison."
+      },
+      "reference_group_name": {
+        "label": "Reference group",
+        "help": "Group practice name for the clinician in the master reference file."
+      },
       "name_source": {
         "label": "Name source",
         "help": "Which source supplied the name: claims, CMS PDC, or NPPES."
@@ -663,6 +683,26 @@
       "in_system_provider": {
         "label": "In-system",
         "help": "At least one member has a CMS hospital affiliation."
+      },
+      "affiliation_name": {
+        "label": "Affiliation",
+        "help": "The organization the clinician is affiliated with in the master reference file. One per clinician; blank when none is on file."
+      },
+      "affiliation_code": {
+        "label": "Affiliation id",
+        "help": "Reference identifier of the affiliated organization."
+      },
+      "affiliation_source": {
+        "label": "Affiliation source",
+        "help": "master_ref when the reference file had an affiliation for the clinician; blank otherwise."
+      },
+      "reference_group_id": {
+        "label": "Reference group id",
+        "help": "Group practice id for the clinician in the master reference file, kept alongside the billing organization for comparison."
+      },
+      "reference_group_name": {
+        "label": "Reference group",
+        "help": "Group practice name for the clinician in the master reference file."
       },
       "name_source": {
         "label": "Name source",

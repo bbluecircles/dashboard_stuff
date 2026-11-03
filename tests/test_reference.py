@@ -49,7 +49,9 @@ def test_overlay_cleans_placeholders_and_keeps_columns_on_profile():
     sql = ref.overlay_reference_sql("`az_pd`", 3)
     assert "INNER JOIN `az_pd`.pd_src_physician s ON s.npi = p.npi" in sql
     assert "CONCAT('888', CAST(s.npi AS CHAR))" in sql
+    assert "s.affiliation_code = s.npi" in sql and "s.group_prac_code = 0" in sql
     assert "REGEXP CONCAT('-', CAST(s.npi AS CHAR), '$')" in sql
+    assert "^[^,]+,[[:space:]]*[^,]+$" in sql  # a clinician's own LAST, FIRST is not an affiliation
     assert "'<UNAVAIL>'" in sql
     assert "p.affiliation_name = " in sql and "p.reference_group_id = " in sql
     assert "WHERE MOD(p.npi, 16) = 3" in sql
@@ -66,7 +68,9 @@ def test_compare_reads_mart_only():
     source = inspect.getsource(ref.reference_compare)
     assert "pd_src_physician" in source and "pd_src_group_practice" in source
     assert "master_ref" not in source and "_src(" not in source
-    assert "groups_agree" in source and "groups_differ" in source
+    assert "groups_agree_by_name" in source and "groups_differ_by_name" in source
+    assert "reference_group_in_cms_file" in source
+    assert build_parser().parse_args(["ref-overlay", "--state", "AZ_CMS"]).func.__name__ == "_cmd_ref_overlay"
 
 
 def test_sync_ref_clock_and_cli():

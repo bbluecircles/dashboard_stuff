@@ -24,7 +24,7 @@ from provider_directory.settings import (
     REF_GROUP_PRACTICE_TABLE,
     REF_PHYSICIAN_TABLE,
 )
-from provider_directory.transforms import clean_name_sql
+from provider_directory.transforms import ORG_NAME_REGEXP, PERSON_NAME_REGEXP, clean_name_sql
 
 PROVIDER_BUCKETS = 16
 SPINE_LOOKUP_BATCH = 1000
@@ -284,20 +284,26 @@ def copy_reference_tables(
 
 
 def self_placeholder_sql(code_expr: str, npi_expr: str) -> str:
-    """TRUE when a reference group or affiliation code is the '888' + NPI
-    self-placeholder the master file uses for unaffiliated clinicians."""
-    return f"CAST({code_expr} AS CHAR) = CONCAT('888', CAST({npi_expr} AS CHAR))"
+    """TRUE when a reference affiliation or group code is a placeholder: the
+    clinician's own NPI (solo clinician), 0, or the historical '888' + NPI form."""
+    return (
+        f"({code_expr} IS NULL OR {code_expr} = 0 OR {code_expr} = {npi_expr} "
+        f"OR CAST({code_expr} AS CHAR) = CONCAT('888', CAST({npi_expr} AS CHAR)))"
+    )
 
 
 def affiliation_name_sql(expr: str, npi_expr: str) -> str:
-    """Cleaned affiliation / group name: NULL for blank, Unknown, <Unavail> and the
-    'NAME-NPI' self-placeholder."""
+    """Cleaned affiliation / group name: NULL for blank, Unknown, Unknown Group
+    Practice, <Unavail>, a 'NAME-NPI' placeholder, or the clinician's own name
+    (LAST, FIRST with no organization word)."""
     cleaned = clean_name_sql(expr)
     return f"""
         CASE
             WHEN {cleaned} IS NULL THEN NULL
             WHEN UPPER({cleaned}) IN ('<UNAVAIL>', 'UNAVAIL', 'UNAVAILABLE') THEN NULL
             WHEN {cleaned} REGEXP CONCAT('-', CAST({npi_expr} AS CHAR), '$') THEN NULL
+            WHEN UPPER({cleaned}) NOT REGEXP '{ORG_NAME_REGEXP}'
+             AND {cleaned} REGEXP '{PERSON_NAME_REGEXP}' THEN NULL
             ELSE LEFT({cleaned}, 180)
         END
     """
@@ -305,25 +311,24 @@ def affiliation_name_sql(expr: str, npi_expr: str) -> str:
 
 def overlay_reference_sql(mart: str, bucket: int) -> str:
     """UPDATE pd_provider from pd_src_physician for one NPI bucket: the single
-    affiliation (placeholders cleaned) and the reference group, kept for the
-    comparison report. Blank stays blank; the columns are always on the profile."""
+    affiliation (placeholders cleaned) and the reference group (CMS PAC ID),
+    kept for the comparison report. Blank stays blank; the columns are always
+    on the profile."""
     code_ok = f"NOT {self_placeholder_sql('s.affiliation_code', 's.npi')}"
     group_ok = f"NOT {self_placeholder_sql('s.group_prac_code', 's.npi')}"
+    name = (
+        f"COALESCE({affiliation_name_sql('s.affiliation_dba_name', 's.npi')}, "
+        f"{affiliation_name_sql('s.affiliation_name', 's.npi')})"
+    )
     return f"""
         UPDATE {mart}.pd_provider p
         INNER JOIN {mart}.pd_src_physician s ON s.npi = p.npi
         SET
-            p.affiliation_code = CASE WHEN s.affiliation_code IS NOT NULL AND {code_ok} THEN s.affiliation_code END,
-            p.affiliation_name = CASE WHEN s.affiliation_code IS NULL OR {code_ok}
-                THEN COALESCE({affiliation_name_sql('s.affiliation_dba_name', 's.npi')},
-                              {affiliation_name_sql('s.affiliation_name', 's.npi')}) END,
-            p.affiliation_source = CASE
-                WHEN s.affiliation_code IS NOT NULL AND {code_ok} THEN 'master_ref'
-                WHEN COALESCE({affiliation_name_sql('s.affiliation_dba_name', 's.npi')},
-                              {affiliation_name_sql('s.affiliation_name', 's.npi')}) IS NOT NULL THEN 'master_ref'
-                ELSE NULL END,
-            p.reference_group_id = CASE WHEN s.group_prac_code IS NOT NULL AND {group_ok} THEN s.group_prac_code END,
-            p.reference_group_name = CASE WHEN s.group_prac_code IS NOT NULL AND {group_ok}
+            p.affiliation_code = CASE WHEN {code_ok} THEN s.affiliation_code END,
+            p.affiliation_name = CASE WHEN {code_ok} THEN {name} END,
+            p.affiliation_source = CASE WHEN {code_ok} AND {name} IS NOT NULL THEN 'master_ref' END,
+            p.reference_group_id = CASE WHEN {group_ok} THEN s.group_prac_code END,
+            p.reference_group_name = CASE WHEN {group_ok}
                 THEN {affiliation_name_sql('s.group_prac_name', 's.npi')} END,
             p.refreshed_at = NOW()
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = {int(bucket)}
@@ -348,6 +353,12 @@ def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
     return {"providers_updated": updated}
 
 
+def _norm(expr: str) -> str:
+    """Organization name key: upper case, letters and digits only, so 'MAYO CLINIC'
+    and 'Mayo Clinic' compare equal while different organizations stay apart."""
+    return f"REGEXP_REPLACE(UPPER(IFNULL({expr}, '')), '[^A-Z0-9]', '')"
+
+
 def reference_compare(conn, *, mart_db: str = MART_DB, limit: int = 15) -> dict:
     """ref-compare: how the warehouse groups and affiliations line up with the
     reference file, for the group-key decision. Reads the mart only."""
@@ -363,15 +374,18 @@ def reference_compare(conn, *, mart_db: str = MART_DB, limit: int = 15) -> dict:
                 SUM(p.reference_group_id IS NOT NULL) AS with_reference_group,
                 SUM(p.primary_organization_id IS NOT NULL) AS with_warehouse_group,
                 SUM(p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
-                    AND p.primary_organization_id = p.reference_group_id) AS groups_agree,
+                    AND {_norm('p.primary_organization_name')} = {_norm('p.reference_group_name')}) AS groups_agree_by_name,
                 SUM(p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
-                    AND p.primary_organization_id <> p.reference_group_id) AS groups_differ,
+                    AND {_norm('p.primary_organization_name')} <> {_norm('p.reference_group_name')}) AS groups_differ_by_name,
+                SUM(p.reference_group_id IS NOT NULL AND cg.group_pac_id IS NOT NULL) AS reference_group_in_cms_file,
                 SUM(p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NULL) AS warehouse_only,
                 SUM(p.primary_organization_id IS NULL AND p.reference_group_id IS NOT NULL) AS reference_only,
                 SUM(g.npi IS NOT NULL) AS in_cms_group_file
             FROM {mart}.pd_provider p
             LEFT JOIN {mart}.pd_src_physician s ON s.npi = p.npi
             LEFT JOIN (SELECT DISTINCT npi FROM {mart}.pd_src_group_practice) g ON g.npi = p.npi
+            LEFT JOIN (SELECT DISTINCT group_pac_id FROM {mart}.pd_src_group_practice) cg
+                ON cg.group_pac_id = CAST(p.reference_group_id AS CHAR)
             """
         )
         out["providers"] = cur.fetchone()
@@ -382,7 +396,7 @@ def reference_compare(conn, *, mart_db: str = MART_DB, limit: int = 15) -> dict:
                    COUNT(*) AS providers
             FROM {mart}.pd_provider p
             WHERE p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
-              AND p.primary_organization_id <> p.reference_group_id
+              AND {_norm('p.primary_organization_name')} <> {_norm('p.reference_group_name')}
             GROUP BY 1, 2 ORDER BY providers DESC LIMIT %s
             """,
             (int(limit),),
