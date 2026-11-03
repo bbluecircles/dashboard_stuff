@@ -98,6 +98,7 @@ def test_field_help_knows_the_reference_tables():
 def test_claims_tiebreak_picks_the_cms_group_matching_bills_under():
     sql = ref.claims_group_tiebreak_sql("`az_pd`", 2)
     assert "pd_src_group_practice g" in sql and "billing_organization_name" in sql
+    assert "primary_organization_parent_name" in sql
     assert "LIKE CONCAT('%%', LEFT(" in sql and "p.primary_organization_id <> m.group_pac_id" in sql
     assert "%" not in sql.replace("%%", "")
     src = inspect.getsource(ref.overlay_reference)

@@ -341,10 +341,14 @@ def overlay_reference_sql(mart: str, bucket: int) -> str:
 
 def claims_group_tiebreak_sql(mart: str, bucket: int) -> str:
     """When the CMS reassignment file lists more than one group for a clinician
-    and one of them matches the claims billing organization by name, make that
-    group the primary (the master file's single group can be years stale).
-    Match: the first 8 letters/digits of the billing name appear in the group name."""
-    key = _norm("p.billing_organization_name")
+    and one of them matches the claims billing organization, or its parent, by
+    name, make that group the primary (the master file's single group can be
+    years stale). Match: the first 8 letters/digits of the billing name, or of
+    the parent name, appear in the group name. The billing entity is often a
+    legal name (Scottsdale Healthcare Corp) while the CMS group carries the
+    brand (Honorhealth Ambulatory), which the parent (HonorHealth) bridges."""
+    billing = _norm("pp.billing_organization_name")
+    parent = _norm("pp.primary_organization_parent_name")
     return f"""
         UPDATE {mart}.pd_provider p
         INNER JOIN (
@@ -358,9 +362,12 @@ def claims_group_tiebreak_sql(mart: str, bucket: int) -> str:
                 INNER JOIN {mart}.pd_provider pp ON pp.npi = g.npi
                 WHERE MOD(g.npi, {PROVIDER_BUCKETS}) = {int(bucket)}
                   AND g.group_pac_id REGEXP '^[0-9]+$'
-                  AND NULLIF(TRIM(pp.billing_organization_name), '') IS NOT NULL
-                  AND CHAR_LENGTH({_norm("pp.billing_organization_name")}) >= 5
-                  AND {_norm("g.group_name")} LIKE CONCAT('%%', LEFT({_norm("pp.billing_organization_name")}, 8), '%%')
+                  AND (
+                      (CHAR_LENGTH({billing}) >= 5
+                       AND {_norm("g.group_name")} LIKE CONCAT('%%', LEFT({billing}, 8), '%%'))
+                   OR (CHAR_LENGTH({parent}) >= 5
+                       AND {_norm("g.group_name")} LIKE CONCAT('%%', LEFT({parent}, 8), '%%'))
+                  )
                 GROUP BY g.npi, CAST(g.group_pac_id AS UNSIGNED)
             ) x
             WHERE x.rk = 1
