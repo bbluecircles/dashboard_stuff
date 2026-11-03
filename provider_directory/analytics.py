@@ -39,7 +39,7 @@ from provider_directory.settings import (
     payer_source_for_claims_db,
 )
 from provider_directory.transforms import (
-    is_category_ii_sql,
+    is_unpriced_code_sql,
     strict_work_rvu_sql,
     EMPTY_NAME_SQL_LIST,
     work_type_case_sql,
@@ -86,10 +86,10 @@ def work_rvu_sql(alias: str = "pr") -> str:
 
 
 def priced_line_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:
-    """Lines that count toward work RVU: 5-character CPT/HCPCS, not Category II,
-    with a strict work RVU."""
+    """Lines that count toward work RVU: 5-character CPT/HCPCS, not a Category II
+    or hospital pass-through C code, with a strict work RVU."""
     return (
-        f"{is_hcpcs_sql(code_expr)} AND NOT {is_category_ii_sql(code_expr)} "
+        f"{is_hcpcs_sql(code_expr)} AND NOT {is_unpriced_code_sql(code_expr)} "
         f"AND {strict_work_rvu_sql(procd_alias)} IS NOT NULL"
     )
 
@@ -130,6 +130,7 @@ def _rebuild_rvu(
     *,
     has_practice: bool,
     has_npi_sl: bool,
+    rescan_lines: bool = True,
 ) -> None:
     """Work RVU from every billed procedure line: scan pat_dt into
     pd_stg_npi_px_line, price each line with the strict rule (Category II codes
@@ -156,15 +157,19 @@ def _rebuild_rvu(
                 WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
                 """,
             )
-    for table in ("pd_stg_npi_px_line", "pd_stg_npi_wrvu", "pd_stg_site_wrvu"):
+    for table in ("pd_stg_npi_wrvu", "pd_stg_site_wrvu"):
         _run(cur, conn, f"TRUNCATE TABLE {mart}.{table}")
 
-    scan = line_scan_sql(mart, claims)
-    for period in iter_period_codes(window_start, window_end):
-        for bucket in range(CLAIM_ID_BUCKETS):
-            n = _run(cur, conn, scan, (period, bucket))
-            counts["rvu_line_rows"] += n
-            print(f"phase4 rvu lines {period} bucket {bucket}: {n} rows", flush=True)
+    if rescan_lines:
+        _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_npi_px_line")
+        scan = line_scan_sql(mart, claims)
+        for period in iter_period_codes(window_start, window_end):
+            for bucket in range(CLAIM_ID_BUCKETS):
+                n = _run(cur, conn, scan, (period, bucket))
+                counts["rvu_line_rows"] += n
+                print(f"phase4 rvu lines {period} bucket {bucket}: {n} rows", flush=True)
+    else:
+        print("phase4 rvu lines reused", flush=True)
 
     wrvu_expr = strict_work_rvu_sql("pr")
     priced = priced_line_filter_sql("l.code", "pr")
@@ -255,12 +260,16 @@ def rebuild_rvu_only(
     lookup_db: str = LOOKUP_DB,
     window_start: int = WINDOW_START,
     window_end: int = WINDOW_END,
+    rescan_lines: bool = False,
 ) -> dict:
-    """phase4 --rvu-only: the work RVU scan and overlays alone (one 12-month pat_dt
-    line scan); payers, organizations and lists are untouched."""
+    """phase4 --rvu-only: re-price and overlay work RVU. Reuses the staged claim
+    lines when pd_stg_npi_px_line has rows (a pricing-rule or fee-schedule change
+    then takes minutes); rescan_lines, or an empty staging, scans the 12 months
+    again. Payers, organizations and lists are untouched."""
     if not table_has_rows(conn, mart_db, "pd_stg_visit"):
         raise Phase2Required("pd_stg_visit is empty. Run phase2 first.")
     create_schema(conn, mart_db)
+    rescan = rescan_lines or not table_has_rows(conn, mart_db, "pd_stg_npi_px_line")
     mart = quote_ident(mart_db)
     claims = quote_ident(claims_db)
     lookup = quote_ident(lookup_db)
@@ -272,9 +281,10 @@ def rebuild_rvu_only(
             cur, conn, mart, claims, lookup, window_start, window_end, counts,
             has_practice=table_has_rows(conn, mart_db, "pd_provider_practice"),
             has_npi_sl=table_has_rows(conn, mart_db, "pd_stg_npi_sl"),
+            rescan_lines=rescan,
         )
     group_summary = rebuild_group_summary(conn, mart_db)
-    return {"rvu_only": True, "window_start": window_start, "window_end": window_end, **counts, "group_summary": group_summary}
+    return {"rvu_only": True, "lines_rescanned": rescan, "window_start": window_start, "window_end": window_end, **counts, "group_summary": group_summary}
 
 
 def _payer_null_sql() -> str:

@@ -232,7 +232,9 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert "MOD(IFNULL(t.pat_id, 0), 4) = %s" in scan
     assert "encounter_work_procd_code" not in scan
     priced = priced_line_filter_sql("l.code", "pr")
-    assert "REGEXP '^[0-9]{4}F$'" in priced and "CHAR_LENGTH(TRIM(l.code)) = 5" in priced
+    assert "REGEXP '^[0-9]{4}F$'" in priced and "REGEXP '^C[0-9]{4}$'" in priced and "CHAR_LENGTH(TRIM(l.code)) = 5" in priced
+    assert "phase4 rvu lines reused" in body
+    assert build_parser().parse_args(["phase4", "--rvu-only", "--rescan-lines"]).rescan_lines is True
     body = inspect.getsource(_rebuild_rvu)
     assert "SUM(l.line_count * {wrvu_expr})" in body and "SUM(l.line_count)" in body
     assert "pd_stg_visit v" not in body

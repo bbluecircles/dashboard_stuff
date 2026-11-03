@@ -140,8 +140,12 @@ PRIMARY_PROCEDURE_EXCLUDED_CODES = (
     "G2010", "G2012", "G2025",  # virtual check-ins and telehealth distant-site visits
     "99024",                    # postoperative follow-up visit
 )
-# Regex patterns: Category II tracking codes (dddd F) and proprietary lab analyses (dddd U).
-PRIMARY_PROCEDURE_EXCLUDED_PATTERNS = ("^[0-9]{4}F$", "^[0-9]{4}U$")
+# Codes that never carry physician work and must not be priced: Category II
+# tracking codes (dddd F) and hospital outpatient pass-through C codes, whose
+# lookup rows hold a facility payment amount in the work RVU column.
+RVU_EXCLUDED_CODE_PATTERNS = ("^[0-9]{4}F$", "^C[0-9]{4}$")
+# Regex patterns left out of Top Primary Procedures: the above plus proprietary lab analyses (dddd U).
+PRIMARY_PROCEDURE_EXCLUDED_PATTERNS = RVU_EXCLUDED_CODE_PATTERNS + ("^[0-9]{4}U$",)
 EM_CODE_MIN = "99202"
 EM_CODE_MAX = "99499"
 GEO_CLUSTER_DECIMALS = 4

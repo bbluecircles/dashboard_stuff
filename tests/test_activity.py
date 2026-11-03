@@ -149,7 +149,7 @@ def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
     assert "BETWEEN '97161' AND '97168'" in primary
     assert "'G0439'" in primary and "'G0463'" in primary and "'G2025'" in primary and "'99024'" in primary
     assert "BETWEEN '92521' AND '92524'" in primary
-    assert "REGEXP '^[0-9]{4}F$'" in primary and "REGEXP '^[0-9]{4}U$'" in primary
+    assert "REGEXP '^[0-9]{4}F$'" in primary and "REGEXP '^[0-9]{4}U$'" in primary and "REGEXP '^C[0-9]{4}$'" in primary
     assert "nf_total_rvu" not in strict_work_rvu_sql("pr")
     assert "99202" in is_em_code_sql("x") and "NOT" in primary_procedure_filter_sql("v.px", "pr")
     joins, sets = top_code_overlay_sql("`az_pd`")

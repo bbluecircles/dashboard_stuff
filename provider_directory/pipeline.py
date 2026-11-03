@@ -199,6 +199,7 @@ def run_phase4(
     org_lists_only: bool = False,
     payers_only: bool = False,
     rvu_only: bool = False,
+    rescan_lines: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
@@ -213,6 +214,7 @@ def run_phase4(
             lookup_db=lookup_db,
             window_start=window_start,
             window_end=window_end,
+            rescan_lines=rescan_lines,
         )
         summary["state"] = market_state
         return summary

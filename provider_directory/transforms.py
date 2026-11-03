@@ -485,6 +485,13 @@ def is_category_ii_sql(expr: str) -> str:
     return f"TRIM({expr}) REGEXP '^[0-9]{{4}}F$'"
 
 
+def is_unpriced_code_sql(expr: str) -> str:
+    """TRUE for codes that never carry physician work (settings.RVU_EXCLUDED_CODE_PATTERNS)."""
+    from provider_directory.settings import RVU_EXCLUDED_CODE_PATTERNS
+
+    return "(" + " OR ".join(f"TRIM({expr}) REGEXP '{pat}'" for pat in RVU_EXCLUDED_CODE_PATTERNS) + ")"
+
+
 def is_em_code_sql(expr: str) -> str:
     """Evaluation and management CPT range (office and other visits)."""
     from provider_directory.settings import EM_CODE_MAX, EM_CODE_MIN

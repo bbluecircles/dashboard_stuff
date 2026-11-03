@@ -225,7 +225,7 @@ _RVU_DEV = (
     "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, "
     "counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 "
     "(0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. "
-    "5-character CPT/HCPCS only; Category II (dddd F) codes and lines with no work RVU are left out. "
+    "5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. "
     "Summed into pd_stg_npi_wrvu (Phase 4)."
 )
 _PAYER_DEV = (
@@ -257,7 +257,7 @@ _TOP_PRIMARY_PX_DEV = (
     "(WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) "
     "is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, "
     "psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), "
-    "Category II (dddd F) and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. "
+    "Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. "
     "Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2)."
 )
 
@@ -566,7 +566,7 @@ UTILIZATION: dict[str, dict[str, str]] = {
 # ---------------------------------------------------------------------------
 
 _RVU_SCALE = "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
-_RVU_EXCL = "Lines with no work RVU, and Category II tracking codes, are left out."
+_RVU_EXCL = "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
 _DOUBLE = "An encounter billed by two members of the group counts twice."
 _VOLUME = "A volume rank."
 _WEIGHTED = "Weighted by each member's visits."

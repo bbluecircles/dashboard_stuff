@@ -133,6 +133,7 @@ def _cmd_phase4(args: argparse.Namespace) -> int:
             org_lists_only=args.org_lists_only,
             payers_only=args.payers_only,
             rvu_only=args.rvu_only,
+            rescan_lines=args.rescan_lines,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
@@ -461,8 +462,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--rvu-only",
         action="store_true",
         help="Work RVU only: one 12-month pat_dt line scan, strict pricing of every billed "
-        "procedure line, provider and site overlays; payers and lists untouched",
+        "procedure line, provider and site overlays; payers and lists untouched. Reuses the staged "
+        "lines when present (minutes); add --rescan-lines to read pat_dt again",
     )
+    p.add_argument("--rescan-lines", action="store_true", help="With --rvu-only: rescan the 12 months of pat_dt lines")
     p.set_defaults(func=_cmd_phase4)
 
     p = sub.add_parser(
