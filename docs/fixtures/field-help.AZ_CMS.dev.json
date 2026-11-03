@@ -10513,7 +10513,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": true
           },
           {
@@ -23004,7 +23004,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": true
           },
           {
@@ -27849,7 +27849,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": true
           },
           {
@@ -27897,7 +27897,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": false
           }
         ]
@@ -27970,7 +27970,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": true
           }
         ]
@@ -27988,7 +27988,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": false
           }
         ]
@@ -28086,7 +28086,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": false
           },
           {
@@ -28118,7 +28118,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order.",
+            "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits.",
             "upstream": false
           }
         ]
@@ -29350,7 +29350,7 @@
       "kind": "warehouse",
       "external": false,
       "phase": "warehouse load, outside this pipeline",
-      "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order."
+      "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits."
     },
     {
       "key": "claims.physician_primary_affiliation",

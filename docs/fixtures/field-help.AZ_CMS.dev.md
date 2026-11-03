@@ -489,7 +489,7 @@ Sources marked * are external CMS files; the link is the dataset page they were 
 | `az_cms.sl` | warehouse | warehouse load, outside this pipeline |  | Service locations: address, geo, place-of-service type, specialty rollup, hospital system. |
 | `az_cms.payor` | warehouse | warehouse load, outside this pipeline |  | Payer master: payer code to name, parent name and payer class 1 to 5. |
 | `az_cms.dash_physician_payor_all` | warehouse | warehouse load, outside this pipeline |  | Monthly claim counts by rendering NPI and payer (summary table). |
-| `az_cms.dash_physician_referrals_to_rendering` | warehouse | warehouse load, outside this pipeline |  | Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits, not from a referral order. |
+| `az_cms.dash_physician_referrals_to_rendering` | warehouse | warehouse load, outside this pipeline |  | Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits. |
 | `az_cms.physician_primary_affiliation` | warehouse | warehouse load, outside this pipeline |  | One row per NPI: primary professional and institutional billing org and hospital system. |
 | `az_cms.physician_affiliation_p` | warehouse | warehouse load, outside this pipeline |  | Every professional billing org an NPI billed under, with cases and last month. |
 | `az_cms.physician_affiliation_i` | warehouse | warehouse load, outside this pipeline |  | Every institutional billing org an NPI billed under, with cases and last month. |
