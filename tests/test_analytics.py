@@ -250,3 +250,11 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert "rvu_only" in inspect.getsource(run_phase4)
     assert "pd_stg_npi_payor" not in inspect.getsource(rebuild_rvu_only)
     assert build_parser().parse_args(["phase4", "--rvu-only"]).rvu_only is True
+
+
+def test_work_type_normalizes_warehouse_ed_labels():
+    wt = work_type_case_sql("sl")
+    assert "WHEN 'ED' THEN 'Emergency Department'" in wt
+    from provider_directory.extras import pos_mix_bucket_sql
+
+    assert "IN ('Emergency Department', 'Urgent Care') THEN 'ed'" in pos_mix_bucket_sql("sl")

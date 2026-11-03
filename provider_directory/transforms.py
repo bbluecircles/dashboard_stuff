@@ -772,7 +772,14 @@ def work_type_case_sql(sl: str = "sl") -> str:
                 WHEN {roll} LIKE CONCAT('%%', 'office', '%%') THEN 'Office'
                 ELSE NULL
             END,
-            {clean_name_sql(f"{sl}.pos_type_name")},
+            CASE UPPER({clean_name_sql(f"{sl}.pos_type_name")})
+                WHEN 'ED' THEN 'Emergency Department'
+                WHEN 'ER' THEN 'Emergency Department'
+                WHEN 'EMERGENCY ROOM' THEN 'Emergency Department'
+                WHEN 'EMERGENCY' THEN 'Emergency Department'
+                WHEN 'URGENT CARE CENTER' THEN 'Urgent Care'
+                ELSE {clean_name_sql(f"{sl}.pos_type_name")}
+            END,
             {clean_name_sql(f"{sl}.im_specialty_rollup")}
         )
     """
