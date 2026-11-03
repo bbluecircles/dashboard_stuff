@@ -450,7 +450,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--org-lists-only",
         action="store_true",
-        help="Rebuild pd_provider_group_practice and pd_provider_hospital_affiliation only (skip wRVU/payers)",
+        help="Organizations only: Bills under from claims, the group practice from the reference copy, then pd_provider_group_practice and the hidden affiliation list (skip RVU/payers)",
     )
     p.add_argument(
         "--payers-only",

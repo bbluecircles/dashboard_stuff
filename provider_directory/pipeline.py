@@ -225,6 +225,15 @@ def run_phase4(
         summary["state"] = market_state
         return summary
     if org_lists_only:
+        from provider_directory.analytics import overlay_billing_organization
+        from provider_directory.locations import table_has_rows
+
+        billing = overlay_billing_organization(conn, mart_db=mart_db, claims_db=claims_db)
+        reference = None
+        if table_has_rows(conn, mart_db, "pd_src_physician"):
+            from provider_directory.reference import overlay_reference
+
+            reference = overlay_reference(conn, mart_db=mart_db)
         summary = rebuild_org_lists(
             conn,
             mart_db=mart_db,
@@ -234,6 +243,8 @@ def run_phase4(
         summary["window_start"] = window_start
         summary["window_end"] = window_end
         summary["org_lists_only"] = True
+        summary["providers_org"] = billing
+        summary["reference_overlay"] = reference
         summary["state"] = market_state
         return summary
     summary = rebuild_analytics(

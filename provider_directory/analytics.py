@@ -428,6 +428,66 @@ def rebuild_payer_columns(conn, *, mart_db: str = MART_DB) -> dict:
     }
 
 
+def billing_organization_sql(mart: str, claims: str, dummy: str) -> str:
+    """UPDATE pd_provider with the claims billing organization (Bills under), the
+    billing NPI and the parent from physician_primary_affiliation. One %s: NPI bucket."""
+    return f"""
+            UPDATE {mart}.pd_provider p
+            INNER JOIN {claims}.physician_primary_affiliation a
+                ON a.rendering_physician_code = p.npi
+            SET
+                p.primary_organization_npi = CASE
+                    WHEN a.p_provider_billing_code NOT IN ({dummy})
+                        THEN a.p_provider_billing_code
+                    WHEN a.i_provider_billing_code NOT IN ({dummy})
+                        THEN a.i_provider_billing_code
+                    ELSE NULL
+                END,
+                p.billing_organization_id = CASE
+                    WHEN a.p_provider_billing_code NOT IN ({dummy})
+                        THEN a.p_provider_billing_code
+                    WHEN a.i_provider_billing_code NOT IN ({dummy})
+                        THEN a.i_provider_billing_code
+                    ELSE NULL
+                END,
+                p.billing_organization_name = COALESCE(
+                    NULLIF(TRIM(a.p_dba_name), ''),
+                    NULLIF(TRIM(a.I_dba_name), ''),
+                    CASE
+                        WHEN NULLIF(TRIM(a.group_prac_name), '') IS NOT NULL
+                         AND a.group_prac_name <> 'Unknown Group Practice'
+                        THEN TRIM(a.group_prac_name)
+                    END
+                ),
+                p.primary_organization_parent_id = COALESCE(
+                    a.IP_hospital_system_code,
+                    a.OP_hospital_system_code
+                ),
+                p.primary_organization_parent_name = COALESCE(
+                    NULLIF(TRIM(a.IP_hospital_system_name), ''),
+                    NULLIF(TRIM(a.OP_hospital_system_name), '')
+                ),
+                p.refreshed_at = NOW()
+            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+        """
+
+
+def overlay_billing_organization(conn, *, mart_db: str = MART_DB, claims_db: str = CLAIMS_DB) -> int:
+    mart = quote_ident(mart_db)
+    claims = quote_ident(claims_db)
+    dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
+    sql = billing_organization_sql(mart, claims, dummy)
+    total = 0
+    with conn.cursor() as cur:
+        _session_timeouts(cur)
+        conn.commit()
+        for bucket in range(PROVIDER_BUCKETS):
+            n = _run(cur, conn, sql, (bucket,))
+            total += n
+            print(f"phase4 org bucket {bucket}: {n} rows", flush=True)
+    return total
+
+
 def rebuild_analytics(
     conn,
     *,
@@ -578,49 +638,7 @@ def rebuild_analytics(
 
         counts["providers_payer"] = _apply_payer_columns(cur, conn, mart)
 
-        org_sql = f"""
-            UPDATE {mart}.pd_provider p
-            INNER JOIN {claims}.physician_primary_affiliation a
-                ON a.rendering_physician_code = p.npi
-            SET
-                p.primary_organization_npi = CASE
-                    WHEN a.p_provider_billing_code NOT IN ({dummy})
-                        THEN a.p_provider_billing_code
-                    WHEN a.i_provider_billing_code NOT IN ({dummy})
-                        THEN a.i_provider_billing_code
-                    ELSE NULL
-                END,
-                p.billing_organization_id = CASE
-                    WHEN a.p_provider_billing_code NOT IN ({dummy})
-                        THEN a.p_provider_billing_code
-                    WHEN a.i_provider_billing_code NOT IN ({dummy})
-                        THEN a.i_provider_billing_code
-                    ELSE NULL
-                END,
-                p.billing_organization_name = COALESCE(
-                    NULLIF(TRIM(a.p_dba_name), ''),
-                    NULLIF(TRIM(a.I_dba_name), ''),
-                    CASE
-                        WHEN NULLIF(TRIM(a.group_prac_name), '') IS NOT NULL
-                         AND a.group_prac_name <> 'Unknown Group Practice'
-                        THEN TRIM(a.group_prac_name)
-                    END
-                ),
-                p.primary_organization_parent_id = COALESCE(
-                    a.IP_hospital_system_code,
-                    a.OP_hospital_system_code
-                ),
-                p.primary_organization_parent_name = COALESCE(
-                    NULLIF(TRIM(a.IP_hospital_system_name), ''),
-                    NULLIF(TRIM(a.OP_hospital_system_name), '')
-                ),
-                p.refreshed_at = NOW()
-            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
-        """
-        for bucket in range(PROVIDER_BUCKETS):
-            n = _run(cur, conn, org_sql, (bucket,))
-            counts["providers_org"] += n
-            print(f"phase4 org bucket {bucket}: {n} rows", flush=True)
+        counts["providers_org"] = overlay_billing_organization(conn, mart_db=mart_db, claims_db=claims_db)
 
     # Group practice (primary_organization_*) comes from the master-file copy; refill
     # it here so a full Phase 4 never leaves the group pages empty.

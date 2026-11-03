@@ -82,7 +82,8 @@ def test_work_rvu_prefers_plausible_pfs_columns():
 def test_phase4_sql_stays_on_mart_and_dash():
     source = open(rebuild_analytics.__code__.co_filename, encoding="utf-8").read()
     assert "dash_physician_payor_all" in source
-    assert "physician_primary_affiliation" in source
+    assert "overlay_billing_organization" in source
+    assert "physician_primary_affiliation" in open(rebuild_analytics.__code__.co_filename, encoding="utf-8").read()
     assert "rebuild_org_lists" in source
     assert "strict_work_rvu_sql" in source
     assert "NON_FACILITY_TOTAL" in work_rvu_sql("pr")

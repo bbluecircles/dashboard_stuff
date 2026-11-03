@@ -339,6 +339,41 @@ def overlay_reference_sql(mart: str, bucket: int) -> str:
     """
 
 
+def claims_group_tiebreak_sql(mart: str, bucket: int) -> str:
+    """When the CMS reassignment file lists more than one group for a clinician
+    and one of them matches the claims billing organization by name, make that
+    group the primary (the master file's single group can be years stale).
+    Match: the first 8 letters/digits of the billing name appear in the group name."""
+    key = _norm("p.billing_organization_name")
+    return f"""
+        UPDATE {mart}.pd_provider p
+        INNER JOIN (
+            SELECT x.npi, x.group_pac_id, x.group_name
+            FROM (
+                SELECT g.npi,
+                       CAST(g.group_pac_id AS UNSIGNED) AS group_pac_id,
+                       MAX(g.group_name) AS group_name,
+                       ROW_NUMBER() OVER (PARTITION BY g.npi ORDER BY COUNT(*) DESC, g.group_pac_id) AS rk
+                FROM {mart}.pd_src_group_practice g
+                INNER JOIN {mart}.pd_provider pp ON pp.npi = g.npi
+                WHERE MOD(g.npi, {PROVIDER_BUCKETS}) = {int(bucket)}
+                  AND g.group_pac_id REGEXP '^[0-9]+$'
+                  AND NULLIF(TRIM(pp.billing_organization_name), '') IS NOT NULL
+                  AND CHAR_LENGTH({_norm("pp.billing_organization_name")}) >= 5
+                  AND {_norm("g.group_name")} LIKE CONCAT('%%', LEFT({_norm("pp.billing_organization_name")}, 8), '%%')
+                GROUP BY g.npi, CAST(g.group_pac_id AS UNSIGNED)
+            ) x
+            WHERE x.rk = 1
+        ) m ON m.npi = p.npi
+        SET
+            p.primary_organization_id = m.group_pac_id,
+            p.primary_organization_name = LEFT(TRIM(m.group_name), 180),
+            p.refreshed_at = NOW()
+        WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = {int(bucket)}
+          AND (p.primary_organization_id IS NULL OR p.primary_organization_id <> m.group_pac_id)
+    """
+
+
 def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
     """sync --ref step 2: write affiliation_*, reference_group_* and the group key
     (primary_organization_id / name) onto pd_provider. billing_organization_* is
@@ -360,7 +395,20 @@ def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
             conn.commit()
             updated += n
             print(f"ref overlay bucket {bucket}: {n} rows", flush=True)
-    return {"providers_updated": updated}
+        tiebreaks = 0
+        if _has_rows(cur, mart, "pd_src_group_practice"):
+            for bucket in range(PROVIDER_BUCKETS):
+                cur.execute(claims_group_tiebreak_sql(mart, bucket))
+                n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+                conn.commit()
+                tiebreaks += n
+                print(f"ref group tie-break bucket {bucket}: {n} rows", flush=True)
+    return {"providers_updated": updated, "claims_tiebreaks": tiebreaks}
+
+
+def _has_rows(cur, mart: str, table: str) -> bool:
+    cur.execute(f"SELECT 1 AS ok FROM {mart}.{table} LIMIT 1")
+    return cur.fetchone() is not None
 
 
 def _norm(expr: str) -> str:
