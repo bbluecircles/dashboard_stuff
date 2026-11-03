@@ -9625,9 +9625,9 @@
         ]
       },
       "visits_percent_ed": {
-        "label": "Emergency",
-        "help": "Share of visits in an emergency department.",
-        "dev": "Each visit's site (pd_stg_visit_site) bucketed by az.sl.pos_type_code: 11 office; 19, 22 HOPD; 24 ASC; 23 ED; 02, 10 telehealth; 21 inpatient; 81 lab; else by the site's work_type label; else other. Share = bucket / visits with a site. Built by extras. Bucket ed.",
+        "label": "Emergency or urgent care",
+        "help": "Share of visits in an emergency department or urgent care centre.",
+        "dev": "Each visit's site (pd_stg_visit_site) bucketed by az.sl.pos_type_code: 11 office; 19, 22 HOPD; 24 ASC; 23 ED; 02, 10 telehealth; 21 inpatient; 81 lab; else by the site's work_type label; else other. Share = bucket / visits with a site. Built by extras. Bucket ed: POS 23 or a site whose work type is Emergency Department or Urgent Care.",
         "caveats": [
           "Visits with no service location are excluded."
         ],
@@ -22015,9 +22015,9 @@
         ]
       },
       "visits_percent_ed": {
-        "label": "Emergency",
-        "help": "Share of visits in an emergency department. On the group page this is weighted across members by their visits.",
-        "dev": "Each visit's site (pd_stg_visit_site) bucketed by az.sl.pos_type_code: 11 office; 19, 22 HOPD; 24 ASC; 23 ED; 02, 10 telehealth; 21 inpatient; 81 lab; else by the site's work_type label; else other. Share = bucket / visits with a site. Built by extras. Bucket ed. Group: member percent weighted by member visits_total (group_profile.weighted_pct_sql).",
+        "label": "Emergency or urgent care",
+        "help": "Share of visits in an emergency department or urgent care centre. On the group page this is weighted across members by their visits.",
+        "dev": "Each visit's site (pd_stg_visit_site) bucketed by az.sl.pos_type_code: 11 office; 19, 22 HOPD; 24 ASC; 23 ED; 02, 10 telehealth; 21 inpatient; 81 lab; else by the site's work_type label; else other. Share = bucket / visits with a site. Built by extras. Bucket ed: POS 23 or a site whose work type is Emergency Department or Urgent Care. Group: member percent weighted by member visits_total (group_profile.weighted_pct_sql).",
         "caveats": [
           "Visits with no service location are excluded.",
           "Weighted by each member's visits."
@@ -22027,7 +22027,7 @@
             "ref": "provider.visits_percent_ed",
             "scope": "provider",
             "field": "visits_percent_ed",
-            "label": "Emergency"
+            "label": "Emergency or urgent care"
           }
         ],
         "tables": [

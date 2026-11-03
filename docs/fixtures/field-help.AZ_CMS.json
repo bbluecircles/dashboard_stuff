@@ -555,8 +555,8 @@
         "help": "Share of visits in an ambulatory surgery center."
       },
       "visits_percent_ed": {
-        "label": "Emergency",
-        "help": "Share of visits in an emergency department."
+        "label": "Emergency or urgent care",
+        "help": "Share of visits in an emergency department or urgent care centre."
       },
       "visits_percent_telehealth": {
         "label": "Telehealth",
@@ -1185,8 +1185,8 @@
         "help": "Share of visits in an ambulatory surgery center. On the group page this is weighted across members by their visits."
       },
       "visits_percent_ed": {
-        "label": "Emergency",
-        "help": "Share of visits in an emergency department. On the group page this is weighted across members by their visits."
+        "label": "Emergency or urgent care",
+        "help": "Share of visits in an emergency department or urgent care centre. On the group page this is weighted across members by their visits."
       },
       "visits_percent_telehealth": {
         "label": "Telehealth",

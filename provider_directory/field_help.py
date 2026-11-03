@@ -395,7 +395,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "visits_percent_office": _entry("Office", "Share of visits in a physician office.", _POS_DEV + " Bucket office."),
     "visits_percent_hopd": _entry("Hospital outpatient", "Share of visits in a hospital outpatient department.", _POS_DEV + " Bucket hopd."),
     "visits_percent_asc": _entry("Ambulatory surgery", "Share of visits in an ambulatory surgery center.", _POS_DEV + " Bucket asc."),
-    "visits_percent_ed": _entry("Emergency", "Share of visits in an emergency department.", _POS_DEV + " Bucket ed."),
+    "visits_percent_ed": _entry("Emergency or urgent care", "Share of visits in an emergency department or urgent care centre.", _POS_DEV + " Bucket ed: POS 23 or a site whose work type is Emergency Department or Urgent Care."),
     "visits_percent_telehealth": _entry("Telehealth", "Share of visits delivered by telehealth.", _POS_DEV + " Bucket telehealth."),
     "visits_percent_inpatient": _entry("Inpatient", "Share of visits in an inpatient hospital setting.", _POS_DEV + " Bucket inpatient."),
     "visits_percent_lab": _entry("Laboratory", "Share of visits at an independent laboratory.", _POS_DEV + " Bucket lab."),
