@@ -33,7 +33,7 @@ from provider_directory.settings import (
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 SCOPES = ("provider", "group", "practice", "group_practice", "hospital_affiliation", "referral", "utilization",
-          "provider_filter", "group_filter", "section")
+          "provider_filter", "group_filter", "section", "group_section")
 
 
 def format_period(yyyymm: int | None) -> str:
@@ -505,6 +505,33 @@ SECTION: dict[str, dict[str, str]] = {
 }
 
 
+# The same headings on a group page, worded for member-summed figures. The UI
+# uses group_section.<key> on a group page and section.<key> on a provider page;
+# keys missing here fall back to section.
+GROUP_SECTION: dict[str, dict[str, str]] = {
+    "clinicians": _entry("Clinicians", "How many clinicians belong to the group, how many were active in {window}, how many have a CMS facility affiliation, and visits per clinician.", "UI heading over provider_count, active_provider_count, in_system_provider_count and visits_per_provider; no table."),
+    "volume": _entry("Volume", "Visits, panel size and work RVU summed across the group's member clinicians in {window}. An encounter billed by two members counts twice.", "UI heading on the group page; no table."),
+    "work_rvu_vs_specialty": _entry("Work RVU vs specialty", "Not shown on a group page: specialty benchmarks are per clinician.", "Group pages have no specialty benchmark fields; no table."),
+    "standing": _entry("Standing", "Where the group ranks among all groups in the state on total visits and on visits per clinician.", "UI heading over visits_percentile and activity_percentile (group grain); no table."),
+    "office_em_visits": _entry("Office visits", "New and established patient office visits summed across member clinicians.", "UI heading on the group page; no table."),
+    "place_of_service": _entry("Place of service", "Share of the members' visits by care setting, weighted by each member's visits.", "UI heading on the group page; no table."),
+    "visits_by_day": _entry("Visits by day of week", "Share of the members' visits on each weekday, weighted by each member's visits.", "UI heading on the group page; no table."),
+    "top_diagnoses": _entry("Top diagnoses", "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share.", "UI heading on the group page; no table."),
+    "top_procedures": _entry("Top procedures", "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound.", "UI heading on the group page; no table."),
+    "top_primary_procedures": _entry("Top primary procedures", "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out.", "UI heading on the group page; no table."),
+    "group_practices": _entry("Group practices", "Not shown on a group page.", "Hidden on the group page; no table."),
+    "referrals": _entry("Referrals", "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.", "UI heading on the group page; no table."),
+    "referrals_in": _entry("Referrals in", "Clinicians whose patients went on to see a member of the group.", "referral.direction = 'in' on the group page; no table."),
+    "referrals_out": _entry("Referrals out", "Clinicians the members' patients went on to see.", "referral.direction = 'out' on the group page; no table."),
+    "sites": _entry("Sites", "The five locations with the most member visits, with visits and work RVU summed across members at each.", "UI heading on the group page; no table."),
+    "panel": _entry("Panel", "Age and sex of the members' patients, weighted by each member's visits, and the payers behind their visits.", "UI heading on the group page; no table."),
+    "payer_mix": _entry("Payer mix", "Share of members' claims by payer class, weighted by each member's visits. Other is outside the denominator.", "UI heading on the group page; no table."),
+    "top_commercial_payers": _entry("Top commercial payers", "The five commercial payers with the most of the members' commercial claims, each as a share of the group's commercial claims.", "UI heading on the group page; no table."),
+    "cms": _entry("CMS", "Group size as published by CMS, and whether any member offers telehealth.", "UI heading on the group page; no table."),
+    "modal_specialty": _entry("Most common specialty", "The specialty with the most member visits. A multispecialty group shows its busiest specialty here.", "Group header caption for primary_specialty_description; no table."),
+}
+
+
 def _group_scope() -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for key, entry in PROVIDER.items():
@@ -761,6 +788,7 @@ def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
         "provider_filter": PROVIDER_FILTER,
         "group_filter": GROUP_FILTER,
         "section": SECTION,
+        "group_section": GROUP_SECTION,
     }
     out: dict[str, dict[str, dict[str, Any]]] = {}
     for scope, fields in scopes.items():

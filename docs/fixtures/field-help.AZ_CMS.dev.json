@@ -29301,6 +29301,168 @@
         "derived_from": [],
         "tables": []
       }
+    },
+    "group_section": {
+      "clinicians": {
+        "label": "Clinicians",
+        "help": "How many clinicians belong to the group, how many were active in Nov 2024 to Oct 2025, how many have a CMS facility affiliation, and visits per clinician.",
+        "dev": "UI heading over provider_count, active_provider_count, in_system_provider_count and visits_per_provider; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "volume": {
+        "label": "Volume",
+        "help": "Visits, panel size and work RVU summed across the group's member clinicians in Nov 2024 to Oct 2025. An encounter billed by two members counts twice.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "work_rvu_vs_specialty": {
+        "label": "Work RVU vs specialty",
+        "help": "Not shown on a group page: specialty benchmarks are per clinician.",
+        "dev": "Group pages have no specialty benchmark fields; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "standing": {
+        "label": "Standing",
+        "help": "Where the group ranks among all groups in the state on total visits and on visits per clinician.",
+        "dev": "UI heading over visits_percentile and activity_percentile (group grain); no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "office_em_visits": {
+        "label": "Office visits",
+        "help": "New and established patient office visits summed across member clinicians.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "place_of_service": {
+        "label": "Place of service",
+        "help": "Share of the members' visits by care setting, weighted by each member's visits.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "visits_by_day": {
+        "label": "Visits by day of week",
+        "help": "Share of the members' visits on each weekday, weighted by each member's visits.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "top_diagnoses": {
+        "label": "Top diagnoses",
+        "help": "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "top_procedures": {
+        "label": "Top procedures",
+        "help": "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "top_primary_procedures": {
+        "label": "Top primary procedures",
+        "help": "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "group_practices": {
+        "label": "Group practices",
+        "help": "Not shown on a group page.",
+        "dev": "Hidden on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "referrals": {
+        "label": "Referrals",
+        "help": "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "referrals_in": {
+        "label": "Referrals in",
+        "help": "Clinicians whose patients went on to see a member of the group.",
+        "dev": "referral.direction = 'in' on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "referrals_out": {
+        "label": "Referrals out",
+        "help": "Clinicians the members' patients went on to see.",
+        "dev": "referral.direction = 'out' on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "sites": {
+        "label": "Sites",
+        "help": "The five locations with the most member visits, with visits and work RVU summed across members at each.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "panel": {
+        "label": "Panel",
+        "help": "Age and sex of the members' patients, weighted by each member's visits, and the payers behind their visits.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "payer_mix": {
+        "label": "Payer mix",
+        "help": "Share of members' claims by payer class, weighted by each member's visits. Other is outside the denominator.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "top_commercial_payers": {
+        "label": "Top commercial payers",
+        "help": "The five commercial payers with the most of the members' commercial claims, each as a share of the group's commercial claims.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "cms": {
+        "label": "CMS",
+        "help": "Group size as published by CMS, and whether any member offers telehealth.",
+        "dev": "UI heading on the group page; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "modal_specialty": {
+        "label": "Most common specialty",
+        "help": "The specialty with the most member visits. A multispecialty group shows its busiest specialty here.",
+        "dev": "Group header caption for primary_specialty_description; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      }
     }
   },
   "tables": [

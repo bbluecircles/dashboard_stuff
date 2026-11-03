@@ -29,6 +29,7 @@ SCOPE_MODELS = {
     "provider_filter": (),
     "group_filter": (),
     "section": (),
+    "group_section": (),
 }
 
 
@@ -153,7 +154,7 @@ def test_every_dev_entry_names_registered_tables():
     cat = catalog(dev=True)
     for scope, fields in cat.items():
         for key, item in fields.items():
-            if (scope, key) in NO_TABLE_FIELDS or scope == "section":
+            if (scope, key) in NO_TABLE_FIELDS or scope in ("section", "group_section"):
                 continue
             assert item["tables"], (scope, key)
             for table in item["tables"]:
@@ -345,3 +346,12 @@ def test_section_scope_names_headings_and_group_sources():
     assert sec["group_source_C"]["label"] == "CMS reassignment"
     for key in ("volume", "referrals", "payer_mix", "sites", "panel", "cms"):
         assert key in sec
+
+
+def test_group_section_rewords_captions_for_member_sums():
+    sec = catalog(dev=False)
+    for key in ("volume", "standing", "top_diagnoses", "referrals", "panel", "sites"):
+        assert key in sec["group_section"], key
+        assert "clinician in" not in sec["group_section"][key]["help"]
+    assert "member" in sec["group_section"]["volume"]["help"]
+    assert "modal_specialty" in sec["group_section"]

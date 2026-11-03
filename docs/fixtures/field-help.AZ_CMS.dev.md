@@ -480,6 +480,31 @@ Sources marked * are external CMS files; the link is the dataset page they were 
 | `cms` | CMS | Group size, telehealth, secondary specialties and MIPS scores as published by CMS. | UI heading over group_size, telehealth_offered, secondary_specialty_* and mips_*; no table. |  |
 | `group_page_note` | Summed across clinicians | Figures on a group page are summed across member clinicians and can count an encounter twice when two members billed it. | Caption for every group page; no table. |  |
 
+## group_section
+
+| Field | Label | Help | Developer | Sources |
+| --- | --- | --- | --- | --- |
+| `clinicians` | Clinicians | How many clinicians belong to the group, how many were active in Nov 2024 to Oct 2025, how many have a CMS facility affiliation, and visits per clinician. | UI heading over provider_count, active_provider_count, in_system_provider_count and visits_per_provider; no table. |  |
+| `volume` | Volume | Visits, panel size and work RVU summed across the group's member clinicians in Nov 2024 to Oct 2025. An encounter billed by two members counts twice. | UI heading on the group page; no table. |  |
+| `work_rvu_vs_specialty` | Work RVU vs specialty | Not shown on a group page: specialty benchmarks are per clinician. | Group pages have no specialty benchmark fields; no table. |  |
+| `standing` | Standing | Where the group ranks among all groups in the state on total visits and on visits per clinician. | UI heading over visits_percentile and activity_percentile (group grain); no table. |  |
+| `office_em_visits` | Office visits | New and established patient office visits summed across member clinicians. | UI heading on the group page; no table. |  |
+| `place_of_service` | Place of service | Share of the members' visits by care setting, weighted by each member's visits. | UI heading on the group page; no table. |  |
+| `visits_by_day` | Visits by day of week | Share of the members' visits on each weekday, weighted by each member's visits. | UI heading on the group page; no table. |  |
+| `top_diagnoses` | Top diagnoses | The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share. | UI heading on the group page; no table. |  |
+| `top_procedures` | Top procedures | The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound. | UI heading on the group page; no table. |  |
+| `top_primary_procedures` | Top primary procedures | The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out. | UI heading on the group page; no table. |  |
+| `group_practices` | Group practices | Not shown on a group page. | Hidden on the group page; no table. |  |
+| `referrals` | Referrals | Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out. | UI heading on the group page; no table. |  |
+| `referrals_in` | Referrals in | Clinicians whose patients went on to see a member of the group. | referral.direction = 'in' on the group page; no table. |  |
+| `referrals_out` | Referrals out | Clinicians the members' patients went on to see. | referral.direction = 'out' on the group page; no table. |  |
+| `sites` | Sites | The five locations with the most member visits, with visits and work RVU summed across members at each. | UI heading on the group page; no table. |  |
+| `panel` | Panel | Age and sex of the members' patients, weighted by each member's visits, and the payers behind their visits. | UI heading on the group page; no table. |  |
+| `payer_mix` | Payer mix | Share of members' claims by payer class, weighted by each member's visits. Other is outside the denominator. | UI heading on the group page; no table. |  |
+| `top_commercial_payers` | Top commercial payers | The five commercial payers with the most of the members' commercial claims, each as a share of the group's commercial claims. | UI heading on the group page; no table. |  |
+| `cms` | CMS | Group size as published by CMS, and whether any member offers telehealth. | UI heading on the group page; no table. |  |
+| `modal_specialty` | Most common specialty | The specialty with the most member visits. A multispecialty group shows its busiest specialty here. | Group header caption for primary_specialty_description; no table. |  |
+
 ## Tables
 
 | Table | Kind | Refreshed by | Built from | Description |
