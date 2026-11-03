@@ -114,12 +114,15 @@ def get_ref_connection(*, max_statement_seconds: int | None = None) -> Iterator[
         autocommit=True,
         cursorclass=pymysql.cursors.DictCursor,
         read_timeout=max(seconds * 2, 60),
-        init_command=(
-            "SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED, "
-            f"max_statement_time = {seconds}"
-        ),
+        init_command="SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
     )
     try:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(f"SET SESSION max_statement_time = {seconds}")
+            except pymysql.err.MySQLError:
+                # MySQL (not MariaDB) spells it differently; the read_timeout still bounds us.
+                conn.rollback()
         yield conn
     finally:
         conn.close()

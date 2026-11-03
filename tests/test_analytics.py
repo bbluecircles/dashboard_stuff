@@ -200,6 +200,7 @@ def test_ref_server_settings_and_connection_are_separate(monkeypatch):
         db.ref_db_config()
     source = inspect.getsource(db.get_ref_connection)
     assert "READ UNCOMMITTED" in source and "max_statement_time" in source and "autocommit=True" in source
+    assert "READ UNCOMMITTED, " not in source  # isolation level and timeout are separate statements
     assert build_parser().parse_args(["ref-check"]).func.__name__ == "_cmd_ref_check"
 
 
