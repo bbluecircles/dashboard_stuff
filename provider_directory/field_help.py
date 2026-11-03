@@ -244,7 +244,7 @@ _TOP_PRIMARY_PX_DEV = (
     "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU "
     "(WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) "
     "is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, "
-    "psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy 92507-92508, wellness and clinic visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444), "
+    "psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), "
     "Category II (dddd F) and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. "
     "Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2)."
 )

@@ -123,6 +123,8 @@ PRIMARY_PROCEDURE_EXCLUDED_RANGES = (
     ("90785", "90899", "psychiatric evaluations and psychotherapy"),
     ("97161", "97168", "physical and occupational therapy evaluations"),
     ("92507", "92508", "speech therapy visits"),
+    ("92521", "92524", "speech and language evaluations"),
+    ("92526", "92526", "oral function therapy"),
 )
 # HCPCS visit codes outside those ranges.
 PRIMARY_PROCEDURE_EXCLUDED_CODES = (
@@ -130,6 +132,8 @@ PRIMARY_PROCEDURE_EXCLUDED_CODES = (
     "G0463",                    # hospital outpatient clinic visit
     "G2211", "G2212",           # visit complexity / prolonged visit add-ons
     "G0442", "G0443", "G0444",  # screening and counseling visits
+    "G2010", "G2012", "G2025",  # virtual check-ins and telehealth distant-site visits
+    "99024",                    # postoperative follow-up visit
 )
 # Regex patterns: Category II tracking codes (dddd F) and proprietary lab analyses (dddd U).
 PRIMARY_PROCEDURE_EXCLUDED_PATTERNS = ("^[0-9]{4}F$", "^[0-9]{4}U$")
