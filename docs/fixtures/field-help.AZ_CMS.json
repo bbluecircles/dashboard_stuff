@@ -487,8 +487,8 @@
         "help": "The per-provider work RVU total at the 75th percentile of the specialty."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with work RVU",
-        "help": "Number of clinicians in the specialty with a positive work RVU total."
+        "label": "Peers in specialty",
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
@@ -1117,8 +1117,8 @@
         "help": "The per-provider work RVU total at the 75th percentile of the specialty."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with work RVU",
-        "help": "Number of clinicians in the specialty with a positive work RVU total."
+        "label": "Peers in specialty",
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",

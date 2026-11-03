@@ -8228,7 +8228,7 @@
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [
           "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
-          "Peers are same-specialty clinicians with a positive RVU total."
+          "Peers are same-specialty clinicians with a practice site in the state and at least 50 visits in the window."
         ],
         "derived_from": [
           {
@@ -8536,9 +8536,9 @@
         ]
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with work RVU",
-        "help": "Number of clinicians in the specialty with a positive work RVU total.",
-        "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0.",
+        "label": "Peers in specialty",
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window.",
+        "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of pd_provider NPIs with the specialty, wrvu_total > 0, visits_total >= BENCHMARK_MIN_VISITS and a pd_provider_practice site in the market state (complete.benchmark_peer_where).",
         "caveats": [],
         "derived_from": [
           {
@@ -8592,6 +8592,72 @@
             "upstream": false
           },
           {
+            "key": "pd_provider_practice",
+            "name": "pd_provider_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5.",
+            "built_from": [
+              "pd_stg_npi_sl",
+              "az_cms.sl",
+              "cms_pdc_clinician",
+              "pd_stg_site_wrvu",
+              "pd_stg_site_dow"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_sl",
+            "name": "pd_stg_npi_sl",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Visits per NPI per location with the site cluster key (Phase 3).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "az_cms.sl"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_site",
+            "name": "pd_stg_visit_site",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "One service location per encounter, the modal one (Phase 3).",
+            "built_from": [
+              "pd_stg_visit",
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -8601,12 +8667,36 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
+            "key": "claims.sl",
+            "name": "az_cms.sl",
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "upstream": true
+          },
+          {
+            "key": "cms_pdc_clinician",
+            "name": "cms_pdc_clinician",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs.",
+            "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)",
+            "url": "https://data.cms.gov/provider-data/dataset/mj5m-pzi6",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_wrvu",
+            "name": "pd_stg_site_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU per NPI per location (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
             "upstream": true
           },
           {
@@ -8619,6 +8709,41 @@
             "built_from": [
               "az_cms.pat_dt",
               "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_dow",
+            "name": "pd_stg_site_dow",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Visits per NPI per site per weekday (Phase 5).",
+            "built_from": [
+              "pd_stg_visit_date",
+              "pd_stg_visit_site"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_date",
+            "name": "pd_stg_visit_date",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Service date per encounter, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_stg_visit"
             ],
             "upstream": true
           },
@@ -8643,7 +8768,7 @@
         "dev": "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total.",
         "caveats": [
           "A volume rank.",
-          "Peers are same-specialty clinicians with a positive RVU total."
+          "Peers are same-specialty clinicians with a practice site in the state, at least 50 visits and a work RVU total. Blank for a clinician outside that peer set."
         ],
         "derived_from": [
           {
@@ -8748,7 +8873,7 @@
         "dev": "Same rank on pd_provider.visits_total among specialty NPIs with visits_total > 0 (pd_stg_npi_visits_percentile).",
         "caveats": [
           "A volume rank.",
-          "Peers are same-specialty clinicians with at least one visit."
+          "Peers are same-specialty clinicians with a practice site in the state and at least 50 visits. Blank for a clinician outside that peer set."
         ],
         "derived_from": [
           {
@@ -20667,16 +20792,16 @@
         ]
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with work RVU",
-        "help": "Number of clinicians in the specialty with a positive work RVU total.",
-        "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0.",
+        "label": "Peers in specialty",
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window.",
+        "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of pd_provider NPIs with the specialty, wrvu_total > 0, visits_total >= BENCHMARK_MIN_VISITS and a pd_provider_practice site in the market state (complete.benchmark_peer_where).",
         "caveats": [],
         "derived_from": [
           {
             "ref": "provider.wrvu_state_specialty_npi_count",
             "scope": "provider",
             "field": "wrvu_state_specialty_npi_count",
-            "label": "Providers in specialty with work RVU"
+            "label": "Peers in specialty"
           }
         ],
         "tables": [
@@ -20723,6 +20848,72 @@
             "upstream": false
           },
           {
+            "key": "pd_provider_practice",
+            "name": "pd_provider_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5.",
+            "built_from": [
+              "pd_stg_npi_sl",
+              "az_cms.sl",
+              "cms_pdc_clinician",
+              "pd_stg_site_wrvu",
+              "pd_stg_site_dow"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_sl",
+            "name": "pd_stg_npi_sl",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Visits per NPI per location with the site cluster key (Phase 3).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "az_cms.sl"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_site",
+            "name": "pd_stg_visit_site",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "One service location per encounter, the modal one (Phase 3).",
+            "built_from": [
+              "pd_stg_visit",
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -20732,12 +20923,36 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
+            "key": "claims.sl",
+            "name": "az_cms.sl",
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "upstream": true
+          },
+          {
+            "key": "cms_pdc_clinician",
+            "name": "cms_pdc_clinician",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs.",
+            "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)",
+            "url": "https://data.cms.gov/provider-data/dataset/mj5m-pzi6",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_wrvu",
+            "name": "pd_stg_site_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU per NPI per location (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
             "upstream": true
           },
           {
@@ -20750,6 +20965,41 @@
             "built_from": [
               "az_cms.pat_dt",
               "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_dow",
+            "name": "pd_stg_site_dow",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Visits per NPI per site per weekday (Phase 5).",
+            "built_from": [
+              "pd_stg_visit_date",
+              "pd_stg_visit_site"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_date",
+            "name": "pd_stg_visit_date",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Service date per encounter, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_stg_visit"
             ],
             "upstream": true
           },

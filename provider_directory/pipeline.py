@@ -281,6 +281,7 @@ def run_phase5(
         window_end=window_end,
         prior_start=prior_start,
         prior_end=prior_end,
+        market_state=market_state,
     )
     summary["state"] = market_state
     return summary

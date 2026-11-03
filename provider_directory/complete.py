@@ -17,6 +17,8 @@ PRIOR_WINDOW_START–PRIOR_WINDOW_END. Cached in pd_stg_npi_wrvu_prior.
 
 from __future__ import annotations
 
+import re
+
 from provider_directory.activity import PROVIDER_BUCKETS, VISIT_BUCKETS, iter_period_codes
 from provider_directory.activity import CLAIM_ID_BUCKETS
 from provider_directory.analytics import is_hcpcs_sql, period_in_sql, priced_line_filter_sql
@@ -24,6 +26,8 @@ from provider_directory.db import quote_ident
 from provider_directory.locations import table_has_rows
 from provider_directory.schema import create_schema, drop_phase5_cached, drop_phase5_staging
 from provider_directory.settings import (
+    BENCHMARK_MIN_VISITS,
+    MARKET_STATE,
     CLAIMS_DB,
     DUMMY_NPIS,
     LOOKUP_DB,
@@ -129,6 +133,7 @@ def rebuild_complete(
     prior_end: int = PRIOR_WINDOW_END,
     max_peers: int = MAX_REFERRAL_PEERS,
     reuse_cached: bool = True,
+    market_state: str = MARKET_STATE,
 ) -> dict:
     create_schema(conn, mart_db)
     drop_phase5_staging(conn, mart_db)
@@ -211,8 +216,8 @@ def rebuild_complete(
         )
         counts["prior_wrvu_npi"] = prior_npi
         counts["providers_prior"] = providers_prior
-        counts["specialty_rows"] = _fill_specialty_stats(cur, conn, mart)
-        counts["providers_benchmark"] = _overlay_benchmarks(cur, conn, mart)
+        counts["specialty_rows"] = _fill_specialty_stats(cur, conn, mart, market_state)
+        counts["providers_benchmark"] = _overlay_benchmarks(cur, conn, mart, market_state)
 
     return {
         "window_start": window_start,
@@ -304,7 +309,7 @@ def _fill_referral_edges(
 
 def referral_exclusion_sql(me: str = "me", peer: str = "peer") -> str:
     """Predicate that is TRUE for an edge to leave out of the ranked peers:
-    same primary billing organization (settings.REFERRAL_EXCLUDE_SAME_ORGANIZATION)
+    same group practice or same claims billing organization (settings.REFERRAL_EXCLUDE_SAME_ORGANIZATION)
     or a peer specialty on settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP (pathology,
     diagnostic radiology, anesthesiology, lab). Returns '0' when nothing is excluded."""
     parts: list[str] = []
@@ -312,6 +317,10 @@ def referral_exclusion_sql(me: str = "me", peer: str = "peer") -> str:
         parts.append(
             f"({peer}.primary_organization_id IS NOT NULL "
             f"AND {peer}.primary_organization_id = {me}.primary_organization_id)"
+        )
+        parts.append(
+            f"({peer}.billing_organization_id IS NOT NULL "
+            f"AND {peer}.billing_organization_id = {me}.billing_organization_id)"
         )
     if REFERRAL_EXCLUDED_SPECIALTY_REGEXP:
         pattern = REFERRAL_EXCLUDED_SPECIALTY_REGEXP.replace("'", "''")
@@ -608,7 +617,22 @@ def _overlay_prior_wrvu(cur, conn, mart: str) -> int:
     return total
 
 
-def _fill_specialty_stats(cur, conn, mart: str) -> int:
+def benchmark_peer_where(mart: str, state: str, alias: str = "p") -> str:
+    """Peer set for the specialty benchmarks and percentiles: a specialty on file,
+    at least BENCHMARK_MIN_VISITS visits in the window, and a practice site in the
+    market state (pd_provider_practice)."""
+    if not re.fullmatch(r"[A-Z]{2}", state or ""):
+        raise ValueError(f"state must be a USPS code, got {state!r}")
+    return (
+        f"NULLIF(TRIM({alias}.primary_specialty_code), '') IS NOT NULL "
+        f"AND IFNULL({alias}.visits_total, 0) >= {int(BENCHMARK_MIN_VISITS)} "
+        f"AND EXISTS (SELECT 1 FROM {mart}.pd_provider_practice pr "
+        f"WHERE pr.npi = {alias}.npi AND pr.state = '{state}')"
+    )
+
+
+def _fill_specialty_stats(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
+    peers = benchmark_peer_where(mart, state)
     sql = f"""
         INSERT INTO {mart}.pd_stg_specialty_wrvu (
             specialty_code, npi_count, avg_wrvu, p25_wrvu, median_wrvu, p75_wrvu
@@ -633,9 +657,9 @@ def _fill_specialty_stats(cur, conn, mart: str) -> int:
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.25)) AS p25_rn,
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.50)) AS p50_rn,
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.75)) AS p75_rn
-            FROM {mart}.pd_provider
-            WHERE wrvu_total IS NOT NULL AND wrvu_total > 0
-              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+            FROM {mart}.pd_provider p
+            WHERE p.wrvu_total IS NOT NULL AND p.wrvu_total > 0
+              AND {peers}
         ) ranked
         GROUP BY primary_specialty_code, cnt, avg_wrvu
     """
@@ -644,7 +668,8 @@ def _fill_specialty_stats(cur, conn, mart: str) -> int:
     return n
 
 
-def _overlay_benchmarks(cur, conn, mart: str) -> int:
+def _overlay_benchmarks(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
+    peers = benchmark_peer_where(mart, state)
     _run(
         cur,
         conn,
@@ -661,9 +686,9 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
                     ORDER BY wrvu_total, npi
                 ) AS rn,
                 COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
-            FROM {mart}.pd_provider
-            WHERE wrvu_total IS NOT NULL AND wrvu_total > 0
-              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+            FROM {mart}.pd_provider p
+            WHERE p.wrvu_total IS NOT NULL AND p.wrvu_total > 0
+              AND {peers}
         ) ranked
         """,
     )
@@ -683,9 +708,8 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
                     ORDER BY visits_total, npi
                 ) AS rn,
                 COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
-            FROM {mart}.pd_provider
-            WHERE IFNULL(visits_total, 0) > 0
-              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+            FROM {mart}.pd_provider p
+            WHERE {peers}
         ) ranked
         """,
     )

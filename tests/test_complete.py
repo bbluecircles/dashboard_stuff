@@ -107,7 +107,7 @@ def test_referral_rank_applies_exclusions_and_edges_are_cached():
     assert MAX_REFERRAL_PEERS == 5
     excluded = referral_exclusion_sql("me", "peer")
     assert "peer.primary_organization_id = me.primary_organization_id" in excluded
-    assert "DIAGNOSTIC RADIOLOGY" in excluded and "PATHOLOG" in excluded and "ANESTHESIOLOGY" in excluded
+    assert "DIAGNOSTIC RADIOLOGY" in excluded and "PATHOLOG" in excluded and "ANESTHE" in excluded
     assert "NURSE PRACTITIONER" not in excluded
     rank = inspect.getsource(_rank_referrals)
     assert "INNER JOIN {mart}.pd_provider me ON me.npi = e.npi" in rank
@@ -121,3 +121,23 @@ def test_referral_rank_applies_exclusions_and_edges_are_cached():
     assert "referrals_only" in inspect.getsource(run_phase5)
     args = build_parser().parse_args(["phase5", "--referrals-only", "--rebuild-edges"])
     assert args.referrals_only and args.rebuild_edges
+
+
+def test_benchmark_peers_are_in_state_with_volume_and_referrals_use_either_org_key():
+    import inspect
+
+    import pytest
+
+    from provider_directory.complete import _fill_specialty_stats, _overlay_benchmarks, benchmark_peer_where, referral_exclusion_sql
+    from provider_directory.settings import BENCHMARK_MIN_VISITS
+
+    where = benchmark_peer_where("`az_pd`", "AZ")
+    assert f">= {BENCHMARK_MIN_VISITS}" in where and "pr.state = 'AZ'" in where and "pd_provider_practice pr" in where
+    with pytest.raises(ValueError):
+        benchmark_peer_where("`az_pd`", "az_cms")
+    for fn in (_fill_specialty_stats, _overlay_benchmarks):
+        src = inspect.getsource(fn)
+        assert "benchmark_peer_where" in src and "AND {peers}" in src
+    excluded = referral_exclusion_sql("me", "peer")
+    assert "peer.billing_organization_id = me.billing_organization_id" in excluded
+    assert "ANESTHE" in excluded
