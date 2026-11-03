@@ -141,3 +141,13 @@ def test_benchmark_peers_are_in_state_with_volume_and_referrals_use_either_org_k
     excluded = referral_exclusion_sql("me", "peer")
     assert "peer.billing_organization_id = me.billing_organization_id" in excluded
     assert "ANESTHE" in excluded
+
+
+def test_peer_specialty_prefixes_role_for_generic_descriptions():
+    import inspect
+
+    from provider_directory.complete import _rank_referrals, peer_specialty_sql
+
+    sql = peer_specialty_sql("peer")
+    assert "'MEDICAL', 'SURGICAL'" in sql and "CONCAT(" in sql and "specialty_classification" in sql
+    assert "peer_specialty_sql" in inspect.getsource(_rank_referrals)

@@ -1534,7 +1534,7 @@
       },
       "peer_specialty": {
         "label": "Peer specialty",
-        "help": "Specialty of the referring or receiving clinician."
+        "help": "Specialty of the other clinician. For physician assistants and similar, the role is shown with the generic description, for example Physician Assistant - Medical."
       },
       "patient_count": {
         "label": "Patients",

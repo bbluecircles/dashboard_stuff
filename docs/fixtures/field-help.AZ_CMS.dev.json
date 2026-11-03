@@ -28061,8 +28061,8 @@
       },
       "peer_specialty": {
         "label": "Peer specialty",
-        "help": "Specialty of the referring or receiving clinician.",
-        "dev": "pd_provider.primary_specialty_description of the peer.",
+        "help": "Specialty of the other clinician. For physician assistants and similar, the role is shown with the generic description, for example Physician Assistant - Medical.",
+        "dev": "pd_provider.primary_specialty_description of the peer; when that is a generic taxonomy word (Medical, Surgical, Professional) the specialty_classification is prefixed (complete.peer_specialty_sql).",
         "caveats": [],
         "derived_from": [],
         "tables": [

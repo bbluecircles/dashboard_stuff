@@ -331,6 +331,25 @@ def referral_exclusion_sql(me: str = "me", peer: str = "peer") -> str:
     return "(" + " OR ".join(parts) + ")" if parts else "0"
 
 
+# Taxonomy descriptions that say nothing on their own (physician assistants are
+# "Medical" or "Surgical"); the classification column carries the useful word.
+GENERIC_SPECIALTY_DESCRIPTIONS = ("MEDICAL", "SURGICAL", "PROFESSIONAL", "UNKNOWN", "OTHER")
+
+
+def peer_specialty_sql(alias: str = "peer") -> str:
+    desc = f"NULLIF(TRIM({alias}.primary_specialty_description), '')"
+    cls = f"NULLIF(TRIM({alias}.specialty_classification), '')"
+    generic = ", ".join(f"'{g}'" for g in GENERIC_SPECIALTY_DESCRIPTIONS)
+    return f"""
+        CASE
+            WHEN {desc} IS NULL THEN {cls}
+            WHEN UPPER({desc}) IN ({generic}) AND {cls} IS NOT NULL
+                THEN CONCAT({cls}, ' - ', {desc})
+            ELSE {desc}
+        END
+    """
+
+
 def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
     """Top max_peers per NPI per direction from the edge table, after the
     exclusions, so rank 1..N are the first eligible peers."""
@@ -351,10 +370,7 @@ def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
                 NULLIF(TRIM(peer.last_name), ''),
                 NULLIF(TRIM(peer.first_name), '')
             )),
-            COALESCE(
-                NULLIF(TRIM(peer.primary_specialty_description), ''),
-                NULLIF(TRIM(peer.specialty_classification), '')
-            ),
+            {peer_specialty_sql("peer")},
             ranked.patient_count,
             ranked.claim_count,
             NOW()
