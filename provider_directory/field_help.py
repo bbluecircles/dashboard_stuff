@@ -98,14 +98,16 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
     "pd_stg_top_primary_px": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "Top 5 primary procedures per NPI: strict work RVU above 1, no E/M or Category II codes (Phase 2)."},
     "pd_stg_visit_site": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_visit', 'pd_stg_window_claim'], "description": "One service location per encounter, the modal one (Phase 3)."},
     "pd_stg_npi_sl": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_visit_site', 'claims.sl'], "description": "Visits per NPI per location with the site cluster key (Phase 3)."},
-    "pd_stg_npi_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "RVU total and contributing visits per NPI (Phase 4)."},
-    "pd_stg_site_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_visit_site', 'pd_stg_visit', 'lookup.procd'], "description": "RVU per NPI per site (Phase 4)."},
+    "pd_stg_npi_px_line": {"kind": "mart", "phase": "Phase 4", "built_from": ['claims.pat_dt', 'pd_provider'], "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4)."},
+    "pd_stg_npi_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_npi_px_line', 'lookup.procd'], "description": "Work RVU total and priced procedure count per NPI (Phase 4)."},
+    "pd_stg_site_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_npi_px_line', 'lookup.procd'], "description": "Work RVU per NPI per location (Phase 4)."},
     "pd_stg_npi_payor": {"kind": "mart", "phase": "Phase 4", "built_from": ['claims.dash_physician_payor_all', 'claims.payor', 'claims.pat_dt'], "description": "Claim counts per NPI per payer class and parent (Phase 4)."},
     "pd_stg_visit_date": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'pd_stg_visit'], "description": "Service date per encounter, cached (Phase 5)."},
     "pd_stg_npi_dow": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_visit_date', 'pd_stg_visit'], "description": "Visits per NPI per weekday (Phase 5)."},
     "pd_stg_site_dow": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_visit_date', 'pd_stg_visit_site'], "description": "Visits per NPI per site per weekday (Phase 5)."},
     "pd_stg_referral_edge": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.dash_physician_referrals_to_rendering'], "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5)."},
-    "pd_stg_npi_wrvu_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'lookup.procd'], "description": "Prior-year RVU per NPI, cached (Phase 5)."},
+    "pd_stg_npi_px_line_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'pd_provider'], "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5)."},
+    "pd_stg_npi_wrvu_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_npi_px_line_prior', 'lookup.procd'], "description": "Prior-year work RVU per NPI, priced each run (Phase 5)."},
     "pd_stg_specialty_wrvu": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Specialty RVU average, p25, median, p75 and count (Phase 5)."},
     "pd_stg_npi_percentile": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "RVU percentile per NPI within specialty (Phase 5)."},
     "pd_stg_npi_visits_percentile": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Visits percentile per NPI within specialty (Phase 5)."},
@@ -220,10 +222,11 @@ _VISIT = "A visit is one distinct encounter in the claims window {window}, credi
 _PANEL = "Panel patients are distinct patients on any claim line in {window} where this clinician is the rendering or the referring physician."
 _PANEL_DEV = "Grain: pd_stg_panel_patient (npi, pat_id) built from pd_stg_window_claim. A patient's age is the greatest age_code across their lines; gender is the first non-null gender_code."
 _RVU_DEV = (
-    "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). "
-    "WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; "
-    "else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. "
-    "Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4)."
+    "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, "
+    "counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 "
+    "(0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. "
+    "5-character CPT/HCPCS only; Category II (dddd F) codes and lines with no work RVU are left out. "
+    "Summed into pd_stg_npi_wrvu (Phase 4)."
 )
 _PAYER_DEV = (
     "Share of claims in payer classes 1, 2, 3, 4, 6 and 7 (az.payor.is_payor_code: 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage, 7 Medicare Other). "
@@ -339,9 +342,9 @@ PROVIDER: dict[str, dict[str, str]] = {
     "panel_percent_female": _entry("Female", "Share of panel patients recorded as female. Unknown gender stays in the denominator.", _PANEL_DEV + " gender_code in (F, FEMALE) / panel_size x100."),
     "panel_percent_male": _entry("Male", "Share of panel patients recorded as male.", _PANEL_DEV + " gender_code in (M, MALE) / panel_size x100."),
     "provider_practices_total": _entry("Sites", "Number of practice sites shown, at most 5.", "COUNT of pd_provider_practice rows for the NPI after ranking to MAX_PRACTICE_SITES = 5."),
-    "wrvu_total": _entry("RVU sum (one procedure per visit)", "Sum of fee-schedule RVU across the clinician's visits in {window}, pricing one procedure per visit. Under review.", _RVU_DEV + " ROUND(SUM, 2)."),
-    "wrvu_average": _entry("RVU per priced visit", "The RVU sum divided by the number of visits that had a priced procedure.", _RVU_DEV + " wrvu_total / wrvu_procedure_count, 3 decimals. The UI leads with median and percentile instead."),
-    "wrvu_procedure_count": _entry("Priced visits", "Visits whose one procedure had a fee-schedule RVU and so contributed to the RVU sum.", _RVU_DEV + " COUNT(*) of contributing visits."),
+    "wrvu_total": _entry("Work RVU total", "Physician work RVU summed over every procedure the clinician billed in {window}, priced from the Medicare fee schedule.", _RVU_DEV + " ROUND(SUM(line_count x work RVU), 2)."),
+    "wrvu_average": _entry("Average work RVU per procedure", "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries.", _RVU_DEV + " wrvu_total / wrvu_procedure_count, 3 decimals."),
+    "wrvu_procedure_count": _entry("Priced procedures", "Billed procedure lines in {window} that had a work RVU and so count toward the total.", _RVU_DEV + " SUM(line_count) of priced lines."),
     "visits_percent_third_party": _entry("Commercial", "Share of claims paid by commercial insurers.", _PAYER_DEV + " Class 3."),
     "visits_percent_medicaid": _entry("Medicaid", "Share of claims paid by Medicaid, including managed care.", _PAYER_DEV + " Class 2."),
     "visits_percent_medicare_advantage": _entry("Medicare Advantage", "Share of claims paid by Medicare Advantage plans.", _PAYER_DEV + " Class 6. Before the class-7 rework this column held class 4 (HMO)."),
@@ -365,19 +368,19 @@ PROVIDER: dict[str, dict[str, str]] = {
     "primary_organization_parent_id": _entry("Parent organization id", "Identifier of the parent organization of the primary billing organization.", "IP_hospital_system_code, else OP_hospital_system_code on az.physician_primary_affiliation."),
     "primary_organization_parent_name": _entry("Parent organization", "Parent organization of the primary billing organization, as recorded in the warehouse.", "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation."),
     **_weekday_entries("the clinician's visits", _DOW_DEV),
-    "wrvu_prior_year_total": _entry("Prior-year RVU sum", "The same one-procedure-per-visit RVU sum for the 12 months before the window, {prior_window}.", "Same RVU formula over az.pat_dt for {prior_window}, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5)."),
-    "wrvu_prior_year_average": _entry("Prior-year RVU per priced visit", "Prior-year RVU sum divided by prior-year priced visits, {prior_window}.", "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals."),
-    "wrvu_prior_year_procedure_count": _entry("Prior-year priced visits", "Visits that contributed to the prior-year RVU sum.", "pd_stg_npi_wrvu_prior.procedure_count: contributing visits in {prior_window}."),
-    "wrvu_yoy_change_pct": _entry("RVU sum change vs prior year", "Percent change of the RVU sum against the prior-year RVU sum.", "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql."),
-    "wrvu_state_specialty_average": _entry("Specialty mean of provider RVU sums", "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it.", "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu."),
-    "wrvu_state_specialty_median": _entry("Specialty median of provider RVU sums", "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0."),
-    "wrvu_state_specialty_p25": _entry("Specialty 25th percentile of provider RVU sums", "The per-provider RVU sum at the 25th percentile of the specialty.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking."),
-    "wrvu_state_specialty_p75": _entry("Specialty 75th percentile of provider RVU sums", "The per-provider RVU sum at the 75th percentile of the specialty.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking."),
-    "wrvu_state_specialty_npi_count": _entry("Providers in specialty with an RVU sum", "Number of clinicians in the specialty with a positive RVU sum.", "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0."),
-    "wrvu_specialty_percentile": _entry("RVU sum percentile within specialty", "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.", "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total."),
+    "wrvu_prior_year_total": _entry("Prior-year work RVU total", "The same work RVU total for the 12 months before the window, {prior_window}.", "Same line-level rule over az.pat_dt for {prior_window}: lines cached in pd_stg_npi_px_line_prior, priced on azal.procd into pd_stg_npi_wrvu_prior each run (Phase 5)."),
+    "wrvu_prior_year_average": _entry("Prior-year average work RVU per procedure", "Prior-year work RVU total divided by prior-year priced procedures, {prior_window}.", "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals."),
+    "wrvu_prior_year_procedure_count": _entry("Prior-year priced procedures", "Billed procedure lines that count toward the prior-year total.", "pd_stg_npi_wrvu_prior.procedure_count: priced lines in {prior_window}."),
+    "wrvu_yoy_change_pct": _entry("Work RVU change vs prior year", "Percent change of the work RVU total against the prior-year total.", "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql."),
+    "wrvu_state_specialty_average": _entry("Specialty mean work RVU total", "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it.", "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu."),
+    "wrvu_state_specialty_median": _entry("Specialty median work RVU total", "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0."),
+    "wrvu_state_specialty_p25": _entry("Specialty 25th percentile work RVU total", "The per-provider work RVU total at the 25th percentile of the specialty.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking."),
+    "wrvu_state_specialty_p75": _entry("Specialty 75th percentile work RVU total", "The per-provider work RVU total at the 75th percentile of the specialty.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking."),
+    "wrvu_state_specialty_npi_count": _entry("Providers in specialty with work RVU", "Number of clinicians in the specialty with a positive work RVU total.", "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0."),
+    "wrvu_specialty_percentile": _entry("Work RVU percentile within specialty", "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest.", "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total."),
     "visits_specialty_percentile": _entry("Visits percentile", "Where the clinician's visit count ranks within their specialty. 100 is the highest.", "Same rank on pd_provider.visits_total among specialty NPIs with visits_total > 0 (pd_stg_npi_visits_percentile)."),
     "is_primary_member": _entry("Primary member", "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list.", "Picker dump only: (pd_provider.primary_organization_id = requested organization_id) when organization_id is given, else NULL. With membership=any, false rows bill the group but count toward another group's totals."),
-    "activity_specialty_percentile": _entry("Activity vs specialty peers (visits and RVU sum)", "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank.", "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists."),
+    "activity_specialty_percentile": _entry("Activity vs specialty peers (visits and work RVU)", "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank.", "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists."),
     "group_size": _entry("Group size", "Number of clinicians in the group practice as reported to CMS.", "cms_pdc_clinician.num_org_mem on the preferred PDC row (extras)."),
     "telehealth_offered": _entry("Telehealth offered", "The clinician reports offering telehealth to CMS.", "cms_pdc_clinician.telehlth: Y/YES/TRUE/1 -> true, N/NO/FALSE/0 -> false, else null."),
     "secondary_specialty_1": _entry("Secondary specialty 1", "Additional specialty reported to CMS.", "cms_pdc_clinician.sec_spec_1, loaded by extras --reload-pdc."),
@@ -424,7 +427,7 @@ GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "in_system_provider_count": _entry("In-system clinicians", "Members with a CMS hospital affiliation.", "SUM(pd_provider.in_system_provider = 1) over members, in pd_group_practice."),
     "visits_total": _entry("Visits", "Sum of member clinicians' visits in {window}. An encounter billed by two members counts twice.", "SUM(IFNULL(pd_provider.visits_total, 0)) over members, precomputed in pd_group_practice."),
     "panel_size": _entry("Panel size", "Sum of member clinicians' panel sizes. Patients seen by two members count twice.", "SUM(IFNULL(pd_provider.panel_size, 0)) over members, in pd_group_practice."),
-    "wrvu_total": _entry("Sum of members' RVU sums", "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review.", "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice."),
+    "wrvu_total": _entry("Work RVU total, members combined", "Sum of the member clinicians' work RVU totals.", "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice."),
     "visits_per_provider": _entry("Visits per clinician", "Group visits divided by number of member clinicians.", "pd_group_practice.visits_total / provider_count, 1 decimal."),
     "visits_percentile": _entry("Visits percentile", "Where this group's visit total ranks among all groups. 100 is the highest.", "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Ranked among all groups."),
     "activity_percentile": _entry("Activity percentile", "Where this group's visits per clinician ranks among all groups. 100 is the highest.", "pd_group_practice: same rank on visits_total / provider_count."),
@@ -436,8 +439,8 @@ GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "active_provider": _entry("Active", "At least one member was active in {window}.", "pd_group_practice.active_provider_count >= 1."),
     "group_size": _entry("Group size", "Largest CMS-reported group size among members.", "MAX(pd_provider.group_size) over members."),
     "telehealth_offered": _entry("Telehealth offered", "At least one member reports offering telehealth to CMS.", "MAX(pd_provider.telehealth_offered) over members."),
-    "wrvu_average": _entry("RVU per priced visit, members combined", "Sum of members' RVU sums divided by members' priced visits.", "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members."),
-    "wrvu_procedure_count": _entry("Priced visits, members combined", "Sum of member visits that contributed to an RVU sum.", "SUM(pd_provider.wrvu_procedure_count) over members."),
+    "wrvu_average": _entry("Average work RVU per procedure, members combined", "Members' work RVU total divided by members' priced procedures.", "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members."),
+    "wrvu_procedure_count": _entry("Priced procedures, members combined", "Sum of members' priced procedure lines.", "SUM(pd_provider.wrvu_procedure_count) over members."),
 }
 
 _GROUP_PCT_NOTE = " On the group page this is weighted across members by their visits."
@@ -508,8 +511,8 @@ PRACTICE: dict[str, dict[str, str]] = {
     "location_flag": _entry("Location status", "Confidence flag for the address. Always claims-confirmed today.", "Constant 'claims_confirmed' on pd_provider_practice."),
     "phone_source": _entry("Phone source", "Where the phone came from: CMS PDC, or blank.", "'pdc' when the cms_pdc_clinician match found a phone, else null."),
     "needs_geocode": _entry("Needs geocode", "The warehouse has no coordinates for this location.", "az.sl.latitude or longitude is null."),
-    "wrvu_at_site": _entry("RVU sum at site", "The clinician's one-procedure-per-visit RVU sum over visits at this site.", "SUM of visit-grain RVU over visits at the site (pd_stg_site_wrvu, Phase 4)."),
-    "wrvu_share_pct": _entry("Share of RVU sum at site", "This site's part of the clinician's RVU sum.", "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals."),
+    "wrvu_at_site": _entry("Work RVU at site", "The clinician's work RVU total over procedures billed at this site.", "SUM of line-level work RVU for lines at the site's locations (pd_stg_site_wrvu, Phase 4)."),
+    "wrvu_share_pct": _entry("Share of work RVU at site", "This site's part of the clinician's work RVU total.", "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals."),
     **_weekday_entries("the clinician's visits at this site", "pd_stg_site_dow: visits at the site by DAYOFWEEK of the visit date / visits at the site with a date x100 (Phase 5)."),
 }
 
@@ -562,8 +565,8 @@ UTILIZATION: dict[str, dict[str, str]] = {
 # Keys are (scope, field). Family rules below fill repeated patterns.
 # ---------------------------------------------------------------------------
 
-_RVU_SCALE = "Fee-schedule RVU, one procedure per visit, under review."
-_RVU_EXCL = "Visits whose procedure has no fee-schedule RVU are excluded."
+_RVU_SCALE = "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+_RVU_EXCL = "Lines with no work RVU, and Category II tracking codes, are left out."
 _DOUBLE = "An encounter billed by two members of the group counts twice."
 _VOLUME = "A volume rank."
 _WEIGHTED = "Weighted by each member's visits."
@@ -574,7 +577,7 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("provider", "panel_percent_female"): ["Unknown gender stays in the denominator, so female and male may not sum to 100."],
     ("provider", "panel_percent_male"): ["Unknown gender stays in the denominator, so female and male may not sum to 100."],
     ("provider", "wrvu_total"): [_RVU_SCALE, _RVU_EXCL],
-    ("provider", "wrvu_average"): [_RVU_SCALE, "The UI leads with the specialty median and percentile instead."],
+    ("provider", "wrvu_average"): [_RVU_SCALE, "An average per billed procedure, so a long office visit and a short one each count once."],
     ("provider", "wrvu_procedure_count"): [_RVU_EXCL],
     ("provider", "wrvu_prior_year_total"): [_RVU_SCALE, _RVU_EXCL],
     ("provider", "wrvu_prior_year_average"): [_RVU_SCALE],

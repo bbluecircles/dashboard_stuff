@@ -32,10 +32,12 @@ TABLES = (
     "pd_stg_top_primary_px",
     "pd_stg_visit_site",
     "pd_stg_npi_sl",
+    "pd_stg_npi_px_line",
     "pd_stg_npi_wrvu",
     "pd_stg_site_wrvu",
     "pd_stg_npi_payor",
     "pd_stg_visit_date",
+    "pd_stg_npi_px_line_prior",
     "pd_stg_npi_dow",
     "pd_stg_site_dow",
     "pd_stg_referral_edge",
@@ -70,6 +72,7 @@ PHASE3_STAGING_TABLES = (
 )
 
 PHASE4_STAGING_TABLES = (
+    "pd_stg_npi_px_line",
     "pd_stg_npi_wrvu",
     "pd_stg_site_wrvu",
     "pd_stg_npi_payor",
@@ -78,6 +81,7 @@ PHASE4_STAGING_TABLES = (
 PHASE5_STAGING_TABLES = (
     "pd_stg_npi_dow",
     "pd_stg_site_dow",
+    "pd_stg_npi_wrvu_prior",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
     "pd_stg_npi_visits_percentile",
@@ -86,7 +90,7 @@ PHASE5_STAGING_TABLES = (
 # Kept across phase5 runs (reuse_cached); rebuilt only with --no-reuse / --rebuild-edges.
 PHASE5_CACHED_STAGING_TABLES = (
     "pd_stg_visit_date",
-    "pd_stg_npi_wrvu_prior",
+    "pd_stg_npi_px_line_prior",
     "pd_stg_referral_edge",
 )
 
@@ -746,6 +750,23 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             needs_geocode TINYINT NOT NULL DEFAULT 0,
             PRIMARY KEY (npi, sl_code),
             KEY idx_cluster (npi, cluster_key)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_px_line (
+            npi BIGINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            line_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, sl_code, code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_px_line_prior (
+            npi BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            line_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, code)
         ) {table_options()}
         """,
         f"""

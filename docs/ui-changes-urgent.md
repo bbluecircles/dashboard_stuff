@@ -15,31 +15,6 @@ Reliable hospital-system groupings are not available across the board, so the UI
   - group dump filter `parent`: **Parent organization contains**
 - The Sites tab is unchanged: it lists addresses, not systems.
 
-## 2. Label every RVU figure as exactly what it computes
+## 2. RVU labels (superseded on the rework branch)
 
-Until the RVU calculation is reworked, no figure may be presented as "RVU" or "wRVU" on its own. Each label must say that it is a sum, over what, and at what grain. Use these strings verbatim.
-
-| JSON field | Label |
-| --- | --- |
-| `wrvu_total` | RVU sum (one procedure per visit) |
-| `wrvu_average` | RVU per priced visit |
-| `wrvu_procedure_count` | Priced visits |
-| `wrvu_prior_year_total` | Prior-year RVU sum |
-| `wrvu_prior_year_average` | Prior-year RVU per priced visit |
-| `wrvu_yoy_change_pct` | RVU sum change vs prior year |
-| `wrvu_state_specialty_median` | Specialty median of provider RVU sums |
-| `wrvu_state_specialty_p25` | Specialty 25th percentile of provider RVU sums |
-| `wrvu_state_specialty_p75` | Specialty 75th percentile of provider RVU sums |
-| `wrvu_state_specialty_average` | Specialty mean of provider RVU sums (do not show) |
-| `wrvu_specialty_percentile` | RVU sum percentile within specialty |
-| `activity_specialty_percentile` | Activity vs specialty peers (visits and RVU sum) |
-| practice `wrvu_at_site` | RVU sum at site |
-| practice `wrvu_share_pct` | Share of RVU sum at site |
-| group `wrvu_total` | Sum of members' RVU sums |
-| group `wrvu_average` | RVU per priced visit, members combined |
-
-Copy rule for all of this: say what the figure is and stop; never the "X, not Y" or "X; they are not Y" form anywhere in the UI. Replace every existing copy of the older caption that ended "; they are not a wRVU report". Add one caption under the RVU numbers on Overview, provider and group: **"RVU figures price one procedure per visit from the fee schedule and are under review."** The developer tooltip already explains the formula.
-
-## Not in this change
-
-Top 5 instead of top 3, the sites rename rules, payer classes 6 and 7, and the referral filtering are being reworked on a separate branch and need data rebuilds. Do not change those on the demo build.
+On `claude/pd-rework` the RVU calculation prices every billed procedure line with the physician work RVU, so the interim "sum" labels and the "under review" caption no longer apply there: bind every `wrvu_*` label and tooltip from the field-help catalog, which now reads "Work RVU total", "Average work RVU per procedure", "Priced procedures" and so on. The demo branch keeps the interim labels until it is merged.

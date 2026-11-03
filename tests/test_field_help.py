@@ -188,7 +188,7 @@ def test_rendered_dev_entries_carry_tables_and_markdown_marks_external():
                               claims_db="az_cms", lookup_db="azal")
     rvu = rendered["scopes"]["provider"]["wrvu_total"]
     names = [t["name"] for t in rvu["tables"]]
-    assert "azal.procd" in names and "pd_stg_visit" in names and "pd_stg_npi_wrvu" in names
+    assert "azal.procd" in names and "pd_stg_npi_px_line" in names and "pd_stg_npi_wrvu" in names
     gender = rendered["scopes"]["provider"]["gender"]
     ext = [t for t in gender["tables"] if t["external"]]
     assert {t["name"] for t in ext} == {"cms_pdc_clinician", "cms_nppes_type1"}
@@ -208,11 +208,11 @@ def test_lineage_pulls_upstream_tables_through_the_chain():
                               claims_db="az_cms", lookup_db="azal")
     grp = rendered["scopes"]["group"]["wrvu_total"]
     assert [r["ref"] for r in grp["derived_from"]] == ["provider.wrvu_total"]
-    assert grp["derived_from"][0]["label"] == "RVU sum (one procedure per visit)"
+    assert grp["derived_from"][0]["label"] == "Work RVU total"
     own = [t["name"] for t in grp["tables"] if not t["upstream"]]
     up = [t["name"] for t in grp["tables"] if t["upstream"]]
     assert own == ["pd_provider", "pd_group_practice"]
-    assert "azal.procd" in up and "pd_stg_visit" in up and "pd_stg_npi_wrvu" in up
+    assert "azal.procd" in up and "pd_stg_npi_px_line" in up and "pd_stg_npi_wrvu" in up
     assert "pd_provider" not in up
     act = rendered["scopes"]["provider"]["activity_specialty_percentile"]
     assert {r["ref"] for r in act["derived_from"]} == {"provider.visits_specialty_percentile", "provider.wrvu_specialty_percentile"}
@@ -257,7 +257,7 @@ def test_every_mart_table_declares_valid_built_from():
                 assert dep in TABLE_REGISTRY, (key, dep)
         else:
             assert "built_from" not in meta, key
-    assert table_closure("pd_stg_npi_wrvu") == ["pd_stg_npi_wrvu", "pd_stg_visit", "pd_stg_window_claim", "claims.pat_dt", "lookup.procd"]
+    assert table_closure("pd_stg_npi_wrvu") == ['pd_stg_npi_wrvu', 'pd_stg_npi_px_line', 'claims.pat_dt', 'pd_provider', 'lookup.procd']
     assert table_closure("pd_group_practice") == ["pd_group_practice"]
 
 
@@ -265,7 +265,7 @@ def test_field_upstream_reaches_the_warehouse():
     rendered = render_catalog(dev=True, window_start=202411, window_end=202510, claims_db="az_cms")
     grp = rendered["scopes"]["group"]["wrvu_total"]
     up = [t["name"] for t in grp["tables"] if t["upstream"]]
-    assert "az_cms.pat_dt" in up and "pd_stg_window_claim" in up and "azal.procd" in up
+    assert "az_cms.pat_dt" in up and "pd_stg_npi_px_line" in up and "azal.procd" in up
     assert "pd_provider" not in up
     gp = rendered["scopes"]["group_practice"]["organization_name"]
     names = [t["name"] for t in gp["tables"]]
@@ -285,7 +285,9 @@ def test_client_tier_never_says_hospital_system_or_bare_rvu():
                 assert word not in text, (scope, key, word)
     for scope, key in (("provider", "wrvu_total"), ("group", "wrvu_total"), ("practice", "wrvu_at_site"),
                        ("provider", "wrvu_state_specialty_median"), ("provider", "wrvu_state_specialty_p25")):
-        assert "sum" in plain[scope][key]["label"].lower(), (scope, key)
+        assert "work rvu" in plain[scope][key]["label"].lower(), (scope, key)
+    assert plain["provider"]["wrvu_average"]["label"] == "Average work RVU per procedure"
+    assert "under review" not in plain["provider"]["wrvu_total"]["help"].lower()
 
 
 def test_payer_class_labels_match_the_warehouse_codes():

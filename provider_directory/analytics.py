@@ -17,7 +17,7 @@ four percents. Top 3 payers are commercial parents only.
 
 from __future__ import annotations
 
-from provider_directory.activity import iter_period_codes
+from provider_directory.activity import CLAIM_ID_BUCKETS, iter_period_codes
 from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.db import quote_ident
 from provider_directory.group_summary import rebuild_group_summary
@@ -39,6 +39,8 @@ from provider_directory.settings import (
     payer_source_for_claims_db,
 )
 from provider_directory.transforms import (
+    is_category_ii_sql,
+    strict_work_rvu_sql,
     EMPTY_NAME_SQL_LIST,
     work_type_case_sql,
     MIN_PLAUSIBLE_TOTAL_RVU,
@@ -78,35 +80,201 @@ def is_hcpcs_sql(expr: str) -> str:
 
 
 def work_rvu_sql(alias: str = "pr") -> str:
-    """Plausible physician work RVU. See physician_work_rvu() for the same rules."""
-    a = alias
-    min_w = MIN_PLAUSIBLE_WORK_RVU
-    min_t = MIN_PLAUSIBLE_TOTAL_RVU
+    """Strict physician work RVU (transforms.strict_work_rvu_sql). Kept under the
+    old name for callers; the nf_total_rvu and WORK_RVU > 0 fallbacks are gone."""
+    return strict_work_rvu_sql(alias)
+
+
+def priced_line_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:
+    """Lines that count toward work RVU: 5-character CPT/HCPCS, not Category II,
+    with a strict work RVU."""
+    return (
+        f"{is_hcpcs_sql(code_expr)} AND NOT {is_category_ii_sql(code_expr)} "
+        f"AND {strict_work_rvu_sql(procd_alias)} IS NOT NULL"
+    )
+
+
+def line_scan_sql(mart: str, claims: str) -> str:
+    """One month x pat_id bucket of claim lines into pd_stg_npi_px_line, credited to
+    the line's own rendering NPI and location. The priced code is work_procd_code,
+    else procd_code. Two %s params: period_code, bucket."""
+    code = "COALESCE(NULLIF(TRIM(t.work_procd_code), ''), NULLIF(TRIM(t.procd_code), ''))"
     return f"""
-        COALESCE(
-            CASE WHEN {a}.WORK_RVU >= {min_w} THEN {a}.WORK_RVU END,
-            CASE
-                WHEN {a}.NON_FACILITY_TOTAL IS NOT NULL
-                 AND {a}.NON_FAC_PE_RVU IS NOT NULL
-                 AND {a}.MP_RVU IS NOT NULL
-                 AND ({a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU) >= {min_w}
-                THEN {a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU
-            END,
-            CASE
-                WHEN {a}.FACILITY_TOTAL IS NOT NULL
-                 AND {a}.FACILITY_PE_RVU IS NOT NULL
-                 AND {a}.MP_RVU IS NOT NULL
-                 AND ({a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU) >= {min_w}
-                THEN {a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU
-            END,
-            CASE
-                WHEN {a}.nf_total_rvu >= {min_t}
-                 AND ({a}.WORK_RVU IS NULL OR {a}.WORK_RVU < {min_w})
-                THEN {a}.nf_total_rvu
-            END,
-            CASE WHEN {a}.WORK_RVU > 0 THEN {a}.WORK_RVU END
-        )
+        INSERT INTO {mart}.pd_stg_npi_px_line (npi, sl_code, code, line_count)
+        SELECT
+            t.rendering_physician_code,
+            IFNULL(t.sl_code, 0),
+            {code},
+            COUNT(*)
+        FROM {claims}.pat_dt t
+        INNER JOIN {mart}.pd_provider p ON p.npi = t.rendering_physician_code
+        WHERE t.period_code = %s
+          AND MOD(IFNULL(t.pat_id, 0), {CLAIM_ID_BUCKETS}) = %s
+          AND {code} IS NOT NULL
+          AND CHAR_LENGTH({code}) = 5
+        GROUP BY t.rendering_physician_code, IFNULL(t.sl_code, 0), {code}
+        ON DUPLICATE KEY UPDATE
+            line_count = {mart}.pd_stg_npi_px_line.line_count + VALUES(line_count)
     """
+
+
+def _rebuild_rvu(
+    cur,
+    conn,
+    mart: str,
+    claims: str,
+    lookup: str,
+    window_start: int,
+    window_end: int,
+    counts: dict[str, int],
+    *,
+    has_practice: bool,
+    has_npi_sl: bool,
+) -> None:
+    """Work RVU from every billed procedure line: scan pat_dt into
+    pd_stg_npi_px_line, price each line with the strict rule (Category II codes
+    excluded), sum per NPI and per NPI x location, overlay pd_provider and the
+    practice sites. wrvu_average is the average work RVU per priced procedure."""
+    for bucket in range(PROVIDER_BUCKETS):
+        _run(
+            cur,
+            conn,
+            f"""
+            UPDATE {mart}.pd_provider
+            SET wrvu_total = NULL, wrvu_average = NULL, wrvu_procedure_count = NULL
+            WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
+            """,
+        )
+    if has_practice:
+        for bucket in range(PROVIDER_BUCKETS):
+            _run(
+                cur,
+                conn,
+                f"""
+                UPDATE {mart}.pd_provider_practice
+                SET wrvu_at_site = NULL, wrvu_share_pct = NULL
+                WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
+                """,
+            )
+    for table in ("pd_stg_npi_px_line", "pd_stg_npi_wrvu", "pd_stg_site_wrvu"):
+        _run(cur, conn, f"TRUNCATE TABLE {mart}.{table}")
+
+    scan = line_scan_sql(mart, claims)
+    for period in iter_period_codes(window_start, window_end):
+        for bucket in range(CLAIM_ID_BUCKETS):
+            n = _run(cur, conn, scan, (period, bucket))
+            counts["rvu_line_rows"] += n
+            print(f"phase4 rvu lines {period} bucket {bucket}: {n} rows", flush=True)
+
+    wrvu_expr = strict_work_rvu_sql("pr")
+    priced = priced_line_filter_sql("l.code", "pr")
+    wrvu_sql = f"""
+        INSERT INTO {mart}.pd_stg_npi_wrvu (npi, total_wrvu, procedure_count)
+        SELECT
+            l.npi,
+            ROUND(SUM(l.line_count * {wrvu_expr}), 2),
+            SUM(l.line_count)
+        FROM {mart}.pd_stg_npi_px_line l
+        INNER JOIN {lookup}.procd pr
+            ON pr.procd_code = l.code COLLATE {MART_COLLATION}
+        WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
+          AND {priced}
+        GROUP BY l.npi
+    """
+    for bucket in range(PROVIDER_BUCKETS):
+        n = _run(cur, conn, wrvu_sql, (bucket,))
+        counts["wrvu_npi"] += n
+        print(f"phase4 wrvu npi bucket {bucket}: {n} rows", flush=True)
+
+    overlay_wrvu_sql = f"""
+        UPDATE {mart}.pd_provider p
+        INNER JOIN {mart}.pd_stg_npi_wrvu w ON w.npi = p.npi
+        SET
+            p.wrvu_total = w.total_wrvu,
+            p.wrvu_procedure_count = w.procedure_count,
+            p.wrvu_average = ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3),
+            p.refreshed_at = NOW()
+        WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
+    """
+    for bucket in range(PROVIDER_BUCKETS):
+        n = _run(cur, conn, overlay_wrvu_sql, (bucket,))
+        counts["providers_wrvu"] += n
+        print(f"phase4 wrvu overlay bucket {bucket}: {n} rows", flush=True)
+
+    site_wrvu_sql = f"""
+        INSERT INTO {mart}.pd_stg_site_wrvu (npi, sl_code, total_wrvu, procedure_count)
+        SELECT
+            l.npi,
+            l.sl_code,
+            SUM(l.line_count * {wrvu_expr}),
+            SUM(l.line_count)
+        FROM {mart}.pd_stg_npi_px_line l
+        INNER JOIN {lookup}.procd pr
+            ON pr.procd_code = l.code COLLATE {MART_COLLATION}
+        WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
+          AND l.sl_code <> 0
+          AND {priced}
+        GROUP BY l.npi, l.sl_code
+    """
+    for bucket in range(PROVIDER_BUCKETS):
+        n = _run(cur, conn, site_wrvu_sql, (bucket,))
+        counts["site_wrvu_rows"] += n
+        print(f"phase4 site wrvu bucket {bucket}: {n} rows", flush=True)
+
+    if has_practice and has_npi_sl:
+        practice_wrvu_sql = f"""
+            UPDATE {mart}.pd_provider_practice pr
+            INNER JOIN (
+                SELECT
+                    s.npi,
+                    sl.cluster_key,
+                    ROUND(SUM(s.total_wrvu), 2) AS wrvu
+                FROM {mart}.pd_stg_site_wrvu s
+                INNER JOIN {mart}.pd_stg_npi_sl sl
+                    ON sl.npi = s.npi AND sl.sl_code = s.sl_code
+                WHERE MOD(s.npi, {PROVIDER_BUCKETS}) = %s
+                GROUP BY s.npi, sl.cluster_key
+            ) x ON x.npi = pr.npi AND x.cluster_key = pr.cluster_key
+            INNER JOIN {mart}.pd_provider p ON p.npi = pr.npi
+            SET
+                pr.wrvu_at_site = x.wrvu,
+                pr.wrvu_share_pct = ROUND(100.0 * x.wrvu / NULLIF(p.wrvu_total, 0), 2)
+            WHERE MOD(pr.npi, {PROVIDER_BUCKETS}) = %s
+        """
+        for bucket in range(PROVIDER_BUCKETS):
+            n = _run(cur, conn, practice_wrvu_sql, (bucket, bucket))
+            counts["practices_wrvu"] += n
+            print(f"phase4 practice wrvu bucket {bucket}: {n} rows", flush=True)
+
+
+def rebuild_rvu_only(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    lookup_db: str = LOOKUP_DB,
+    window_start: int = WINDOW_START,
+    window_end: int = WINDOW_END,
+) -> dict:
+    """phase4 --rvu-only: the work RVU scan and overlays alone (one 12-month pat_dt
+    line scan); payers, organizations and lists are untouched."""
+    if not table_has_rows(conn, mart_db, "pd_stg_visit"):
+        raise Phase2Required("pd_stg_visit is empty. Run phase2 first.")
+    create_schema(conn, mart_db)
+    mart = quote_ident(mart_db)
+    claims = quote_ident(claims_db)
+    lookup = quote_ident(lookup_db)
+    counts: dict[str, int] = {"rvu_line_rows": 0, "wrvu_npi": 0, "providers_wrvu": 0, "site_wrvu_rows": 0, "practices_wrvu": 0}
+    with conn.cursor() as cur:
+        _session_timeouts(cur)
+        conn.commit()
+        _rebuild_rvu(
+            cur, conn, mart, claims, lookup, window_start, window_end, counts,
+            has_practice=table_has_rows(conn, mart_db, "pd_provider_practice"),
+            has_npi_sl=table_has_rows(conn, mart_db, "pd_stg_npi_sl"),
+        )
+    group_summary = rebuild_group_summary(conn, mart_db)
+    return {"rvu_only": True, "window_start": window_start, "window_end": window_end, **counts, "group_summary": group_summary}
 
 
 def _payer_null_sql() -> str:
@@ -278,6 +446,7 @@ def rebuild_analytics(
     has_npi_sl = table_has_rows(conn, mart_db, "pd_stg_npi_sl")
     has_practice = table_has_rows(conn, mart_db, "pd_provider_practice")
     counts: dict[str, int] = {
+        "rvu_line_rows": 0,
         "wrvu_npi": 0,
         "site_wrvu_rows": 0,
         "payor_rows": 0,
@@ -313,105 +482,10 @@ def rebuild_analytics(
                 WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
                 """,
             )
-        if has_practice:
-            for bucket in range(PROVIDER_BUCKETS):
-                _run(
-                    cur,
-                    conn,
-                    f"""
-                    UPDATE {mart}.pd_provider_practice
-                    SET wrvu_at_site = NULL, wrvu_share_pct = NULL
-                    WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
-                    """,
-                )
-
-        wrvu_expr = work_rvu_sql("pr")
-        wrvu_sql = f"""
-            INSERT INTO {mart}.pd_stg_npi_wrvu (npi, total_wrvu, procedure_count)
-            SELECT
-                v.rendering_npi,
-                ROUND(SUM({wrvu_expr}), 2),
-                COUNT(*)
-            FROM {mart}.pd_stg_visit v
-            INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
-            INNER JOIN {lookup}.procd pr
-                ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
-            WHERE MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
-              AND v.px IS NOT NULL AND v.px <> ''
-              AND {is_hcpcs_sql("v.px")}
-              AND {wrvu_expr} IS NOT NULL
-            GROUP BY v.rendering_npi
-        """
-        for bucket in range(PROVIDER_BUCKETS):
-            n = _run(cur, conn, wrvu_sql, (bucket,))
-            counts["wrvu_npi"] += n
-            print(f"phase4 wrvu npi bucket {bucket}: {n} rows", flush=True)
-
-        overlay_wrvu_sql = f"""
-            UPDATE {mart}.pd_provider p
-            INNER JOIN {mart}.pd_stg_npi_wrvu w ON w.npi = p.npi
-            SET
-                p.wrvu_total = w.total_wrvu,
-                p.wrvu_procedure_count = w.procedure_count,
-                p.wrvu_average = ROUND(w.total_wrvu / w.procedure_count, 3),
-                p.refreshed_at = NOW()
-            WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
-        """
-        for bucket in range(PROVIDER_BUCKETS):
-            n = _run(cur, conn, overlay_wrvu_sql, (bucket,))
-            counts["providers_wrvu"] += n
-            print(f"phase4 wrvu overlay bucket {bucket}: {n} rows", flush=True)
-
-        if has_visit_site:
-            site_wrvu_sql = f"""
-                INSERT INTO {mart}.pd_stg_site_wrvu (npi, sl_code, total_wrvu, procedure_count)
-                SELECT
-                    vs.rendering_npi,
-                    vs.sl_code,
-                    SUM({wrvu_expr}),
-                    COUNT(*)
-                FROM {mart}.pd_stg_visit_site vs
-                INNER JOIN {mart}.pd_stg_visit v ON v.encounter_id = vs.encounter_id
-                INNER JOIN {lookup}.procd pr
-                    ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
-                WHERE MOD(ABS(vs.encounter_id), {VISIT_BUCKETS}) = %s
-                  AND v.px IS NOT NULL AND v.px <> ''
-                  AND {is_hcpcs_sql("v.px")}
-                  AND {wrvu_expr} IS NOT NULL
-                GROUP BY vs.rendering_npi, vs.sl_code
-                ON DUPLICATE KEY UPDATE
-                    total_wrvu = {mart}.pd_stg_site_wrvu.total_wrvu + VALUES(total_wrvu),
-                    procedure_count = {mart}.pd_stg_site_wrvu.procedure_count + VALUES(procedure_count)
-            """
-            for bucket in range(VISIT_BUCKETS):
-                n = _run(cur, conn, site_wrvu_sql, (bucket,))
-                counts["site_wrvu_rows"] += n
-                print(f"phase4 site wrvu bucket {bucket}: {n} rows", flush=True)
-
-        if has_practice and has_npi_sl:
-            practice_wrvu_sql = f"""
-                UPDATE {mart}.pd_provider_practice pr
-                INNER JOIN (
-                    SELECT
-                        s.npi,
-                        sl.cluster_key,
-                        ROUND(SUM(s.total_wrvu), 2) AS wrvu
-                    FROM {mart}.pd_stg_site_wrvu s
-                    INNER JOIN {mart}.pd_stg_npi_sl sl
-                        ON sl.npi = s.npi AND sl.sl_code = s.sl_code
-                    WHERE MOD(s.npi, {PROVIDER_BUCKETS}) = %s
-                    GROUP BY s.npi, sl.cluster_key
-                ) x ON x.npi = pr.npi AND x.cluster_key = pr.cluster_key
-                INNER JOIN {mart}.pd_provider p ON p.npi = pr.npi
-                SET
-                    pr.wrvu_at_site = x.wrvu,
-                    pr.wrvu_share_pct = ROUND(100.0 * x.wrvu / NULLIF(p.wrvu_total, 0), 2)
-                WHERE MOD(pr.npi, {PROVIDER_BUCKETS}) = %s
-            """
-            for bucket in range(PROVIDER_BUCKETS):
-                n = _run(cur, conn, practice_wrvu_sql, (bucket, bucket))
-                counts["practices_wrvu"] += n
-                print(f"phase4 practice wrvu bucket {bucket}: {n} rows", flush=True)
+        _rebuild_rvu(
+            cur, conn, mart, claims, lookup, window_start, window_end, counts,
+            has_practice=has_practice, has_npi_sl=has_npi_sl,
+        )
 
         payor_sql = f"""
             INSERT INTO {mart}.pd_stg_npi_payor (

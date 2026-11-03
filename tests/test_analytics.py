@@ -71,8 +71,10 @@ def test_work_rvu_prefers_plausible_pfs_columns():
         non_fac_pe_rvu=3.0,
         mp_rvu=0.5,
     ) == 1.5
-    assert physician_work_rvu(work_rvu=0.001, nf_total_rvu=4.6) == 4.6
-    assert physician_work_rvu(work_rvu=0.03) == 0.03
+    # strict: practice-expense totals and tiny placeholder work values never price a line
+    assert physician_work_rvu(work_rvu=0.001, nf_total_rvu=4.6) is None
+    assert physician_work_rvu(work_rvu=0.03) is None
+    assert physician_work_rvu(work_rvu=0.001, facility_total=3.0, facility_pe_rvu=1.0, mp_rvu=0.2) == 1.8
     assert looks_like_person_name("ROBETORYE, RYAN") is True
     assert looks_like_person_name("MAYO CLINIC HOSPITAL") is False
 
@@ -82,8 +84,9 @@ def test_phase4_sql_stays_on_mart_and_dash():
     assert "dash_physician_payor_all" in source
     assert "physician_primary_affiliation" in source
     assert "rebuild_org_lists" in source
-    assert "WORK_RVU" in source
-    assert "NON_FACILITY_TOTAL" in source
+    assert "strict_work_rvu_sql" in source
+    assert "NON_FACILITY_TOTAL" in work_rvu_sql("pr")
+    assert "nf_total_rvu" not in work_rvu_sql("pr")
     assert "ROUND(SUM(pr.WORK_RVU)" not in source
     assert "FROM az.pat_dt" not in source
     assert "pd_stg_visit" in source
@@ -212,3 +215,35 @@ def test_phase4_name_polish_rewrites_blank_unknown_and_person_names_for_any_npi_
     assert "pr.name IS NULL" in source
     assert "IFNULL(pr.npi_type, '') = '1'" not in source
     assert "provider_facility_npi" not in source
+
+
+def test_rvu_prices_every_line_and_rvu_only_flag():
+    import inspect
+
+    from provider_directory.analytics import _rebuild_rvu, line_scan_sql, priced_line_filter_sql, rebuild_rvu_only
+    from provider_directory.complete import _fill_prior_wrvu, prior_line_scan_sql
+    from provider_directory.pipeline import run_phase4
+    from provider_directory.schema import PHASE4_STAGING_TABLES, PHASE5_CACHED_STAGING_TABLES, PHASE5_STAGING_TABLES, ddl_statements
+
+    scan = line_scan_sql("`az_pd`", "`az_cms`")
+    assert "INSERT INTO `az_pd`.pd_stg_npi_px_line" in scan
+    assert "COALESCE(NULLIF(TRIM(t.work_procd_code), ''), NULLIF(TRIM(t.procd_code), ''))" in scan
+    assert "t.rendering_physician_code" in scan and "IFNULL(t.sl_code, 0)" in scan
+    assert "MOD(IFNULL(t.pat_id, 0), 4) = %s" in scan
+    assert "encounter_work_procd_code" not in scan
+    priced = priced_line_filter_sql("l.code", "pr")
+    assert "REGEXP '^[0-9]{4}F$'" in priced and "CHAR_LENGTH(TRIM(l.code)) = 5" in priced
+    body = inspect.getsource(_rebuild_rvu)
+    assert "SUM(l.line_count * {wrvu_expr})" in body and "SUM(l.line_count)" in body
+    assert "pd_stg_visit v" not in body
+    assert "ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3)" in body
+    prior = prior_line_scan_sql("`az_pd`", "`az_cms`")
+    assert "pd_stg_npi_px_line_prior" in prior and "work_procd_code" in prior
+    assert "prior rvu lines reused" in inspect.getsource(_fill_prior_wrvu)
+    assert "pd_stg_npi_px_line" in PHASE4_STAGING_TABLES
+    assert "pd_stg_npi_px_line_prior" in PHASE5_CACHED_STAGING_TABLES
+    assert "pd_stg_npi_wrvu_prior" in PHASE5_STAGING_TABLES and "pd_stg_npi_wrvu_prior" not in PHASE5_CACHED_STAGING_TABLES
+    assert "pd_stg_npi_px_line_prior" in "\n".join(ddl_statements("az_pd"))
+    assert "rvu_only" in inspect.getsource(run_phase4)
+    assert "pd_stg_npi_payor" not in inspect.getsource(rebuild_rvu_only)
+    assert build_parser().parse_args(["phase4", "--rvu-only"]).rvu_only is True

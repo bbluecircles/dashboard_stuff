@@ -651,13 +651,10 @@ def physician_work_rvu(
     facility_pe_rvu: Any = None,
     nf_total_rvu: Any = None,
 ) -> float | None:
-    """Physician work RVU from azal.procd PFS columns.
-
-    azal.procd.WORK_RVU is trustworthy on many ICD-10-PCS rows and wrong or
-    near-zero on some CPT/HCPCS rows (Sean Smith 93306/99204 summed to 0.01).
-    Prefer a plausible WORK_RVU; else reconstruct work as total − PE − MP;
-    else nf_total_rvu (includes practice expense — last resort).
-    """
+    """Strict physician work RVU from azal.procd PFS columns (Python twin of
+    strict_work_rvu_sql). WORK_RVU when plausible (>= 0.05, so 0.001 placeholders
+    fall through); else total minus practice expense minus malpractice, non-facility
+    then facility. Never nf_total_rvu, which includes practice expense."""
 
     def as_float(value: Any) -> float | None:
         if value is None or value == "":
@@ -670,26 +667,13 @@ def physician_work_rvu(
     work = as_float(work_rvu)
     if work is not None and work >= MIN_PLAUSIBLE_WORK_RVU:
         return work
-    nf_total = as_float(non_facility_total)
-    nf_pe = as_float(non_fac_pe_rvu)
     mp = as_float(mp_rvu)
-    if nf_total is not None and nf_pe is not None and mp is not None:
-        reconstructed = nf_total - nf_pe - mp
-        if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
-            return reconstructed
-    fac_total = as_float(facility_total)
-    fac_pe = as_float(facility_pe_rvu)
-    if fac_total is not None and fac_pe is not None and mp is not None:
-        reconstructed = fac_total - fac_pe - mp
-        if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
-            return reconstructed
-    nf = as_float(nf_total_rvu)
-    if nf is not None and nf >= MIN_PLAUSIBLE_TOTAL_RVU and (
-        work is None or work < MIN_PLAUSIBLE_WORK_RVU
-    ):
-        return nf
-    if work is not None and work > 0:
-        return work
+    for total, pe in ((as_float(non_facility_total), as_float(non_fac_pe_rvu)),
+                      (as_float(facility_total), as_float(facility_pe_rvu))):
+        if total is not None and pe is not None and mp is not None:
+            reconstructed = total - pe - mp
+            if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
+                return reconstructed
     return None
 
 

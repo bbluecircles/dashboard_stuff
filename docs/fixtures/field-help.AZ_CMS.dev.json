@@ -5884,11 +5884,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -5930,15 +5972,24 @@
         ]
       },
       "wrvu_total": {
-        "label": "RVU sum (one procedure per visit)",
-        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review.",
-        "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM, 2).",
+        "label": "Work RVU total",
+        "help": "Physician work RVU summed over every procedure the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule.",
+        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM(line_count x work RVU), 2).",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review.",
-          "Visits whose procedure has no fee-schedule RVU are excluded."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Lines with no work RVU, and Category II tracking codes, are left out."
         ],
         "derived_from": [],
         "tables": [
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": false
+          },
           {
             "key": "lookup.procd",
             "name": "azal.procd",
@@ -5949,14 +6000,15 @@
             "upstream": false
           },
           {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_window_claim"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": false
           },
@@ -5966,59 +6018,77 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": false
           },
           {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
+            "key": "pd_provider",
+            "name": "pd_provider",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
             "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
-            "upstream": true
-          },
-          {
-            "key": "claims.pat_dt",
-            "name": "az_cms.pat_dt",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
             "upstream": true
           }
         ]
       },
       "wrvu_average": {
-        "label": "RVU per priced visit",
-        "help": "The RVU sum divided by the number of visits that had a priced procedure.",
-        "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). wrvu_total / wrvu_procedure_count, 3 decimals. The UI leads with median and percentile instead.",
+        "label": "Average work RVU per procedure",
+        "help": "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries.",
+        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). wrvu_total / wrvu_procedure_count, 3 decimals.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review.",
-          "The UI leads with the specialty median and percentile instead."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "An average per billed procedure, so a long office visit and a short one each count once."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           },
           {
             "ref": "provider.wrvu_procedure_count",
             "scope": "provider",
             "field": "wrvu_procedure_count",
-            "label": "Priced visits"
+            "label": "Priced procedures"
           }
         ],
         "tables": [
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": false
+          },
           {
             "key": "lookup.procd",
             "name": "azal.procd",
@@ -6029,14 +6099,15 @@
             "upstream": false
           },
           {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_window_claim"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": false
           },
@@ -6046,45 +6117,63 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": false
           },
           {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
+            "key": "pd_provider",
+            "name": "pd_provider",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
             "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
-            "upstream": true
-          },
-          {
-            "key": "claims.pat_dt",
-            "name": "az_cms.pat_dt",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
             "upstream": true
           }
         ]
       },
       "wrvu_procedure_count": {
-        "label": "Priced visits",
-        "help": "Visits whose one procedure had a fee-schedule RVU and so contributed to the RVU sum.",
-        "dev": "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4). COUNT(*) of contributing visits.",
+        "label": "Priced procedures",
+        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that had a work RVU and so count toward the total.",
+        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). SUM(line_count) of priced lines.",
         "caveats": [
-          "Visits whose procedure has no fee-schedule RVU are excluded."
+          "Lines with no work RVU, and Category II tracking codes, are left out."
         ],
         "derived_from": [],
         "tables": [
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": false
+          },
           {
             "key": "lookup.procd",
             "name": "azal.procd",
@@ -6095,14 +6184,15 @@
             "upstream": false
           },
           {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_window_claim"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": false
           },
@@ -6112,32 +6202,41 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": false
           },
           {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
+            "key": "pd_provider",
+            "name": "pd_provider",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
             "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
-            "upstream": true
-          },
-          {
-            "key": "claims.pat_dt",
-            "name": "az_cms.pat_dt",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
             "upstream": true
           }
         ]
@@ -7547,12 +7646,12 @@
         ]
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU sum",
-        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024.",
-        "dev": "Same RVU formula over az.pat_dt for Nov 2023 to Oct 2024, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5).",
+        "label": "Prior-year work RVU total",
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024.",
+        "dev": "Same line-level rule over az.pat_dt for Nov 2023 to Oct 2024: lines cached in pd_stg_npi_px_line_prior, priced on azal.procd into pd_stg_npi_wrvu_prior each run (Phase 5).",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review.",
-          "Visits whose procedure has no fee-schedule RVU are excluded."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Lines with no work RVU, and Category II tracking codes, are left out."
         ],
         "derived_from": [],
         "tables": [
@@ -7575,39 +7674,82 @@
             "upstream": false
           },
           {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_npi_wrvu_prior",
             "name": "pd_stg_npi_wrvu_prior",
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
           }
         ]
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per priced visit",
-        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024.",
+        "label": "Prior-year average work RVU per procedure",
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024.",
         "dev": "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_prior_year_total",
             "scope": "provider",
             "field": "wrvu_prior_year_total",
-            "label": "Prior-year RVU sum"
+            "label": "Prior-year work RVU total"
           },
           {
             "ref": "provider.wrvu_prior_year_procedure_count",
             "scope": "provider",
             "field": "wrvu_prior_year_procedure_count",
-            "label": "Prior-year priced visits"
+            "label": "Prior-year priced procedures"
           }
         ],
         "tables": [
@@ -7617,12 +7759,25 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -7631,6 +7786,36 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
             "upstream": true
           },
           {
@@ -7645,9 +7830,9 @@
         ]
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year priced visits",
-        "help": "Visits that contributed to the prior-year RVU sum.",
-        "dev": "pd_stg_npi_wrvu_prior.procedure_count: contributing visits in Nov 2023 to Oct 2024.",
+        "label": "Prior-year priced procedures",
+        "help": "Billed procedure lines that count toward the prior-year total.",
+        "dev": "pd_stg_npi_wrvu_prior.procedure_count: priced lines in Nov 2023 to Oct 2024.",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -7657,12 +7842,25 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -7671,6 +7869,36 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
             "upstream": true
           },
           {
@@ -7685,8 +7913,8 @@
         ]
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU sum change vs prior year",
-        "help": "Percent change of the RVU sum against the prior-year RVU sum.",
+        "label": "Work RVU change vs prior year",
+        "help": "Percent change of the work RVU total against the prior-year total.",
         "dev": "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql.",
         "caveats": [
           "Null when the prior-year total is under 1.0; clamped to plus or minus 9999.99."
@@ -7696,13 +7924,13 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           },
           {
             "ref": "provider.wrvu_prior_year_total",
             "scope": "provider",
             "field": "wrvu_prior_year_total",
-            "label": "Prior-year RVU sum"
+            "label": "Prior-year work RVU total"
           }
         ],
         "tables": [
@@ -7742,12 +7970,25 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -7768,26 +8009,15 @@
             "upstream": true
           },
           {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -7797,9 +8027,9 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -7807,19 +8037,19 @@
         ]
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty mean of provider RVU sums",
-        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it.",
+        "label": "Specialty mean work RVU total",
+        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it.",
         "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
         "caveats": [
           "Skewed by a few very high totals; the median is the better centre.",
-          "Fee-schedule RVU, one procedure per visit, under review."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -7866,39 +8096,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -7908,14 +8105,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -7923,11 +8142,11 @@
         ]
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums.",
+        "label": "Specialty median work RVU total",
+        "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review.",
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
           "Peers are same-specialty clinicians with a positive RVU total."
         ],
         "derived_from": [
@@ -7935,7 +8154,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -7982,39 +8201,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -8024,14 +8210,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -8039,18 +8247,18 @@
         ]
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 25th percentile of the specialty.",
+        "label": "Specialty 25th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 25th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -8097,39 +8305,6 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -8139,14 +8314,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -8154,18 +8351,18 @@
         ]
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 75th percentile of the specialty.",
+        "label": "Specialty 75th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 75th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -8212,39 +8409,6 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -8254,14 +8418,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -8269,8 +8455,8 @@
         ]
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with an RVU sum",
-        "help": "Number of clinicians in the specialty with a positive RVU sum.",
+        "label": "Providers in specialty with work RVU",
+        "help": "Number of clinicians in the specialty with a positive work RVU total.",
         "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -8278,7 +8464,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -8325,39 +8511,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -8367,14 +8520,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -8382,8 +8557,8 @@
         ]
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU sum percentile within specialty",
-        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.",
+        "label": "Work RVU percentile within specialty",
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest.",
         "dev": "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total.",
         "caveats": [
           "A volume rank.",
@@ -8394,7 +8569,7 @@
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -8441,39 +8616,6 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -8483,14 +8625,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -8631,8 +8795,8 @@
         ]
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank.",
+        "label": "Activity vs specialty peers (visits and work RVU)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank.",
         "dev": "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists.",
         "caveats": [
           "A volume rank.",
@@ -8649,7 +8813,7 @@
             "ref": "provider.wrvu_specialty_percentile",
             "scope": "provider",
             "field": "wrvu_specialty_percentile",
-            "label": "RVU sum percentile within specialty"
+            "label": "Work RVU percentile within specialty"
           }
         ],
         "tables": [
@@ -8750,14 +8914,27 @@
             "upstream": true
           },
           {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -9811,11 +9988,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -10261,11 +10480,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -10414,11 +10675,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -10567,11 +10870,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -17379,11 +17724,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -17425,20 +17812,20 @@
         ]
       },
       "wrvu_total": {
-        "label": "Sum of members' RVU sums",
-        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review.",
+        "label": "Work RVU total, members combined",
+        "help": "Sum of the member clinicians' work RVU totals.",
         "dev": "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice.",
         "caveats": [
           "An encounter billed by two members of the group counts twice.",
-          "Fee-schedule RVU, one procedure per visit, under review.",
-          "Visits whose procedure has no fee-schedule RVU are excluded."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Lines with no work RVU, and Category II tracking codes, are left out."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -17485,39 +17872,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -17527,14 +17881,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -17542,18 +17918,18 @@
         ]
       },
       "wrvu_average": {
-        "label": "RVU per priced visit, members combined",
-        "help": "Sum of members' RVU sums divided by members' priced visits.",
+        "label": "Average work RVU per procedure, members combined",
+        "help": "Members' work RVU total divided by members' priced procedures.",
         "dev": "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_average",
             "scope": "provider",
             "field": "wrvu_average",
-            "label": "RVU per priced visit"
+            "label": "Average work RVU per procedure"
           }
         ],
         "tables": [
@@ -17588,39 +17964,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -17630,14 +17973,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -17645,8 +18010,8 @@
         ]
       },
       "wrvu_procedure_count": {
-        "label": "Priced visits, members combined",
-        "help": "Sum of member visits that contributed to an RVU sum.",
+        "label": "Priced procedures, members combined",
+        "help": "Sum of members' priced procedure lines.",
         "dev": "SUM(pd_provider.wrvu_procedure_count) over members.",
         "caveats": [],
         "derived_from": [
@@ -17654,7 +18019,7 @@
             "ref": "provider.wrvu_procedure_count",
             "scope": "provider",
             "field": "wrvu_procedure_count",
-            "label": "Priced visits"
+            "label": "Priced procedures"
           }
         ],
         "tables": [
@@ -17689,39 +18054,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -17731,14 +18063,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -19341,16 +19695,16 @@
         ]
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU sum",
-        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024.",
-        "dev": "Same RVU formula over az.pat_dt for Nov 2023 to Oct 2024, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5).",
+        "label": "Prior-year work RVU total",
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024.",
+        "dev": "Same line-level rule over az.pat_dt for Nov 2023 to Oct 2024: lines cached in pd_stg_npi_px_line_prior, priced on azal.procd into pd_stg_npi_wrvu_prior each run (Phase 5).",
         "caveats": [],
         "derived_from": [
           {
             "ref": "provider.wrvu_prior_year_total",
             "scope": "provider",
             "field": "wrvu_prior_year_total",
-            "label": "Prior-year RVU sum"
+            "label": "Prior-year work RVU total"
           }
         ],
         "tables": [
@@ -19373,23 +19727,66 @@
             "upstream": false
           },
           {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_npi_wrvu_prior",
             "name": "pd_stg_npi_wrvu_prior",
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
           }
         ]
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per priced visit",
-        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024.",
+        "label": "Prior-year average work RVU per procedure",
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024.",
         "dev": "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals.",
         "caveats": [],
         "derived_from": [
@@ -19397,7 +19794,7 @@
             "ref": "provider.wrvu_prior_year_average",
             "scope": "provider",
             "field": "wrvu_prior_year_average",
-            "label": "Prior-year RVU per priced visit"
+            "label": "Prior-year average work RVU per procedure"
           }
         ],
         "tables": [
@@ -19407,12 +19804,25 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -19421,6 +19831,36 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
             "upstream": true
           },
           {
@@ -19435,16 +19875,16 @@
         ]
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year priced visits",
-        "help": "Visits that contributed to the prior-year RVU sum.",
-        "dev": "pd_stg_npi_wrvu_prior.procedure_count: contributing visits in Nov 2023 to Oct 2024.",
+        "label": "Prior-year priced procedures",
+        "help": "Billed procedure lines that count toward the prior-year total.",
+        "dev": "pd_stg_npi_wrvu_prior.procedure_count: priced lines in Nov 2023 to Oct 2024.",
         "caveats": [],
         "derived_from": [
           {
             "ref": "provider.wrvu_prior_year_procedure_count",
             "scope": "provider",
             "field": "wrvu_prior_year_procedure_count",
-            "label": "Prior-year priced visits"
+            "label": "Prior-year priced procedures"
           }
         ],
         "tables": [
@@ -19454,12 +19894,25 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -19468,6 +19921,36 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
             "upstream": true
           },
           {
@@ -19482,8 +19965,8 @@
         ]
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU sum change vs prior year",
-        "help": "Percent change of the RVU sum against the prior-year RVU sum.",
+        "label": "Work RVU change vs prior year",
+        "help": "Percent change of the work RVU total against the prior-year total.",
         "dev": "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql.",
         "caveats": [],
         "derived_from": [
@@ -19491,7 +19974,7 @@
             "ref": "provider.wrvu_yoy_change_pct",
             "scope": "provider",
             "field": "wrvu_yoy_change_pct",
-            "label": "RVU sum change vs prior year"
+            "label": "Work RVU change vs prior year"
           }
         ],
         "tables": [
@@ -19531,12 +20014,25 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Prior-year RVU per NPI, cached (Phase 5).",
+            "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
             "built_from": [
-              "az_cms.pat_dt",
+              "pd_stg_npi_px_line_prior",
               "azal.procd"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_px_line_prior",
+            "name": "pd_stg_npi_px_line_prior",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -19557,26 +20053,15 @@
             "upstream": true
           },
           {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -19586,9 +20071,9 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -19596,8 +20081,8 @@
         ]
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty mean of provider RVU sums",
-        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it.",
+        "label": "Specialty mean work RVU total",
+        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it.",
         "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
         "caveats": [],
         "derived_from": [
@@ -19605,7 +20090,7 @@
             "ref": "provider.wrvu_state_specialty_average",
             "scope": "provider",
             "field": "wrvu_state_specialty_average",
-            "label": "Specialty mean of provider RVU sums"
+            "label": "Specialty mean work RVU total"
           }
         ],
         "tables": [
@@ -19652,39 +20137,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -19694,14 +20146,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -19709,8 +20183,8 @@
         ]
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums.",
+        "label": "Specialty median work RVU total",
+        "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -19718,7 +20192,7 @@
             "ref": "provider.wrvu_state_specialty_median",
             "scope": "provider",
             "field": "wrvu_state_specialty_median",
-            "label": "Specialty median of provider RVU sums"
+            "label": "Specialty median work RVU total"
           }
         ],
         "tables": [
@@ -19765,39 +20239,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -19807,14 +20248,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -19822,8 +20285,8 @@
         ]
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 25th percentile of the specialty.",
+        "label": "Specialty 25th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 25th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking.",
         "caveats": [],
         "derived_from": [
@@ -19831,7 +20294,7 @@
             "ref": "provider.wrvu_state_specialty_p25",
             "scope": "provider",
             "field": "wrvu_state_specialty_p25",
-            "label": "Specialty 25th percentile of provider RVU sums"
+            "label": "Specialty 25th percentile work RVU total"
           }
         ],
         "tables": [
@@ -19878,39 +20341,6 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -19920,14 +20350,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -19935,8 +20387,8 @@
         ]
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 75th percentile of the specialty.",
+        "label": "Specialty 75th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 75th percentile of the specialty.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking.",
         "caveats": [],
         "derived_from": [
@@ -19944,7 +20396,7 @@
             "ref": "provider.wrvu_state_specialty_p75",
             "scope": "provider",
             "field": "wrvu_state_specialty_p75",
-            "label": "Specialty 75th percentile of provider RVU sums"
+            "label": "Specialty 75th percentile work RVU total"
           }
         ],
         "tables": [
@@ -19991,39 +20443,6 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -20033,14 +20452,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -20048,8 +20489,8 @@
         ]
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with an RVU sum",
-        "help": "Number of clinicians in the specialty with a positive RVU sum.",
+        "label": "Providers in specialty with work RVU",
+        "help": "Number of clinicians in the specialty with a positive work RVU total.",
         "dev": "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0.",
         "caveats": [],
         "derived_from": [
@@ -20057,7 +20498,7 @@
             "ref": "provider.wrvu_state_specialty_npi_count",
             "scope": "provider",
             "field": "wrvu_state_specialty_npi_count",
-            "label": "Providers in specialty with an RVU sum"
+            "label": "Providers in specialty with work RVU"
           }
         ],
         "tables": [
@@ -20104,39 +20545,6 @@
             "upstream": false
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -20146,14 +20554,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -20161,8 +20591,8 @@
         ]
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU sum percentile within specialty",
-        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest.",
+        "label": "Work RVU percentile within specialty",
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest.",
         "dev": "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total.",
         "caveats": [],
         "derived_from": [
@@ -20170,7 +20600,7 @@
             "ref": "provider.wrvu_specialty_percentile",
             "scope": "provider",
             "field": "wrvu_specialty_percentile",
-            "label": "RVU sum percentile within specialty"
+            "label": "Work RVU percentile within specialty"
           }
         ],
         "tables": [
@@ -20217,39 +20647,6 @@
             "upstream": true
           },
           {
-            "key": "lookup.procd",
-            "name": "azal.procd",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Procedure code to description and fee-schedule RVU columns.",
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
-            ],
-            "upstream": true
-          },
-          {
             "key": "claims.pat_dt",
             "name": "az_cms.pat_dt",
             "kind": "warehouse",
@@ -20259,14 +20656,36 @@
             "upstream": true
           },
           {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -20411,8 +20830,8 @@
         ]
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank.",
+        "label": "Activity vs specialty peers (visits and work RVU)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank.",
         "dev": "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists.",
         "caveats": [],
         "derived_from": [
@@ -20420,7 +20839,7 @@
             "ref": "provider.activity_specialty_percentile",
             "scope": "provider",
             "field": "activity_specialty_percentile",
-            "label": "Activity vs specialty peers (visits and RVU sum)"
+            "label": "Activity vs specialty peers (visits and work RVU)"
           }
         ],
         "tables": [
@@ -20521,14 +20940,27 @@
             "upstream": true
           },
           {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
             "key": "pd_stg_npi_wrvu",
             "name": "pd_stg_npi_wrvu",
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -21804,11 +22236,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -22289,11 +22763,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -22449,11 +22965,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -22609,11 +23167,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -23616,11 +24216,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -23776,11 +24418,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -24370,11 +25054,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -24523,11 +25249,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -24607,19 +25375,19 @@
         ]
       },
       "wrvu_at_site": {
-        "label": "RVU sum at site",
-        "help": "The clinician's one-procedure-per-visit RVU sum over visits at this site.",
-        "dev": "SUM of visit-grain RVU over visits at the site (pd_stg_site_wrvu, Phase 4).",
+        "label": "Work RVU at site",
+        "help": "The clinician's work RVU total over procedures billed at this site.",
+        "dev": "SUM of line-level work RVU for lines at the site's locations (pd_stg_site_wrvu, Phase 4).",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review.",
-          "Visits whose procedure has no fee-schedule RVU are excluded."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Lines with no work RVU, and Category II tracking codes, are left out."
         ],
         "derived_from": [
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -24629,48 +25397,23 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": false
           },
           {
-            "key": "pd_stg_visit_site",
-            "name": "pd_stg_visit_site",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 3",
-            "description": "One service location per encounter, the modal one (Phase 3).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -24681,6 +25424,36 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
             "upstream": true
           },
           {
@@ -24698,9 +25471,9 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -24708,24 +25481,24 @@
         ]
       },
       "wrvu_share_pct": {
-        "label": "Share of RVU sum at site",
-        "help": "This site's part of the clinician's RVU sum.",
+        "label": "Share of work RVU at site",
+        "help": "This site's part of the clinician's work RVU total.",
         "dev": "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals.",
         "caveats": [
-          "Fee-schedule RVU, one procedure per visit, under review."
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
         ],
         "derived_from": [
           {
             "ref": "practice.wrvu_at_site",
             "scope": "practice",
             "field": "wrvu_at_site",
-            "label": "RVU sum at site"
+            "label": "Work RVU at site"
           },
           {
             "ref": "provider.wrvu_total",
             "scope": "provider",
             "field": "wrvu_total",
-            "label": "RVU sum (one procedure per visit)"
+            "label": "Work RVU total"
           }
         ],
         "tables": [
@@ -24765,48 +25538,23 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
           },
           {
-            "key": "pd_stg_visit_site",
-            "name": "pd_stg_visit_site",
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
             "kind": "mart",
             "external": false,
-            "phase": "Phase 3",
-            "description": "One service location per encounter, the modal one (Phase 3).",
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_visit",
-            "name": "pd_stg_visit",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
-            "built_from": [
-              "pd_stg_window_claim"
-            ],
-            "upstream": true
-          },
-          {
-            "key": "pd_stg_window_claim",
-            "name": "pd_stg_window_claim",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 2",
-            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
-            "built_from": [
-              "az_cms.pat_dt"
+              "az_cms.pat_dt",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -24834,9 +25582,9 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU total and contributing visits per NPI (Phase 4).",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
             "built_from": [
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
             ],
             "upstream": true
@@ -27385,11 +28133,53 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "RVU per NPI per site (Phase 4).",
+            "description": "Work RVU per NPI per location (Phase 4).",
             "built_from": [
-              "pd_stg_visit_site",
-              "pd_stg_visit",
+              "pd_stg_npi_px_line",
               "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
             ],
             "upstream": true
           },
@@ -28265,14 +29055,26 @@
       ]
     },
     {
+      "key": "pd_stg_npi_px_line",
+      "name": "pd_stg_npi_px_line",
+      "kind": "mart",
+      "external": false,
+      "phase": "Phase 4",
+      "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+      "built_from": [
+        "az_cms.pat_dt",
+        "pd_provider"
+      ]
+    },
+    {
       "key": "pd_stg_npi_wrvu",
       "name": "pd_stg_npi_wrvu",
       "kind": "mart",
       "external": false,
       "phase": "Phase 4",
-      "description": "RVU total and contributing visits per NPI (Phase 4).",
+      "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
       "built_from": [
-        "pd_stg_visit",
+        "pd_stg_npi_px_line",
         "azal.procd"
       ]
     },
@@ -28282,10 +29084,9 @@
       "kind": "mart",
       "external": false,
       "phase": "Phase 4",
-      "description": "RVU per NPI per site (Phase 4).",
+      "description": "Work RVU per NPI per location (Phase 4).",
       "built_from": [
-        "pd_stg_visit_site",
-        "pd_stg_visit",
+        "pd_stg_npi_px_line",
         "azal.procd"
       ]
     },
@@ -28350,14 +29151,26 @@
       ]
     },
     {
+      "key": "pd_stg_npi_px_line_prior",
+      "name": "pd_stg_npi_px_line_prior",
+      "kind": "mart",
+      "external": false,
+      "phase": "Phase 5",
+      "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5).",
+      "built_from": [
+        "az_cms.pat_dt",
+        "pd_provider"
+      ]
+    },
+    {
       "key": "pd_stg_npi_wrvu_prior",
       "name": "pd_stg_npi_wrvu_prior",
       "kind": "mart",
       "external": false,
       "phase": "Phase 5",
-      "description": "Prior-year RVU per NPI, cached (Phase 5).",
+      "description": "Prior-year work RVU per NPI, priced each run (Phase 5).",
       "built_from": [
-        "az_cms.pat_dt",
+        "pd_stg_npi_px_line_prior",
         "azal.procd"
       ]
     },

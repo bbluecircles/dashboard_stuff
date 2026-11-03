@@ -9,7 +9,7 @@ import requests
 
 from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.activity import rebuild_activity, rebuild_top_codes
-from provider_directory.analytics import rebuild_analytics, rebuild_payer_columns
+from provider_directory.analytics import rebuild_analytics, rebuild_payer_columns, rebuild_rvu_only
 from provider_directory.complete import rebuild_complete, rebuild_referrals
 from provider_directory.cms import (
     cached_path,
@@ -198,12 +198,24 @@ def run_phase4(
     market_state: str = MARKET_STATE,
     org_lists_only: bool = False,
     payers_only: bool = False,
+    rvu_only: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, _prior_start, _prior_end = resolve_window(conn, mart_db)
-    if org_lists_only and payers_only:
-        raise ValueError("org_lists_only and payers_only are mutually exclusive")
+    if sum(1 for flag in (org_lists_only, payers_only, rvu_only) if flag) > 1:
+        raise ValueError("org_lists_only, payers_only and rvu_only are mutually exclusive")
+    if rvu_only:
+        summary = rebuild_rvu_only(
+            conn,
+            mart_db=mart_db,
+            claims_db=claims_db,
+            lookup_db=lookup_db,
+            window_start=window_start,
+            window_end=window_end,
+        )
+        summary["state"] = market_state
+        return summary
     if payers_only:
         summary = rebuild_payer_columns(conn, mart_db=mart_db)
         summary["window_start"] = window_start

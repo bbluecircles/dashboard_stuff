@@ -130,7 +130,7 @@ Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`
 
 ## RVU
 
-Label it **RVU** in the UI. Do not say “wRVU”. Numbers are total-RVU scale, not CMS physician work RVU. Cardiology mean vs median is badly skewed (mean ~1317, median ~8.73). Show **median / p25 / p75 / percentile** (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`). Do not lead with `wrvu_average` or `wrvu_state_specialty_average`. `wrvu_total` can sit as a supporting number next to visits.
+Every RVU figure is now a **physician work RVU** priced per billed procedure line from the Medicare fee schedule; labels come from the catalog ("Work RVU total", "Average work RVU per procedure", "Priced procedures"). Drop the "under review" caption. Lead the Overview with `wrvu_total` and `wrvu_average`; show **median / p25 / p75 / percentile** (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`) as the specialty context. Do not show `wrvu_state_specialty_average`.
 
 ## Activity vs specialty peers
 

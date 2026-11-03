@@ -323,16 +323,16 @@
         "help": "Number of practice sites shown, at most 5."
       },
       "wrvu_total": {
-        "label": "RVU sum (one procedure per visit)",
-        "help": "Sum of fee-schedule RVU across the clinician's visits in Nov 2024 to Oct 2025, pricing one procedure per visit. Under review."
+        "label": "Work RVU total",
+        "help": "Physician work RVU summed over every procedure the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule."
       },
       "wrvu_average": {
-        "label": "RVU per priced visit",
-        "help": "The RVU sum divided by the number of visits that had a priced procedure."
+        "label": "Average work RVU per procedure",
+        "help": "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries."
       },
       "wrvu_procedure_count": {
-        "label": "Priced visits",
-        "help": "Visits whose one procedure had a fee-schedule RVU and so contributed to the RVU sum."
+        "label": "Priced procedures",
+        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that had a work RVU and so count toward the total."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -447,44 +447,44 @@
         "help": "Share of the clinician's visits that fell on a Sunday, by service date. Saturday and Sunday together are the weekend share."
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU sum",
-        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024."
+        "label": "Prior-year work RVU total",
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per priced visit",
-        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024."
+        "label": "Prior-year average work RVU per procedure",
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year priced visits",
-        "help": "Visits that contributed to the prior-year RVU sum."
+        "label": "Prior-year priced procedures",
+        "help": "Billed procedure lines that count toward the prior-year total."
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU sum change vs prior year",
-        "help": "Percent change of the RVU sum against the prior-year RVU sum."
+        "label": "Work RVU change vs prior year",
+        "help": "Percent change of the work RVU total against the prior-year total."
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty mean of provider RVU sums",
-        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it."
+        "label": "Specialty mean work RVU total",
+        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it."
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums."
+        "label": "Specialty median work RVU total",
+        "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide."
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 25th percentile of the specialty."
+        "label": "Specialty 25th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 25th percentile of the specialty."
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 75th percentile of the specialty."
+        "label": "Specialty 75th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 75th percentile of the specialty."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with an RVU sum",
-        "help": "Number of clinicians in the specialty with a positive RVU sum."
+        "label": "Providers in specialty with work RVU",
+        "help": "Number of clinicians in the specialty with a positive work RVU total."
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU sum percentile within specialty",
-        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest."
+        "label": "Work RVU percentile within specialty",
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
@@ -495,8 +495,8 @@
         "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank."
+        "label": "Activity vs specialty peers (visits and work RVU)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank."
       },
       "group_size": {
         "label": "Group size",
@@ -945,16 +945,16 @@
         "help": "Number of practice sites shown, at most 5."
       },
       "wrvu_total": {
-        "label": "Sum of members' RVU sums",
-        "help": "Sum of the member clinicians' one-procedure-per-visit RVU sums. Under review."
+        "label": "Work RVU total, members combined",
+        "help": "Sum of the member clinicians' work RVU totals."
       },
       "wrvu_average": {
-        "label": "RVU per priced visit, members combined",
-        "help": "Sum of members' RVU sums divided by members' priced visits."
+        "label": "Average work RVU per procedure, members combined",
+        "help": "Members' work RVU total divided by members' priced procedures."
       },
       "wrvu_procedure_count": {
-        "label": "Priced visits, members combined",
-        "help": "Sum of member visits that contributed to an RVU sum."
+        "label": "Priced procedures, members combined",
+        "help": "Sum of members' priced procedure lines."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -1069,44 +1069,44 @@
         "help": "Share of the clinician's visits that fell on a Sunday, by service date. Saturday and Sunday together are the weekend share. On the group page this is weighted across members by their visits."
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU sum",
-        "help": "The same one-procedure-per-visit RVU sum for the 12 months before the window, Nov 2023 to Oct 2024."
+        "label": "Prior-year work RVU total",
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per priced visit",
-        "help": "Prior-year RVU sum divided by prior-year priced visits, Nov 2023 to Oct 2024."
+        "label": "Prior-year average work RVU per procedure",
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year priced visits",
-        "help": "Visits that contributed to the prior-year RVU sum."
+        "label": "Prior-year priced procedures",
+        "help": "Billed procedure lines that count toward the prior-year total."
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU sum change vs prior year",
-        "help": "Percent change of the RVU sum against the prior-year RVU sum."
+        "label": "Work RVU change vs prior year",
+        "help": "Percent change of the work RVU total against the prior-year total."
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty mean of provider RVU sums",
-        "help": "Mean of the per-provider RVU sums among clinicians in the same specialty statewide. Heavily skewed by a few very high sums; the UI does not show it."
+        "label": "Specialty mean work RVU total",
+        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it."
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median of provider RVU sums",
-        "help": "The middle value of the per-provider RVU sums among clinicians in the same specialty statewide. A benchmark of per-provider sums."
+        "label": "Specialty median work RVU total",
+        "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide."
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 25th percentile of the specialty."
+        "label": "Specialty 25th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 25th percentile of the specialty."
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile of provider RVU sums",
-        "help": "The per-provider RVU sum at the 75th percentile of the specialty."
+        "label": "Specialty 75th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 75th percentile of the specialty."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Providers in specialty with an RVU sum",
-        "help": "Number of clinicians in the specialty with a positive RVU sum."
+        "label": "Providers in specialty with work RVU",
+        "help": "Number of clinicians in the specialty with a positive work RVU total."
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU sum percentile within specialty",
-        "help": "Where the clinician's RVU sum ranks among same-specialty clinicians. 100 is the highest."
+        "label": "Work RVU percentile within specialty",
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
@@ -1117,8 +1117,8 @@
         "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers (visits and RVU sum)",
-        "help": "Combined volume rank within the specialty: the average of the visits percentile and the RVU sum percentile. A volume rank."
+        "label": "Activity vs specialty peers (visits and work RVU)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank."
       },
       "group_size": {
         "label": "Group size",
@@ -1387,12 +1387,12 @@
         "help": "The warehouse has no coordinates for this location."
       },
       "wrvu_at_site": {
-        "label": "RVU sum at site",
-        "help": "The clinician's one-procedure-per-visit RVU sum over visits at this site."
+        "label": "Work RVU at site",
+        "help": "The clinician's work RVU total over procedures billed at this site."
       },
       "wrvu_share_pct": {
-        "label": "Share of RVU sum at site",
-        "help": "This site's part of the clinician's RVU sum."
+        "label": "Share of work RVU at site",
+        "help": "This site's part of the clinician's work RVU total."
       },
       "visits_percent_monday": {
         "label": "Monday %",

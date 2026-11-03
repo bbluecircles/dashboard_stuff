@@ -18,7 +18,8 @@ PRIOR_WINDOW_START–PRIOR_WINDOW_END. Cached in pd_stg_npi_wrvu_prior.
 from __future__ import annotations
 
 from provider_directory.activity import PROVIDER_BUCKETS, VISIT_BUCKETS, iter_period_codes
-from provider_directory.analytics import is_hcpcs_sql, period_in_sql, work_rvu_sql
+from provider_directory.activity import CLAIM_ID_BUCKETS
+from provider_directory.analytics import is_hcpcs_sql, period_in_sql, priced_line_filter_sql
 from provider_directory.db import quote_ident
 from provider_directory.locations import table_has_rows
 from provider_directory.schema import create_schema, drop_phase5_cached, drop_phase5_staging
@@ -38,7 +39,7 @@ from provider_directory.settings import (
     WINDOW_END,
     WINDOW_START,
 )
-from provider_directory.transforms import DOW_PERCENT_COLUMNS, MAX_YOY_CHANGE_PCT, MIN_YOY_PRIOR_WRVU
+from provider_directory.transforms import DOW_PERCENT_COLUMNS, MAX_YOY_CHANGE_PCT, MIN_YOY_PRIOR_WRVU, strict_work_rvu_sql
 
 
 def _session_timeouts(cur) -> None:
@@ -517,6 +518,28 @@ def _overlay_practice_dow(cur, conn, mart: str) -> int:
     return total
 
 
+def prior_line_scan_sql(mart: str, claims: str) -> str:
+    """One prior-window month x pat_id bucket of claim lines into the cached
+    pd_stg_npi_px_line_prior (npi, code). Two %s params: period_code, bucket."""
+    code = "COALESCE(NULLIF(TRIM(t.work_procd_code), ''), NULLIF(TRIM(t.procd_code), ''))"
+    return f"""
+        INSERT INTO {mart}.pd_stg_npi_px_line_prior (npi, code, line_count)
+        SELECT
+            t.rendering_physician_code,
+            {code},
+            COUNT(*)
+        FROM {claims}.pat_dt t
+        INNER JOIN {mart}.pd_provider p ON p.npi = t.rendering_physician_code
+        WHERE t.period_code = %s
+          AND MOD(IFNULL(t.pat_id, 0), {CLAIM_ID_BUCKETS}) = %s
+          AND {code} IS NOT NULL
+          AND CHAR_LENGTH({code}) = 5
+        GROUP BY t.rendering_physician_code, {code}
+        ON DUPLICATE KEY UPDATE
+            line_count = {mart}.pd_stg_npi_px_line_prior.line_count + VALUES(line_count)
+    """
+
+
 def _fill_prior_wrvu(
     cur,
     conn,
@@ -529,48 +552,38 @@ def _fill_prior_wrvu(
     *,
     reuse_cached: bool = True,
 ) -> tuple[int, int]:
-    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_npi_wrvu_prior"):
-        print("phase5 prior wrvu reused", flush=True)
-        cur.execute(f"SELECT COUNT(*) AS n FROM {mart}.pd_stg_npi_wrvu_prior")
-        npi_n = int(cur.fetchone()["n"])
-        overlay = _overlay_prior_wrvu(cur, conn, mart)
-        return npi_n, overlay
+    """Prior-year work RVU on the same line-level basis as Phase 4. The line
+    staging is cached; pricing into pd_stg_npi_wrvu_prior is redone every run so
+    a fee-schedule or rule change is picked up without a rescan."""
+    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_npi_px_line_prior"):
+        print("phase5 prior rvu lines reused", flush=True)
+    else:
+        _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_npi_px_line_prior")
+        scan = prior_line_scan_sql(mart, claims)
+        for period in iter_period_codes(prior_start, prior_end):
+            for bucket in range(CLAIM_ID_BUCKETS):
+                n = _run(cur, conn, scan, (period, bucket))
+                print(f"phase5 prior rvu lines {period} bucket {bucket}: {n} rows", flush=True)
 
-    wrvu_expr = work_rvu_sql("pr")
-    sql = f"""
+    wrvu_expr = strict_work_rvu_sql("pr")
+    price_sql = f"""
         INSERT INTO {mart}.pd_stg_npi_wrvu_prior (npi, total_wrvu, procedure_count)
         SELECT
-            v.rendering_npi,
-            SUM({wrvu_expr}),
-            COUNT(*)
-        FROM (
-            SELECT
-                t.encounter_id,
-                MAX(t.encounter_rendering_physician_code) AS rendering_npi,
-                MAX(NULLIF(TRIM(t.encounter_work_procd_code), '')) AS px
-            FROM {claims}.pat_dt t
-            WHERE t.period_code = %s
-              AND MOD(ABS(IFNULL(t.encounter_id, 0)), {VISIT_BUCKETS}) = %s
-              AND t.encounter_id IS NOT NULL AND t.encounter_id <> 0
-            GROUP BY t.encounter_id
-        ) v
-        INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
+            l.npi,
+            SUM(l.line_count * {wrvu_expr}),
+            SUM(l.line_count)
+        FROM {mart}.pd_stg_npi_px_line_prior l
         INNER JOIN {lookup}.procd pr
-            ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
-        WHERE v.px IS NOT NULL AND v.px <> ''
-          AND {is_hcpcs_sql("v.px")}
-          AND {wrvu_expr} IS NOT NULL
-        GROUP BY v.rendering_npi
-        ON DUPLICATE KEY UPDATE
-            total_wrvu = {mart}.pd_stg_npi_wrvu_prior.total_wrvu + VALUES(total_wrvu),
-            procedure_count = {mart}.pd_stg_npi_wrvu_prior.procedure_count + VALUES(procedure_count)
+            ON pr.procd_code = l.code COLLATE {MART_COLLATION}
+        WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
+          AND {priced_line_filter_sql("l.code", "pr")}
+        GROUP BY l.npi
     """
     total = 0
-    for period in iter_period_codes(prior_start, prior_end):
-        for bucket in range(VISIT_BUCKETS):
-            n = _run(cur, conn, sql, (period, bucket))
-            total += n
-            print(f"phase5 prior wrvu {period} bucket {bucket}: {n} rows", flush=True)
+    for bucket in range(PROVIDER_BUCKETS):
+        n = _run(cur, conn, price_sql, (bucket,))
+        total += n
+        print(f"phase5 prior wrvu bucket {bucket}: {n} rows", flush=True)
     overlay = _overlay_prior_wrvu(cur, conn, mart)
     return total, overlay
 

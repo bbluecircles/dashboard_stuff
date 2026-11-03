@@ -132,6 +132,7 @@ def _cmd_phase4(args: argparse.Namespace) -> int:
             conn,
             org_lists_only=args.org_lists_only,
             payers_only=args.payers_only,
+            rvu_only=args.rvu_only,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
@@ -455,6 +456,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Refill payer-class shares (1-4, 6, 7) and top 5 commercial payers from the existing "
         "pd_stg_npi_payor staging; no claims read, a few minutes",
+    )
+    p.add_argument(
+        "--rvu-only",
+        action="store_true",
+        help="Work RVU only: one 12-month pat_dt line scan, strict pricing of every billed "
+        "procedure line, provider and site overlays; payers and lists untouched",
     )
     p.set_defaults(func=_cmd_phase4)
 
