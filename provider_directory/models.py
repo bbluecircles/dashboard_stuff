@@ -218,6 +218,8 @@ class ProviderSpine(BaseModel):
     primary_organization_npi: int | None = None
     primary_organization_parent_id: int | None = None
     primary_organization_parent_name: str | None = None
+    billing_organization_id: int | None = None
+    billing_organization_name: str | None = None
     visits_percent_monday: float | None = None
     visits_percent_tuesday: float | None = None
     visits_percent_wednesday: float | None = None

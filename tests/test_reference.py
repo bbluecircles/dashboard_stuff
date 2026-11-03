@@ -54,6 +54,10 @@ def test_overlay_cleans_placeholders_and_keeps_columns_on_profile():
     assert "^[^,]+,[[:space:]]*[^,]+$" in sql  # a clinician's own LAST, FIRST is not an affiliation
     assert "'<UNAVAIL>'" in sql
     assert "p.affiliation_name = " in sql and "p.reference_group_id = " in sql
+    assert "p.primary_organization_id = CASE WHEN" in sql and "p.primary_organization_name = CASE WHEN" in sql
+    assert "billing_organization" not in sql
+    overlay = inspect.getsource(ref.overlay_reference)
+    assert "primary_organization_id = NULL" in overlay and 'startswith("billing_organization")' in overlay
     assert "WHERE MOD(p.npi, 16) = 3" in sql
     cols = dict(PD_PROVIDER_REFERENCE_COLUMNS)
     for name in ("affiliation_code", "affiliation_name", "affiliation_source", "reference_group_id", "reference_group_name"):

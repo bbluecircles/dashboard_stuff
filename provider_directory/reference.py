@@ -311,9 +311,10 @@ def affiliation_name_sql(expr: str, npi_expr: str) -> str:
 
 def overlay_reference_sql(mart: str, bucket: int) -> str:
     """UPDATE pd_provider from pd_src_physician for one NPI bucket: the single
-    affiliation (placeholders cleaned) and the reference group (CMS PAC ID),
-    kept for the comparison report. Blank stays blank; the columns are always
-    on the profile."""
+    affiliation (placeholders cleaned) and the group practice. The master-file
+    group (CMS PAC ID) is the group key: it fills primary_organization_id / name
+    and is mirrored in reference_group_* for the comparison report. Blank stays
+    blank; the columns are always on the profile."""
     code_ok = f"NOT {self_placeholder_sql('s.affiliation_code', 's.npi')}"
     group_ok = f"NOT {self_placeholder_sql('s.group_prac_code', 's.npi')}"
     name = (
@@ -330,16 +331,25 @@ def overlay_reference_sql(mart: str, bucket: int) -> str:
             p.reference_group_id = CASE WHEN {group_ok} THEN s.group_prac_code END,
             p.reference_group_name = CASE WHEN {group_ok}
                 THEN {affiliation_name_sql('s.group_prac_name', 's.npi')} END,
+            p.primary_organization_id = CASE WHEN {group_ok} THEN s.group_prac_code END,
+            p.primary_organization_name = CASE WHEN {group_ok}
+                THEN {affiliation_name_sql('s.group_prac_name', 's.npi')} END,
             p.refreshed_at = NOW()
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = {int(bucket)}
     """
 
 
 def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
-    """sync --ref step 2: write affiliation_* and reference_group_* onto pd_provider."""
+    """sync --ref step 2: write affiliation_*, reference_group_* and the group key
+    (primary_organization_id / name) onto pd_provider. billing_organization_* is
+    Phase 4's and is left alone."""
     create_schema(conn, mart_db)
     mart = quote_ident(mart_db)
-    null_sql = ", ".join(f"{name} = NULL" for name, _d in PD_PROVIDER_REFERENCE_COLUMNS)
+    null_sql = ", ".join(
+        f"{name} = NULL"
+        for name, _d in PD_PROVIDER_REFERENCE_COLUMNS
+        if not name.startswith("billing_organization")
+    ) + ", primary_organization_id = NULL, primary_organization_name = NULL"
     updated = 0
     with conn.cursor() as cur:
         for bucket in range(PROVIDER_BUCKETS):
@@ -372,14 +382,14 @@ def reference_compare(conn, *, mart_db: str = MART_DB, limit: int = 15) -> dict:
                 SUM(s.npi IS NOT NULL) AS in_reference,
                 SUM(p.affiliation_name IS NOT NULL) AS with_affiliation,
                 SUM(p.reference_group_id IS NOT NULL) AS with_reference_group,
-                SUM(p.primary_organization_id IS NOT NULL) AS with_warehouse_group,
-                SUM(p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
-                    AND {_norm('p.primary_organization_name')} = {_norm('p.reference_group_name')}) AS groups_agree_by_name,
-                SUM(p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
-                    AND {_norm('p.primary_organization_name')} <> {_norm('p.reference_group_name')}) AS groups_differ_by_name,
+                SUM(p.billing_organization_id IS NOT NULL) AS with_warehouse_group,
+                SUM(p.billing_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
+                    AND {_norm('p.billing_organization_name')} = {_norm('p.reference_group_name')}) AS groups_agree_by_name,
+                SUM(p.billing_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
+                    AND {_norm('p.billing_organization_name')} <> {_norm('p.reference_group_name')}) AS groups_differ_by_name,
                 SUM(p.reference_group_id IS NOT NULL AND cg.group_pac_id IS NOT NULL) AS reference_group_in_cms_file,
-                SUM(p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NULL) AS warehouse_only,
-                SUM(p.primary_organization_id IS NULL AND p.reference_group_id IS NOT NULL) AS reference_only,
+                SUM(p.billing_organization_id IS NOT NULL AND p.reference_group_id IS NULL) AS warehouse_only,
+                SUM(p.billing_organization_id IS NULL AND p.reference_group_id IS NOT NULL) AS reference_only,
                 SUM(g.npi IS NOT NULL) AS in_cms_group_file
             FROM {mart}.pd_provider p
             LEFT JOIN {mart}.pd_src_physician s ON s.npi = p.npi
@@ -391,12 +401,12 @@ def reference_compare(conn, *, mart_db: str = MART_DB, limit: int = 15) -> dict:
         out["providers"] = cur.fetchone()
         cur.execute(
             f"""
-            SELECT p.primary_organization_name AS warehouse_group,
+            SELECT p.billing_organization_name AS warehouse_group,
                    p.reference_group_name AS reference_group,
                    COUNT(*) AS providers
             FROM {mart}.pd_provider p
-            WHERE p.primary_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
-              AND {_norm('p.primary_organization_name')} <> {_norm('p.reference_group_name')}
+            WHERE p.billing_organization_id IS NOT NULL AND p.reference_group_id IS NOT NULL
+              AND {_norm('p.billing_organization_name')} <> {_norm('p.reference_group_name')}
             GROUP BY 1, 2 ORDER BY providers DESC LIMIT %s
             """,
             (int(limit),),

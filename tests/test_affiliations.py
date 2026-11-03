@@ -39,9 +39,11 @@ def test_hospital_system_sql_drops_unknown():
 def test_org_list_sql_uses_affiliation_tables_not_pat_dt():
     source = inspect.getsource(rebuild_org_lists)
     names = inspect.getsource(_affiliation_name_ok_sql)
-    assert "physician_affiliation_p" in source
-    assert "physician_affiliation_i" in source
-    assert "max_period_code >=" in source
+    assert "physician_affiliation_p" not in source
+    assert "physician_affiliation_i" not in source
+    assert "pd_src_group_practice g" in source and "CAST(g.group_pac_id AS UNSIGNED)" in source
+    assert "p.primary_organization_id," in source and "'R'," in source and "'C'," in source
+    assert "CASE t.billing_type WHEN 'R' THEN 0 WHEN 'C' THEN 1 ELSE 2 END" in source
     assert "UNKNOWN GROUP PRACTICE" in names
     assert "GROUP BY x.npi, UPPER(x.hospital_system_name COLLATE {MART_COLLATION})" in source
     assert "primary_organization_parent_name" in source

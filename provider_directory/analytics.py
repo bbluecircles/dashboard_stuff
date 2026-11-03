@@ -488,7 +488,9 @@ def rebuild_analytics(
                     primary_organization_name = NULL,
                     primary_organization_npi = NULL,
                     primary_organization_parent_id = NULL,
-                    primary_organization_parent_name = NULL
+                    primary_organization_parent_name = NULL,
+                    billing_organization_id = NULL,
+                    billing_organization_name = NULL
                 WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
                 """,
             )
@@ -588,14 +590,14 @@ def rebuild_analytics(
                         THEN a.i_provider_billing_code
                     ELSE NULL
                 END,
-                p.primary_organization_id = CASE
+                p.billing_organization_id = CASE
                     WHEN a.p_provider_billing_code NOT IN ({dummy})
                         THEN a.p_provider_billing_code
                     WHEN a.i_provider_billing_code NOT IN ({dummy})
                         THEN a.i_provider_billing_code
                     ELSE NULL
                 END,
-                p.primary_organization_name = COALESCE(
+                p.billing_organization_name = COALESCE(
                     NULLIF(TRIM(a.p_dba_name), ''),
                     NULLIF(TRIM(a.I_dba_name), ''),
                     CASE
@@ -619,6 +621,19 @@ def rebuild_analytics(
             n = _run(cur, conn, org_sql, (bucket,))
             counts["providers_org"] += n
             print(f"phase4 org bucket {bucket}: {n} rows", flush=True)
+
+    # Group practice (primary_organization_*) comes from the master-file copy; refill
+    # it here so a full Phase 4 never leaves the group pages empty.
+    if table_has_rows(conn, mart_db, "pd_src_physician"):
+        from provider_directory.reference import overlay_reference
+
+        counts["providers_reference"] = overlay_reference(conn, mart_db=mart_db)["providers_updated"]
+    else:
+        print("phase4 reference overlay skipped: pd_src_physician is empty (run sync --ref)", flush=True)
+
+    with conn.cursor() as cur:
+        _session_timeouts(cur)
+        conn.commit()
 
         if has_practice:
             work_sql = f"""

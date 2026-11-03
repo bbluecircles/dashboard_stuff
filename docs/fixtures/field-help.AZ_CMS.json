@@ -399,16 +399,24 @@
         "help": "Share of the clinician's commercial claims."
       },
       "primary_organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the clinician's primary organization."
+        "label": "Group practice id",
+        "help": "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile."
       },
       "primary_organization_name": {
-        "label": "Organization",
-        "help": "The organization the clinician primarily bills under."
+        "label": "Group practice",
+        "help": "The clinician's group practice as recorded in the master reference file."
       },
       "primary_organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the primary billing organization."
+        "label": "Billing NPI",
+        "help": "The organization NPI the clinician bills under in claims."
+      },
+      "billing_organization_id": {
+        "label": "Bills under id",
+        "help": "Identifier of the organization the clinician bills under in claims, which can differ from the group practice."
+      },
+      "billing_organization_name": {
+        "label": "Bills under",
+        "help": "The organization the clinician bills under in claims."
       },
       "primary_organization_parent_id": {
         "label": "Parent organization id",
@@ -600,7 +608,7 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first."
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
       },
       "hospital_affiliations": {
         "label": "Facility affiliations (not shown)",
@@ -1021,16 +1029,24 @@
         "help": "Share of the clinician's commercial claims."
       },
       "primary_organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the clinician's primary organization."
+        "label": "Group practice id",
+        "help": "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile."
       },
       "primary_organization_name": {
-        "label": "Organization",
-        "help": "The organization the clinician primarily bills under."
+        "label": "Group practice",
+        "help": "The clinician's group practice as recorded in the master reference file."
       },
       "primary_organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the primary billing organization."
+        "label": "Billing NPI",
+        "help": "The organization NPI the clinician bills under in claims."
+      },
+      "billing_organization_id": {
+        "label": "Bills under id",
+        "help": "Identifier of the organization the clinician bills under in claims, which can differ from the group practice."
+      },
+      "billing_organization_name": {
+        "label": "Bills under",
+        "help": "The organization the clinician bills under in claims."
       },
       "primary_organization_parent_id": {
         "label": "Parent organization id",
@@ -1222,7 +1238,7 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first."
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
       },
       "hospital_affiliations": {
         "label": "Facility affiliations (not shown)",
@@ -1249,16 +1265,16 @@
         "help": "State of the clinician's primary practice site."
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the group. Members are the clinicians whose primary organization this is."
+        "label": "Group practice id",
+        "help": "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is."
       },
       "organization_name": {
         "label": "Organization",
         "help": "Name of the group practice."
       },
       "organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the billing organization."
+        "label": "Billing NPI",
+        "help": "One of the organization NPIs the members bill under in claims."
       },
       "parent_id": {
         "label": "Parent organization id",
@@ -1426,39 +1442,39 @@
     "group_practice": {
       "npi": {
         "label": "NPI",
-        "help": "The clinician this organization row belongs to."
+        "help": "The clinician this group row belongs to."
       },
       "org_rank": {
         "label": "Rank",
-        "help": "Order of the clinician's organizations: primary first."
+        "help": "Order of the clinician's groups: the master-file group practice first, then CMS reassignment groups."
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the organization."
+        "label": "Group practice id",
+        "help": "Identifier of the group (the CMS group PAC ID)."
       },
       "organization_npi": {
         "label": "Organization NPI",
-        "help": "NPI of the billing organization."
+        "help": "Blank: the group id is a CMS PAC ID, which is not an NPI."
       },
       "organization_name": {
-        "label": "Organization",
-        "help": "Name of the organization the clinician billed under."
+        "label": "Group",
+        "help": "Name of the group practice."
       },
       "billing_type": {
-        "label": "Billing type",
-        "help": "P for professional claims, I for institutional claims. Blank when the row came only from the primary affiliation."
+        "label": "Source",
+        "help": "R: the master reference file's group practice. C: a CMS reassignment group."
       },
       "is_primary": {
         "label": "Primary",
-        "help": "This is the clinician's primary billing organization."
+        "help": "This is the clinician's group practice in the master reference file."
       },
       "cases": {
         "label": "Cases",
-        "help": "Case count the warehouse attributes to the clinician at this organization."
+        "help": "Blank: case counts are not available from the reference sources."
       },
       "max_period_code": {
         "label": "Last month billed",
-        "help": "Latest month (YYYYMM) the clinician billed under this organization."
+        "help": "Blank: billing months are not available from the reference sources."
       }
     },
     "hospital_affiliation": {

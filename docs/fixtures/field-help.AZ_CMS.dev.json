@@ -7066,45 +7066,126 @@
         ]
       },
       "primary_organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the clinician's primary organization.",
-        "dev": "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code. Also the key for the group-practice profile.",
+        "label": "Group practice id",
+        "help": "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile.",
+        "dev": "master_ref.111_physician.group_prac_code via pd_src_physician (sync --ref / Phase 4 overlay); null when 0 or the clinician's own NPI. Same id as pd_src_group_practice.group_pac_id.",
         "caveats": [],
         "derived_from": [],
         "tables": [
           {
-            "key": "claims.physician_primary_affiliation",
-            "name": "az_cms.physician_primary_affiliation",
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
             "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
+            "upstream": true
           }
         ]
       },
       "primary_organization_name": {
-        "label": "Organization",
-        "help": "The organization the clinician primarily bills under.",
-        "dev": "Group practice name on the same az.physician_primary_affiliation row.",
+        "label": "Group practice",
+        "help": "The clinician's group practice as recorded in the master reference file.",
+        "dev": "master_ref.111_physician.group_prac_name via pd_src_physician, cleaned of placeholders.",
         "caveats": [],
         "derived_from": [],
         "tables": [
           {
-            "key": "claims.physician_primary_affiliation",
-            "name": "az_cms.physician_primary_affiliation",
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
             "upstream": false
           }
         ]
       },
       "primary_organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the primary billing organization.",
-        "dev": "Same billing code as primary_organization_id, from az.physician_primary_affiliation.",
+        "label": "Billing NPI",
+        "help": "The organization NPI the clinician bills under in claims.",
+        "dev": "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4).",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "claims.physician_primary_affiliation",
+            "name": "az_cms.physician_primary_affiliation",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "upstream": false
+          }
+        ]
+      },
+      "billing_organization_id": {
+        "label": "Bills under id",
+        "help": "Identifier of the organization the clinician bills under in claims, which can differ from the group practice.",
+        "dev": "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4). The group key before the reference file took over.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "claims.physician_primary_affiliation",
+            "name": "az_cms.physician_primary_affiliation",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "upstream": false
+          }
+        ]
+      },
+      "billing_organization_name": {
+        "label": "Bills under",
+        "help": "The organization the clinician bills under in claims.",
+        "dev": "p_dba_name, else I_dba_name, else group_prac_name on the az.physician_primary_affiliation row (Phase 4).",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -10077,7 +10158,7 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first.",
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.",
         "dev": "pd_provider_group_practice rows. See the group_practice scope.",
         "caveats": [],
         "derived_from": [],
@@ -10088,30 +10169,32 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           },
           {
@@ -19024,41 +19107,111 @@
         ]
       },
       "primary_organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the clinician's primary organization.",
-        "dev": "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code. Also the key for the group-practice profile.",
+        "label": "Group practice id",
+        "help": "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile.",
+        "dev": "master_ref.111_physician.group_prac_code via pd_src_physician (sync --ref / Phase 4 overlay); null when 0 or the clinician's own NPI. Same id as pd_src_group_practice.group_pac_id.",
         "caveats": [],
         "derived_from": [
           {
             "ref": "provider.primary_organization_id",
             "scope": "provider",
             "field": "primary_organization_id",
-            "label": "Organization id"
+            "label": "Group practice id"
           }
         ],
         "tables": [
           {
-            "key": "claims.physician_primary_affiliation",
-            "name": "az_cms.physician_primary_affiliation",
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
             "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
+            "upstream": true
           }
         ]
       },
       "primary_organization_name": {
-        "label": "Organization",
-        "help": "The organization the clinician primarily bills under.",
-        "dev": "Group practice name on the same az.physician_primary_affiliation row.",
+        "label": "Group practice",
+        "help": "The clinician's group practice as recorded in the master reference file.",
+        "dev": "master_ref.111_physician.group_prac_name via pd_src_physician, cleaned of placeholders.",
         "caveats": [],
         "derived_from": [
           {
             "ref": "provider.primary_organization_name",
             "scope": "provider",
             "field": "primary_organization_name",
-            "label": "Organization"
+            "label": "Group practice"
+          }
+        ],
+        "tables": [
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "primary_organization_npi": {
+        "label": "Billing NPI",
+        "help": "The organization NPI the clinician bills under in claims.",
+        "dev": "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4).",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.primary_organization_npi",
+            "scope": "provider",
+            "field": "primary_organization_npi",
+            "label": "Billing NPI"
           }
         ],
         "tables": [
@@ -19073,17 +19226,42 @@
           }
         ]
       },
-      "primary_organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the primary billing organization.",
-        "dev": "Same billing code as primary_organization_id, from az.physician_primary_affiliation.",
+      "billing_organization_id": {
+        "label": "Bills under id",
+        "help": "Identifier of the organization the clinician bills under in claims, which can differ from the group practice.",
+        "dev": "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4). The group key before the reference file took over.",
         "caveats": [],
         "derived_from": [
           {
-            "ref": "provider.primary_organization_npi",
+            "ref": "provider.billing_organization_id",
             "scope": "provider",
-            "field": "primary_organization_npi",
-            "label": "Organization NPI"
+            "field": "billing_organization_id",
+            "label": "Bills under id"
+          }
+        ],
+        "tables": [
+          {
+            "key": "claims.physician_primary_affiliation",
+            "name": "az_cms.physician_primary_affiliation",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "upstream": false
+          }
+        ]
+      },
+      "billing_organization_name": {
+        "label": "Bills under",
+        "help": "The organization the clinician bills under in claims.",
+        "dev": "p_dba_name, else I_dba_name, else group_prac_name on the az.physician_primary_affiliation row (Phase 4).",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.billing_organization_name",
+            "scope": "provider",
+            "field": "billing_organization_name",
+            "label": "Bills under"
           }
         ],
         "tables": [
@@ -22325,7 +22503,7 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first.",
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.",
         "dev": "pd_provider_group_practice rows. See the group_practice scope.",
         "caveats": [],
         "derived_from": [
@@ -22343,30 +22521,32 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           },
           {
@@ -23255,9 +23435,9 @@
         ]
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the group. Members are the clinicians whose primary organization this is.",
-        "dev": "pd_provider.primary_organization_id. One pd_group_practice row per org per member scope (all / active / inactive).",
+        "label": "Group practice id",
+        "help": "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is.",
+        "dev": "pd_provider.primary_organization_id. One pd_group_practice row per group per member scope (all / active / inactive).",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -23357,8 +23537,8 @@
         ]
       },
       "organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the billing organization.",
+        "label": "Billing NPI",
+        "help": "One of the organization NPIs the members bill under in claims.",
         "dev": "MAX(pd_provider.primary_organization_npi) over members, in pd_group_practice.",
         "caveats": [],
         "derived_from": [],
@@ -23516,7 +23696,7 @@
         "help": "Number of individual clinicians whose primary organization is this group.",
         "dev": "COUNT(*) of pd_provider rows with this primary_organization_id, in the requested member scope.",
         "caveats": [
-          "Members are clinicians whose primary billing organization is this group."
+          "Members are clinicians whose group practice in the master reference file is this group."
         ],
         "derived_from": [],
         "tables": [
@@ -24048,10 +24228,9 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
@@ -24087,21 +24266,24 @@
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           }
         ]
@@ -26176,7 +26358,7 @@
     "group_practice": {
       "npi": {
         "label": "NPI",
-        "help": "The clinician this organization row belongs to.",
+        "help": "The clinician this group row belongs to.",
         "dev": "pd_provider_group_practice.npi.",
         "caveats": [],
         "derived_from": [],
@@ -26187,30 +26369,32 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           },
           {
@@ -26247,8 +26431,8 @@
       },
       "org_rank": {
         "label": "Rank",
-        "help": "Order of the clinician's organizations: primary first.",
-        "dev": "pd_provider_group_practice: ROW_NUMBER per npi: is_primary first, then more cases, then later max_period_code (Phase 4).",
+        "help": "Order of the clinician's groups: the master-file group practice first, then CMS reassignment groups.",
+        "dev": "pd_provider_group_practice: ROW_NUMBER per npi: is_primary first, then group id (Phase 4).",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -26258,30 +26442,32 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           },
           {
@@ -26317,28 +26503,22 @@
         ]
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the organization.",
-        "dev": "provider_billing_code on az.physician_affiliation_p / az.physician_affiliation_i, or pd_provider.primary_organization_id for the primary row.",
+        "label": "Group practice id",
+        "help": "Identifier of the group (the CMS group PAC ID).",
+        "dev": "pd_src_group_practice.group_pac_id for CMS rows, pd_provider.primary_organization_id for the primary row.",
         "caveats": [],
         "derived_from": [],
         "tables": [
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          },
-          {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": false
           },
           {
@@ -26370,59 +26550,43 @@
               "cms_pdc_mips"
             ],
             "upstream": false
+          },
+          {
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
+            "upstream": true
           }
         ]
       },
       "organization_npi": {
         "label": "Organization NPI",
-        "help": "NPI of the billing organization.",
-        "dev": "Same billing code as organization_id, from az.physician_affiliation_p / az.physician_affiliation_i.",
+        "help": "Blank: the group id is a CMS PAC ID, which is not an NPI.",
+        "dev": "Always null since the reference sources took over.",
         "caveats": [],
         "derived_from": [],
-        "tables": [
-          {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          },
-          {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          }
-        ]
+        "tables": []
       },
       "organization_name": {
-        "label": "Organization",
-        "help": "Name of the organization the clinician billed under.",
-        "dev": "dba_name on the az.physician_affiliation_p / az.physician_affiliation_i row, or pd_provider.primary_organization_name.",
+        "label": "Group",
+        "help": "Name of the group practice.",
+        "dev": "pd_src_group_practice.group_name (CMS legal business name) or pd_provider.primary_organization_name for the primary row.",
         "caveats": [],
         "derived_from": [],
         "tables": [
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          },
-          {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": false
           },
           {
@@ -26454,39 +26618,102 @@
               "cms_pdc_mips"
             ],
             "upstream": false
+          },
+          {
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
+            "upstream": true
           }
         ]
       },
       "billing_type": {
-        "label": "Billing type",
-        "help": "P for professional claims, I for institutional claims. Blank when the row came only from the primary affiliation.",
-        "dev": "'P' from az.physician_affiliation_p, 'I' from az.physician_affiliation_i. P beats I when both exist for one org.",
+        "label": "Source",
+        "help": "R: the master reference file's group practice. C: a CMS reassignment group.",
+        "dev": "'R' from pd_provider.primary_organization_* (pd_src_physician), 'C' from pd_src_group_practice. R wins when both list the same group.",
         "caveats": [],
         "derived_from": [],
         "tables": [
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": true
+          },
+          {
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
+            "upstream": true
           }
         ]
       },
       "is_primary": {
         "label": "Primary",
-        "help": "This is the clinician's primary billing organization.",
+        "help": "This is the clinician's group practice in the master reference file.",
         "dev": "pd_provider_group_practice.organization_id = pd_provider.primary_organization_id.",
         "caveats": [],
         "derived_from": [],
@@ -26497,10 +26724,9 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
@@ -26536,78 +26762,43 @@
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           }
         ]
       },
       "cases": {
         "label": "Cases",
-        "help": "Case count the warehouse attributes to the clinician at this organization.",
-        "dev": "count_of_cases on the az.physician_affiliation_p / az.physician_affiliation_i row; null for the primary-only row.",
+        "help": "Blank: case counts are not available from the reference sources.",
+        "dev": "Always null since the reference sources took over.",
         "caveats": [],
         "derived_from": [],
-        "tables": [
-          {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          },
-          {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          }
-        ]
+        "tables": []
       },
       "max_period_code": {
         "label": "Last month billed",
-        "help": "Latest month (YYYYMM) the clinician billed under this organization.",
-        "dev": "max_period_code on the az.physician_affiliation_p / az.physician_affiliation_i row; must be >= window_start to be listed.",
+        "help": "Blank: billing months are not available from the reference sources.",
+        "dev": "Always null since the reference sources took over.",
         "caveats": [],
         "derived_from": [],
-        "tables": [
-          {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          },
-          {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
-            "kind": "warehouse",
-            "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
-            "upstream": false
-          }
-        ]
+        "tables": []
       }
     },
     "hospital_affiliation": {
@@ -28430,30 +28621,32 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 4",
-            "description": "Billing organizations per NPI in the window (Phase 4).",
+            "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
             "built_from": [
-              "az_cms.physician_affiliation_p",
-              "az_cms.physician_affiliation_i",
+              "pd_src_group_practice",
               "pd_provider"
             ],
             "upstream": false
           },
           {
-            "key": "claims.physician_affiliation_p",
-            "name": "az_cms.physician_affiliation_p",
-            "kind": "warehouse",
+            "key": "pd_src_group_practice",
+            "name": "pd_src_group_practice",
+            "kind": "mart",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every professional billing org an NPI billed under, with cases and last month.",
+            "phase": "sync --ref",
+            "description": "Mart copy of the CMS group membership rows that touch the market state.",
+            "built_from": [
+              "master_ref.cms_group_practice"
+            ],
             "upstream": true
           },
           {
-            "key": "claims.physician_affiliation_i",
-            "name": "az_cms.physician_affiliation_i",
+            "key": "ref.cms_group_practice",
+            "name": "master_ref.cms_group_practice",
             "kind": "warehouse",
             "external": false,
-            "phase": "warehouse load, outside this pipeline",
-            "description": "Every institutional billing org an NPI billed under, with cases and last month.",
+            "phase": "reference server, outside this pipeline",
+            "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref.",
             "upstream": true
           }
         ]
@@ -28883,10 +29076,9 @@
       "kind": "mart",
       "external": false,
       "phase": "Phase 4",
-      "description": "Billing organizations per NPI in the window (Phase 4).",
+      "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4).",
       "built_from": [
-        "az_cms.physician_affiliation_p",
-        "az_cms.physician_affiliation_i",
+        "pd_src_group_practice",
         "pd_provider"
       ]
     },

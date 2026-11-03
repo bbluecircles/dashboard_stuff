@@ -83,7 +83,7 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
     # mart: built by this pipeline
     "pd_provider": {"kind": "mart", "phase": "Phase 1, overlaid by every later phase", "built_from": ['claims.physician', 'lookup.npi_spec_grp', 'cms_pdc_clinician', 'cms_nppes_type1', 'cms_pdc_facility_affil', 'claims.physician_primary_affiliation', 'pd_stg_visit', 'pd_stg_panel_patient', 'pd_stg_top_dx', 'pd_stg_top_px', 'pd_stg_npi_wrvu', 'pd_stg_npi_payor', 'pd_stg_npi_dow', 'pd_stg_npi_wrvu_prior', 'pd_stg_specialty_wrvu', 'pd_stg_npi_percentile', 'pd_stg_npi_visits_percentile', 'pd_stg_visit_site', 'cms_pdc_mips'], "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns."},
     "pd_provider_practice": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_npi_sl', 'claims.sl', 'cms_pdc_clinician', 'pd_stg_site_wrvu', 'pd_stg_site_dow'], "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5."},
-    "pd_provider_group_practice": {"kind": "mart", "phase": "Phase 4", "built_from": ['claims.physician_affiliation_p', 'claims.physician_affiliation_i', 'pd_provider'], "description": "Billing organizations per NPI in the window (Phase 4)."},
+    "pd_provider_group_practice": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_src_group_practice', 'pd_provider'], "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4)."},
     "pd_provider_hospital_affiliation": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_npi_sl', 'claims.sl', 'pd_provider'], "description": "Top 5 distinct health systems per NPI by visits (Phase 4)."},
     "pd_provider_referral": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_referral_edge', 'pd_provider'], "description": "Top 5 referral peers per NPI per direction after the exclusions (Phase 5)."},
     "pd_provider_utilization": {"kind": "mart", "phase": "extras", "built_from": ['cms_pdc_utilization'], "description": "Care Compare categories per NPI (extras)."},
@@ -361,10 +361,12 @@ PROVIDER: dict[str, dict[str, str]] = {
     "top_payer_percent_4": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 4."),
     "top_payer_name_5": _entry("Top commercial payer 5", "Fifth largest commercial payer parent.", "Rank 5 of the same pd_stg_npi_payor ranking."),
     "top_payer_percent_5": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 5."),
-    "primary_organization_id": _entry("Organization id", "Billing identifier of the clinician's primary organization.",
-                                      "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code. Also the key for the group-practice profile."),
-    "primary_organization_name": _entry("Organization", "The organization the clinician primarily bills under.", "Group practice name on the same az.physician_primary_affiliation row."),
-    "primary_organization_npi": _entry("Organization NPI", "NPI of the primary billing organization.", "Same billing code as primary_organization_id, from az.physician_primary_affiliation."),
+    "primary_organization_id": _entry("Group practice id", "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile.",
+                                      "master_ref.111_physician.group_prac_code via pd_src_physician (sync --ref / Phase 4 overlay); null when 0 or the clinician's own NPI. Same id as pd_src_group_practice.group_pac_id."),
+    "primary_organization_name": _entry("Group practice", "The clinician's group practice as recorded in the master reference file.", "master_ref.111_physician.group_prac_name via pd_src_physician, cleaned of placeholders."),
+    "primary_organization_npi": _entry("Billing NPI", "The organization NPI the clinician bills under in claims.", "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4)."),
+    "billing_organization_id": _entry("Bills under id", "Identifier of the organization the clinician bills under in claims, which can differ from the group practice.", "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4). The group key before the reference file took over."),
+    "billing_organization_name": _entry("Bills under", "The organization the clinician bills under in claims.", "p_dba_name, else I_dba_name, else group_prac_name on the az.physician_primary_affiliation row (Phase 4)."),
     "primary_organization_parent_id": _entry("Parent organization id", "Identifier of the parent organization of the primary billing organization.", "IP_hospital_system_code, else OP_hospital_system_code on az.physician_primary_affiliation."),
     "primary_organization_parent_name": _entry("Parent organization", "Parent organization of the primary billing organization, as recorded in the warehouse.", "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation."),
     **_weekday_entries("the clinician's visits", _DOW_DEV),
@@ -406,7 +408,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "open_payments_ownership_total": _entry("Open Payments ownership", "Not shown; retired.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
     "open_payments_count": _entry("Open Payments count", "Not shown; retired.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
     "practices": _entry("Sites", "Up to 5 practice locations ranked by the clinician's visits there, from claims.", "pd_provider_practice rows, site_rank 1 to 5. See the practice scope."),
-    "group_practices": _entry("Group practices", "Every organization the clinician billed under in {window}, primary first.", "pd_provider_group_practice rows. See the group_practice scope."),
+    "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "pd_provider_group_practice rows. See the group_practice scope."),
     "hospital_affiliations": _entry("Facility affiliations (not shown)", "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display.", "pd_provider_hospital_affiliation rows. See the hospital_affiliation scope."),
     "referrals": _entry("Referrals", "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out.", "pd_provider_referral rows. See the referral scope."),
     "utilization": _entry("Care Compare utilization", "Not on the HTTP profile.", "pd_provider_utilization from cms_pdc_utilization (n0yb-util), top 5 by percentile. CLI get only."),
@@ -417,9 +419,9 @@ PROVIDER: dict[str, dict[str, str]] = {
 }
 
 GROUP_OVERRIDES: dict[str, dict[str, str]] = {
-    "organization_id": _entry("Organization id", "Billing identifier of the group. Members are the clinicians whose primary organization this is.", "pd_provider.primary_organization_id. One pd_group_practice row per org per member scope (all / active / inactive)."),
+    "organization_id": _entry("Group practice id", "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is.", "pd_provider.primary_organization_id. One pd_group_practice row per group per member scope (all / active / inactive)."),
     "organization_name": _entry("Organization", "Name of the group practice.", "MAX(pd_provider.primary_organization_name) over members, in pd_group_practice."),
-    "organization_npi": _entry("Organization NPI", "NPI of the billing organization.", "MAX(pd_provider.primary_organization_npi) over members, in pd_group_practice."),
+    "organization_npi": _entry("Billing NPI", "One of the organization NPIs the members bill under in claims.", "MAX(pd_provider.primary_organization_npi) over members, in pd_group_practice."),
     "parent_id": _entry("Parent organization id", "Identifier of the group's parent organization.", "The pd_provider.primary_organization_parent_id carried by the most members (ties: most visits, then name), in pd_group_practice."),
     "parent_name": _entry("Parent organization", "Parent organization of the group: the one most of its member clinicians are recorded under.", "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice."),
     "provider_count": _entry("Clinicians", "Number of individual clinicians whose primary organization is this group.", "COUNT(*) of pd_provider rows with this primary_organization_id, in the requested member scope."),
@@ -517,15 +519,15 @@ PRACTICE: dict[str, dict[str, str]] = {
 }
 
 GROUP_PRACTICE: dict[str, dict[str, str]] = {
-    "npi": _entry("NPI", "The clinician this organization row belongs to.", "pd_provider_group_practice.npi."),
-    "org_rank": _entry("Rank", "Order of the clinician's organizations: primary first.", "pd_provider_group_practice: ROW_NUMBER per npi: is_primary first, then more cases, then later max_period_code (Phase 4)."),
-    "organization_id": _entry("Organization id", "Billing identifier of the organization.", "provider_billing_code on az.physician_affiliation_p / az.physician_affiliation_i, or pd_provider.primary_organization_id for the primary row."),
-    "organization_npi": _entry("Organization NPI", "NPI of the billing organization.", "Same billing code as organization_id, from az.physician_affiliation_p / az.physician_affiliation_i."),
-    "organization_name": _entry("Organization", "Name of the organization the clinician billed under.", "dba_name on the az.physician_affiliation_p / az.physician_affiliation_i row, or pd_provider.primary_organization_name."),
-    "billing_type": _entry("Billing type", "P for professional claims, I for institutional claims. Blank when the row came only from the primary affiliation.", "'P' from az.physician_affiliation_p, 'I' from az.physician_affiliation_i. P beats I when both exist for one org."),
-    "is_primary": _entry("Primary", "This is the clinician's primary billing organization.", "pd_provider_group_practice.organization_id = pd_provider.primary_organization_id."),
-    "cases": _entry("Cases", "Case count the warehouse attributes to the clinician at this organization.", "count_of_cases on the az.physician_affiliation_p / az.physician_affiliation_i row; null for the primary-only row."),
-    "max_period_code": _entry("Last month billed", "Latest month (YYYYMM) the clinician billed under this organization.", "max_period_code on the az.physician_affiliation_p / az.physician_affiliation_i row; must be >= window_start to be listed."),
+    "npi": _entry("NPI", "The clinician this group row belongs to.", "pd_provider_group_practice.npi."),
+    "org_rank": _entry("Rank", "Order of the clinician's groups: the master-file group practice first, then CMS reassignment groups.", "pd_provider_group_practice: ROW_NUMBER per npi: is_primary first, then group id (Phase 4)."),
+    "organization_id": _entry("Group practice id", "Identifier of the group (the CMS group PAC ID).", "pd_src_group_practice.group_pac_id for CMS rows, pd_provider.primary_organization_id for the primary row."),
+    "organization_npi": _entry("Organization NPI", "Blank: the group id is a CMS PAC ID, which is not an NPI.", "Always null since the reference sources took over."),
+    "organization_name": _entry("Group", "Name of the group practice.", "pd_src_group_practice.group_name (CMS legal business name) or pd_provider.primary_organization_name for the primary row."),
+    "billing_type": _entry("Source", "R: the master reference file's group practice. C: a CMS reassignment group.", "'R' from pd_provider.primary_organization_* (pd_src_physician), 'C' from pd_src_group_practice. R wins when both list the same group."),
+    "is_primary": _entry("Primary", "This is the clinician's group practice in the master reference file.", "pd_provider_group_practice.organization_id = pd_provider.primary_organization_id."),
+    "cases": _entry("Cases", "Blank: case counts are not available from the reference sources.", "Always null since the reference sources took over."),
+    "max_period_code": _entry("Last month billed", "Blank: billing months are not available from the reference sources.", "Always null since the reference sources took over."),
 }
 
 HOSPITAL_AFFILIATION: dict[str, dict[str, str]] = {
@@ -620,7 +622,7 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("group", "visits_percentile"): [_VOLUME, "Ranked among all groups."],
     ("group", "activity_percentile"): [_VOLUME, "Ranked among all groups."],
     ("group", "group_size"): ["Largest CMS-reported group size among members."],
-    ("group", "provider_count"): ["Members are clinicians whose primary billing organization is this group."],
+    ("group", "provider_count"): ["Members are clinicians whose group practice in the master reference file is this group."],
     ("practice", "visit_share_pct"): ["Sites past the top 5 and visits with no location keep the shares from summing to 100."],
     ("practice", "wrvu_share_pct"): [_RVU_SCALE],
     ("practice", "wrvu_at_site"): [_RVU_SCALE, _RVU_EXCL],

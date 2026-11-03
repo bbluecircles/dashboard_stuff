@@ -131,6 +131,10 @@ PD_PROVIDER_REFERENCE_COLUMNS = (
     ("affiliation_source", "VARCHAR(16) NULL"),
     ("reference_group_id", "BIGINT UNSIGNED NULL"),
     ("reference_group_name", "VARCHAR(180) NULL"),
+    # The warehouse billing organization (physician_primary_affiliation), kept as
+    # "bills under" now that primary_organization_* is the master-file group practice.
+    ("billing_organization_id", "BIGINT NULL"),
+    ("billing_organization_name", "VARCHAR(180) NULL"),
 )
 
 PD_PROVIDER_PHASE2_COLUMNS = (

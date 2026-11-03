@@ -140,7 +140,12 @@ def test_cli_field_help_writes_file(tmp_path, capsys):
 
 
 # Fields whose value is a constant or a pure derivation with no table of its own.
-NO_TABLE_FIELDS = {("group", "visits_are_summed_across_npis")}
+NO_TABLE_FIELDS = {
+    ("group", "visits_are_summed_across_npis"),
+    ("group_practice", "organization_npi"),
+    ("group_practice", "cases"),
+    ("group_practice", "max_period_code"),
+}
 
 
 def test_every_dev_entry_names_registered_tables():
@@ -269,9 +274,13 @@ def test_field_upstream_reaches_the_warehouse():
     assert "pd_provider" not in up
     gp = rendered["scopes"]["group_practice"]["organization_name"]
     names = [t["name"] for t in gp["tables"]]
-    assert "az_cms.physician_affiliation_p" in names and "az_cms.physician_affiliation_i" in names
+    assert "pd_src_group_practice" in names and "master_ref.cms_group_practice" in names
     reg = {t["key"]: t for t in rendered["tables"]}
-    assert reg["pd_provider_group_practice"]["built_from"] == ["az_cms.physician_affiliation_p", "az_cms.physician_affiliation_i", "pd_provider"]
+    assert reg["pd_provider_group_practice"]["built_from"] == ["pd_src_group_practice", "pd_provider"]
+    prov = rendered["scopes"]["provider"]
+    assert prov["primary_organization_id"]["label"] == "Group practice id"
+    assert "master_ref.111_physician" in [t["name"] for t in prov["primary_organization_id"]["tables"]]
+    assert prov["billing_organization_name"]["label"] == "Bills under"
     assert "built_from" not in reg["cms_pdc_clinician"]
 
 
