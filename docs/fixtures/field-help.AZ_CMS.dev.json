@@ -7220,8 +7220,8 @@
       },
       "primary_organization_parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the primary billing organization, as recorded in the warehouse.",
-        "dev": "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation.",
+        "help": "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under.",
+        "dev": "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation (Phase 4), then replaced by the group's modal parent from pd_group_practice when the clinician has a group.",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -7232,6 +7232,18 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "upstream": false
+          },
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
             "upstream": false
           }
         ]
@@ -19428,8 +19440,8 @@
       },
       "primary_organization_parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the primary billing organization, as recorded in the warehouse.",
-        "dev": "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation.",
+        "help": "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under.",
+        "dev": "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation (Phase 4), then replaced by the group's modal parent from pd_group_practice when the clinician has a group.",
         "caveats": [],
         "derived_from": [
           {
@@ -19447,6 +19459,18 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "upstream": false
+          },
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
             "upstream": false
           }
         ]
@@ -23484,8 +23508,8 @@
       },
       "state": {
         "label": "State",
-        "help": "State of the clinician's primary practice site.",
-        "dev": "pd_provider_practice.state where site_rank = 1.",
+        "help": "The state where most of the group's member clinicians practise, from the master reference file. The group picker shows this state's groups unless asked for others.",
+        "dev": "pd_src_physician.state_abbr carried by the most members of the group (ties: most visits), in pd_group_practice.",
         "caveats": [],
         "derived_from": [
           {
@@ -23496,6 +23520,39 @@
           }
         ],
         "tables": [
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": true
+          },
           {
             "key": "pd_provider_practice",
             "name": "pd_provider_practice",
@@ -23510,7 +23567,7 @@
               "pd_stg_site_wrvu",
               "pd_stg_site_dow"
             ],
-            "upstream": false
+            "upstream": true
           },
           {
             "key": "pd_stg_npi_sl",
@@ -23787,42 +23844,12 @@
         ]
       },
       "organization_npi": {
-        "label": "Billing NPI",
-        "help": "One of the organization NPIs the members bill under in claims.",
-        "dev": "MAX(pd_provider.primary_organization_npi) over members, in pd_group_practice.",
+        "label": "Organization NPI",
+        "help": "Blank: a group is keyed by its CMS group PAC ID, which is not an NPI.",
+        "dev": "NULL in pd_group_practice since the group key moved to the master-file group practice; no table.",
         "caveats": [],
         "derived_from": [],
         "tables": [
-          {
-            "key": "pd_provider",
-            "name": "pd_provider",
-            "kind": "mart",
-            "external": false,
-            "phase": "Phase 1, overlaid by every later phase",
-            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
-            "built_from": [
-              "az_cms.physician",
-              "azal.npi_spec_grp",
-              "cms_pdc_clinician",
-              "cms_nppes_type1",
-              "cms_pdc_facility_affil",
-              "az_cms.physician_primary_affiliation",
-              "pd_stg_visit",
-              "pd_stg_panel_patient",
-              "pd_stg_top_dx",
-              "pd_stg_top_px",
-              "pd_stg_npi_wrvu",
-              "pd_stg_npi_payor",
-              "pd_stg_npi_dow",
-              "pd_stg_npi_wrvu_prior",
-              "pd_stg_specialty_wrvu",
-              "pd_stg_npi_percentile",
-              "pd_stg_npi_visits_percentile",
-              "pd_stg_visit_site",
-              "cms_pdc_mips"
-            ],
-            "upstream": false
-          },
           {
             "key": "pd_group_practice",
             "name": "pd_group_practice",
@@ -23890,8 +23917,8 @@
       },
       "parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the group: the one most of its member clinicians are recorded under.",
-        "dev": "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice.",
+        "help": "Parent organization of the group: the one most of its member clinicians are recorded under. Each member's own parent is then set to this value.",
+        "dev": "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice; written back to every member's primary_organization_parent_* by rebuild_group_summary.",
         "caveats": [
           "The parent most members carry; a minority of members may be recorded under a different parent."
         ],
@@ -29114,6 +29141,27 @@
         "label": "Minimum clinicians",
         "help": "Show only groups with at least this many member clinicians in the chosen roll-up.",
         "dev": "pd_group_practice.provider_count >= value, in the selected member_scope.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_group_practice",
+            "name": "pd_group_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2, 4, 6 and overlay-cms",
+            "description": "Precomputed group-practice dump, one row per org per member scope.",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          }
+        ]
+      },
+      "group_state": {
+        "label": "Include out-of-state groups",
+        "help": "Unchecked, the list shows groups whose members mostly practise in this state. Checked, national groups with a few local claims appear too.",
+        "dev": "API group_state: 'market' (default) = pd_group_practice.state equals the market state; 'any' = no state clause; or a USPS code.",
         "caveats": [],
         "derived_from": [],
         "tables": [

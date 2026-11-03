@@ -310,3 +310,23 @@ def test_mart_status_carries_window_labels():
     from provider_directory import api
 
     assert "window_label=format_period_range(window_start, window_end)" in inspect.getsource(api.create_app)
+
+
+def test_group_dump_defaults_to_market_state(tmp_path, monkeypatch):
+    from provider_directory.models import GroupPracticeDumpList
+
+    client = _client(tmp_path, monkeypatch)
+    seen = {}
+
+    def fake(conn, **kwargs):
+        seen.update(kwargs)
+        return GroupPracticeDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_group_practices", fake)
+    assert client.get("/v1/group-practices", params={"state": "AZ"}).status_code == 200
+    assert seen["group_state"] == "AZ"
+    assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "any"}).status_code == 200
+    assert seen["group_state"] is None
+    assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "ca"}).status_code == 200
+    assert seen["group_state"] == "CA"
+    assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "everywhere"}).status_code == 422

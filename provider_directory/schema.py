@@ -845,8 +845,10 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             visits_per_provider DECIMAL(12,1) NULL,
             visits_percentile DECIMAL(5,1) NULL,
             activity_percentile DECIMAL(5,1) NULL,
+            state CHAR(2) NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (member_scope, organization_id),
+            KEY idx_scope_state_visits (member_scope, state, visits_total),
             KEY idx_scope_visits (member_scope, visits_total),
             KEY idx_scope_name (member_scope, organization_name),
             KEY idx_scope_parent (member_scope, parent_name),
@@ -1000,6 +1002,17 @@ def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
         cur.execute(
             f"ALTER TABLE {provider} MODIFY COLUMN wrvu_yoy_change_pct DECIMAL(12,2) NULL"
         )
+
+
+GROUP_SUMMARY_EXTRA_COLUMNS = (("state", "CHAR(2) NULL"),)
+
+
+def migrate_group_summary_columns(conn, mart_db: str = MART_DB) -> None:
+    table = f"{quote_ident(mart_db)}.pd_group_practice"
+    with conn.cursor() as cur:
+        for name, definition in GROUP_SUMMARY_EXTRA_COLUMNS:
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}")
+        cur.execute(f"CREATE INDEX IF NOT EXISTS idx_scope_state_visits ON {table} (member_scope, state, visits_total)")
 
 
 def migrate_reference_columns(conn, mart_db: str = MART_DB) -> None:
@@ -1183,5 +1196,6 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     migrate_phase5_columns(conn, mart_db)
     migrate_extras_columns(conn, mart_db)
     migrate_reference_columns(conn, mart_db)
+    migrate_group_summary_columns(conn, mart_db)
     convert_engine(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

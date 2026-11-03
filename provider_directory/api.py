@@ -369,10 +369,13 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         max_visits: int | None = Query(default=None, ge=0),
         min_providers: int | None = Query(default=None, ge=1),
         in_system: bool | None = None,
+        group_state: str = Query(default="market", pattern="^(?i:market|any|[A-Za-z]{2})$"),
         limit: int = Query(default=DUMP_PAGE_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX),
         offset: int = Query(default=0, ge=0),
     ) -> GroupPracticeDumpList:
         market = _market_or_422(state)
+        key = group_state.strip().lower()
+        resolved_group_state = None if key == "any" else (market.state if key == "market" else key.upper())
         if min_visits is not None and max_visits is not None and min_visits > max_visits:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -389,6 +392,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
                 max_visits=max_visits,
                 min_providers=min_providers,
                 in_system=in_system,
+                group_state=resolved_group_state,
                 limit=_clamp_limit(limit),
                 offset=offset,
                 mart_db=market.mart_db,

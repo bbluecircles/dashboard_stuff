@@ -368,7 +368,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "billing_organization_id": _entry("Bills under id", "Identifier of the organization the clinician bills under in claims, which can differ from the group practice.", "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4). The group key before the reference file took over."),
     "billing_organization_name": _entry("Bills under", "The organization the clinician bills under in claims.", "p_dba_name, else I_dba_name, else group_prac_name on the az.physician_primary_affiliation row (Phase 4)."),
     "primary_organization_parent_id": _entry("Parent organization id", "Identifier of the parent organization of the primary billing organization.", "IP_hospital_system_code, else OP_hospital_system_code on az.physician_primary_affiliation."),
-    "primary_organization_parent_name": _entry("Parent organization", "Parent organization of the primary billing organization, as recorded in the warehouse.", "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation."),
+    "primary_organization_parent_name": _entry("Parent organization", "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under.", "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation (Phase 4), then replaced by the group's modal parent from pd_group_practice when the clinician has a group."),
     **_weekday_entries("the clinician's visits", _DOW_DEV),
     "wrvu_prior_year_total": _entry("Prior-year work RVU total", "The same work RVU total for the 12 months before the window, {prior_window}.", "Same line-level rule over az.pat_dt for {prior_window}: lines cached in pd_stg_npi_px_line_prior, priced on azal.procd into pd_stg_npi_wrvu_prior each run (Phase 5)."),
     "wrvu_prior_year_average": _entry("Prior-year average work RVU per procedure", "Prior-year work RVU total divided by prior-year priced procedures, {prior_window}.", "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals."),
@@ -421,9 +421,10 @@ PROVIDER: dict[str, dict[str, str]] = {
 GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "organization_id": _entry("Group practice id", "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is.", "pd_provider.primary_organization_id. One pd_group_practice row per group per member scope (all / active / inactive)."),
     "organization_name": _entry("Organization", "Name of the group practice.", "MAX(pd_provider.primary_organization_name) over members, in pd_group_practice."),
-    "organization_npi": _entry("Billing NPI", "One of the organization NPIs the members bill under in claims.", "MAX(pd_provider.primary_organization_npi) over members, in pd_group_practice."),
+    "organization_npi": _entry("Organization NPI", "Blank: a group is keyed by its CMS group PAC ID, which is not an NPI.", "NULL in pd_group_practice since the group key moved to the master-file group practice; no table."),
+    "state": _entry("State", "The state where most of the group's member clinicians practise, from the master reference file. The group picker shows this state's groups unless asked for others.", "pd_src_physician.state_abbr carried by the most members of the group (ties: most visits), in pd_group_practice."),
     "parent_id": _entry("Parent organization id", "Identifier of the group's parent organization.", "The pd_provider.primary_organization_parent_id carried by the most members (ties: most visits, then name), in pd_group_practice."),
-    "parent_name": _entry("Parent organization", "Parent organization of the group: the one most of its member clinicians are recorded under.", "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice."),
+    "parent_name": _entry("Parent organization", "Parent organization of the group: the one most of its member clinicians are recorded under. Each member's own parent is then set to this value.", "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice; written back to every member's primary_organization_parent_* by rebuild_group_summary."),
     "provider_count": _entry("Clinicians", "Number of individual clinicians whose primary organization is this group.", "COUNT(*) of pd_provider rows with this primary_organization_id, in the requested member scope."),
     "active_provider_count": _entry("Active clinicians", "Members with at least one visit or panel patient in {window}.", "SUM(pd_provider.active_provider = 1) over members, in pd_group_practice."),
     "in_system_provider_count": _entry("In-system clinicians", "Members with a CMS hospital affiliation.", "SUM(pd_provider.in_system_provider = 1) over members, in pd_group_practice."),
@@ -474,6 +475,7 @@ GROUP_FILTER: dict[str, dict[str, str]] = {
     "min_visits": _entry("Minimum visits", "Lower bound on the group's visits in {window}, summed across member clinicians.", "pd_group_practice.visits_total >= value."),
     "max_visits": _entry("Maximum visits", "Upper bound on the group's summed visits in {window}.", "pd_group_practice.visits_total <= value."),
     "min_providers": _entry("Minimum clinicians", "Show only groups with at least this many member clinicians in the chosen roll-up.", "pd_group_practice.provider_count >= value, in the selected member_scope."),
+    "group_state": _entry("Include out-of-state groups", "Unchecked, the list shows groups whose members mostly practise in this state. Checked, national groups with a few local claims appear too.", "API group_state: 'market' (default) = pd_group_practice.state equals the market state; 'any' = no state clause; or a USPS code."),
 }
 
 

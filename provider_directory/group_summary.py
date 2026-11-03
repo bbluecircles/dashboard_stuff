@@ -29,6 +29,7 @@ GROUP_SUMMARY_COLUMNS = (
     "visits_per_provider",
     "visits_percentile",
     "activity_percentile",
+    "state",
 )
 
 
@@ -58,4 +59,25 @@ def rebuild_group_summary(conn, mart_db: str = MART_DB) -> dict[str, int]:
             counts[scope] = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
             conn.commit()
             print(f"group summary {scope}: {counts[scope]} rows", flush=True)
+        # A clinician's parent organization is their group's parent (the value most
+        # members carry), so one noisy warehouse row cannot put an HonorHealth
+        # clinician under an out-of-state system.
+        harmonized = 0
+        for bucket in range(16):
+            cur.execute(
+                f"""
+                UPDATE {mart}.pd_provider p
+                INNER JOIN {mart}.{GROUP_SUMMARY_TABLE} g
+                    ON g.member_scope = 'all' AND g.organization_id = p.primary_organization_id
+                SET p.primary_organization_parent_id = g.parent_id,
+                    p.primary_organization_parent_name = g.parent_name
+                WHERE MOD(p.npi, 16) = {int(bucket)}
+                  AND g.parent_name IS NOT NULL
+                  AND NOT (p.primary_organization_parent_name <=> g.parent_name)
+                """
+            )
+            harmonized += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+            conn.commit()
+        counts["provider_parent_harmonized"] = harmonized
+        print(f"group summary provider parents harmonized: {harmonized} rows", flush=True)
     return counts

@@ -424,7 +424,7 @@
       },
       "primary_organization_parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the primary billing organization, as recorded in the warehouse."
+        "help": "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -1054,7 +1054,7 @@
       },
       "primary_organization_parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the primary billing organization, as recorded in the warehouse."
+        "help": "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -1262,7 +1262,7 @@
       },
       "state": {
         "label": "State",
-        "help": "State of the clinician's primary practice site."
+        "help": "The state where most of the group's member clinicians practise, from the master reference file. The group picker shows this state's groups unless asked for others."
       },
       "organization_id": {
         "label": "Group practice id",
@@ -1273,8 +1273,8 @@
         "help": "Name of the group practice."
       },
       "organization_npi": {
-        "label": "Billing NPI",
-        "help": "One of the organization NPIs the members bill under in claims."
+        "label": "Organization NPI",
+        "help": "Blank: a group is keyed by its CMS group PAC ID, which is not an NPI."
       },
       "parent_id": {
         "label": "Parent organization id",
@@ -1282,7 +1282,7 @@
       },
       "parent_name": {
         "label": "Parent organization",
-        "help": "Parent organization of the group: the one most of its member clinicians are recorded under."
+        "help": "Parent organization of the group: the one most of its member clinicians are recorded under. Each member's own parent is then set to this value."
       },
       "provider_count": {
         "label": "Clinicians",
@@ -1649,6 +1649,10 @@
       "min_providers": {
         "label": "Minimum clinicians",
         "help": "Show only groups with at least this many member clinicians in the chosen roll-up."
+      },
+      "group_state": {
+        "label": "Include out-of-state groups",
+        "help": "Unchecked, the list shows groups whose members mostly practise in this state. Checked, national groups with a few local claims appear too."
       }
     },
     "section": {

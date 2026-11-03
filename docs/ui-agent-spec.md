@@ -94,7 +94,7 @@ Page it the same way (`limit` default 50, max 500, `offset` + `total`). Default 
 
 **This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: "Visits are summed across member clinicians." `activity_percentile` / `visits_percentile` are among **all** groups, not the current search filter.
 
-Optional filters: `organization` (contains on group name), `parent` (contains on parent organization name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`.
+Optional filters: `organization` (contains on group name), `parent` (contains on parent organization name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`, and `group_state` (default `market`: only groups whose members mostly practise in this state; `any` lifts it). Render it as the checkbox **Include out-of-state groups** from `group_filter.group_state`, unchecked by default, sending `group_state=any` when checked. Each group row carries `state`. Remove the Billing NPI from the group header and picker; `organization_npi` is blank now.
 
 | JSON | Table column |
 | --- | --- |

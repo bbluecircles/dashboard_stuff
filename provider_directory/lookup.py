@@ -669,13 +669,34 @@ def group_scored_sql(mart_db: str, scope: str) -> str:
         ) ranked
         WHERE ranked.rk = 1
     """
+    # Group state: the state most members carry in the master reference copy, so
+    # national groups with a few Arizona claims can be kept out of a state list.
+    modal_state = f"""
+        SELECT organization_id, state
+        FROM (
+            SELECT
+                p.primary_organization_id AS organization_id,
+                s.state_abbr AS state,
+                ROW_NUMBER() OVER (
+                    PARTITION BY p.primary_organization_id
+                    ORDER BY COUNT(*) DESC, SUM(IFNULL(p.visits_total, 0)) DESC, s.state_abbr
+                ) AS rk
+            FROM {mart}.pd_provider p
+            INNER JOIN {mart}.pd_src_physician s ON s.npi = p.npi
+            WHERE {parent_where}
+              AND s.state_abbr REGEXP '^[A-Z]{{2}}$'
+            GROUP BY p.primary_organization_id, s.state_abbr
+        ) ranked
+        WHERE ranked.rk = 1
+    """
     grouped = f"""
         SELECT
             p.primary_organization_id AS organization_id,
             MAX(p.primary_organization_name) AS organization_name,
-            MAX(p.primary_organization_npi) AS organization_npi,
+            NULL AS organization_npi,
             MAX(par.parent_id) AS parent_id,
             MAX(par.parent_name) AS parent_name,
+            MAX(st.state) AS state,
             COUNT(*) AS provider_count,
             SUM(CASE WHEN p.active_provider = 1 THEN 1 ELSE 0 END) AS active_provider_count,
             SUM(CASE WHEN p.in_system_provider = 1 THEN 1 ELSE 0 END) AS in_system_provider_count,
@@ -684,6 +705,7 @@ def group_scored_sql(mart_db: str, scope: str) -> str:
             SUM(IFNULL(p.wrvu_total, 0)) AS wrvu_total
         FROM {mart}.pd_provider p
         LEFT JOIN ({modal_parent}) par ON par.organization_id = p.primary_organization_id
+        LEFT JOIN ({modal_state}) st ON st.organization_id = p.primary_organization_id
         WHERE {member_where}
         GROUP BY p.primary_organization_id
     """
@@ -738,6 +760,7 @@ def list_group_practices(
     max_visits: int | None = None,
     min_providers: int | None = None,
     in_system: bool | None = None,
+    group_state: str | None = None,
     limit: int = 25,
     offset: int = 0,
     mart_db: str = MART_DB,
@@ -759,6 +782,9 @@ def list_group_practices(
     if organization_id is not None:
         outer_clauses.append("s.organization_id = %s")
         outer_params.append(organization_id)
+    if group_state and group_state.strip():
+        outer_clauses.append("s.state = %s")
+        outer_params.append(group_state.strip().upper())
     if organization and organization.strip():
         outer_clauses.append("s.organization_name LIKE %s")
         outer_params.append(f"%{organization.strip()}%")

@@ -122,3 +122,19 @@ def test_group_parent_is_the_modal_member_parent_not_max():
 
     assert build_parser().parse_args(["group-summary", "--state", "AZ_CMS"]).func.__name__ == "_cmd_group_summary"
     assert "par ON par.organization_id = p.primary_organization_id" in sql
+
+
+def test_group_state_and_parent_harmonization():
+    import inspect
+
+    from provider_directory.group_summary import GROUP_SUMMARY_COLUMNS, rebuild_group_summary
+    from provider_directory.models import GroupPracticeDumpRow
+
+    sql = group_scored_sql("az_pd", "all")
+    assert "INNER JOIN `az_pd`.pd_src_physician s ON s.npi = p.npi" in sql
+    assert "MAX(st.state) AS state" in sql and "NULL AS organization_npi" in sql
+    assert "state" in GROUP_SUMMARY_COLUMNS and "state" in GroupPracticeDumpRow.model_fields
+    src = inspect.getsource(rebuild_group_summary)
+    assert "p.primary_organization_parent_name = g.parent_name" in src and "g.member_scope = 'all'" in src
+    source = inspect.getsource(list_group_practices)
+    assert 's.state = %s' in source and "group_state" in source

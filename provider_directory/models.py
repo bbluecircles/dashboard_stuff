@@ -324,6 +324,7 @@ class GroupPracticeDumpRow(BaseModel):
     provider_count: int = 0
     active_provider_count: int = 0
     in_system_provider_count: int = 0
+    state: str | None = None
     visits_total: int = 0
     panel_size: int = 0
     wrvu_total: float | None = None
