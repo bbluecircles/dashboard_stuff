@@ -233,10 +233,10 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert "encounter_work_procd_code" not in scan
     priced = priced_line_filter_sql("l.code", "pr")
     assert "REGEXP '^[0-9]{4}F$'" in priced and "REGEXP '^C[0-9]{4}$'" in priced and "CHAR_LENGTH(TRIM(l.code)) = 5" in priced
-    assert "phase4 rvu lines reused" in body
     assert build_parser().parse_args(["phase4", "--rvu-only", "--rescan-lines"]).rescan_lines is True
     body = inspect.getsource(_rebuild_rvu)
     assert "SUM(l.line_count * {wrvu_expr})" in body and "SUM(l.line_count)" in body
+    assert "phase4 rvu lines reused" in body
     assert "pd_stg_visit v" not in body
     assert "ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3)" in body
     prior = prior_line_scan_sql("`az_pd`", "`az_cms`")
