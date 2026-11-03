@@ -108,7 +108,7 @@ MAX_REFERRAL_PEERS = 5
 # catches the in-practice NP / partner case; the specialty pattern drops imaging,
 # lab and anesthesia "referrals" that are orders rather than hand-offs.
 REFERRAL_EXCLUDE_SAME_ORGANIZATION = True
-REFERRAL_EXCLUDED_SPECIALTY_REGEXP = "PATHOLOG|DIAGNOSTIC RADIOLOGY|ANESTHE|CLINICAL LABORATORY|STUDENT"
+REFERRAL_EXCLUDED_SPECIALTY_REGEXP = "PATHOLOG|DIAGNOSTIC RADIOLOGY|BODY IMAGING|NEURORADIOLOG|NUCLEAR MEDICINE|ANESTHE|CLINICAL LABORATORY|STUDENT"
 # Specialty benchmark peers: same specialty, a practice site in the market state,
 # and at least this many visits in the window, so out-of-state clinicians with a
 # handful of claim lines do not set the median.
