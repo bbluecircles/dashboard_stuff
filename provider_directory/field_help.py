@@ -33,7 +33,7 @@ from provider_directory.settings import (
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 SCOPES = ("provider", "group", "practice", "group_practice", "hospital_affiliation", "referral", "utilization",
-          "provider_filter", "group_filter")
+          "provider_filter", "group_filter", "section")
 
 
 def format_period(yyyymm: int | None) -> str:
@@ -477,6 +477,34 @@ GROUP_FILTER: dict[str, dict[str, str]] = {
 }
 
 
+# Page sections and enumerated values the UI shows but no single field carries:
+# headings, their captions and the group-source codes. The UI binds these by
+# key like any field; `label` is the heading, `help` the caption or tooltip.
+SECTION: dict[str, dict[str, str]] = {
+    "volume": _entry("Volume", "Visits, panel size and work RVU for the clinician in {window}.", "UI heading over visits_total, panel_size, wrvu_total, wrvu_average and wrvu_procedure_count; no table."),
+    "work_rvu_vs_specialty": _entry("Work RVU vs specialty", "How the clinician's work RVU total compares with same-specialty peers who practise in the state with at least 50 visits.", "UI heading over the wrvu_state_specialty_* fields and wrvu_specialty_percentile; no table."),
+    "standing": _entry("Standing", "Where the clinician ranks among specialty peers on visits and on activity.", "UI heading over visits_specialty_percentile and activity_specialty_percentile; no table."),
+    "office_em_visits": _entry("Office visits", "New and established patient office visits, from the office evaluation and management codes.", "UI heading over visits_new_patient, visits_established and visits_percent_new_patient; no table."),
+    "place_of_service": _entry("Place of service", "Share of the clinician's visits by care setting.", "UI heading over the visits_percent_office / hopd / asc / ed / telehealth / inpatient / lab / other_pos fields; no table."),
+    "visits_by_day": _entry("Visits by day of week", "Share of the clinician's visits on each weekday.", "UI heading over visits_percent_monday through visits_percent_sunday; no table."),
+    "top_diagnoses": _entry("Top diagnoses", "The five diagnoses most often on the clinician's visits, with each one's share of visits.", "UI heading over visits_top_diagnosis_1..5; no table."),
+    "top_procedures": _entry("Top procedures", "The five procedure codes most often billed on the clinician's visits, with each one's share of visits.", "UI heading over visits_top_procedure_1..5; no table."),
+    "top_primary_procedures": _entry("Top primary procedures", "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services.", "UI heading over visits_top_primary_procedure_1..5; no table."),
+    "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "UI heading over group_practices[]; no table."),
+    "group_source_R": _entry("Master reference file", "Group practice recorded for the clinician in the master reference file.", "group_practice.billing_type = 'R'; no table."),
+    "group_source_C": _entry("CMS reassignment", "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file.", "group_practice.billing_type = 'C'; no table."),
+    "referrals": _entry("Referrals", "Top 5 clinicians who refer to this clinician and top 5 this clinician refers to. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "UI heading over referrals[] in and out; no table."),
+    "referrals_in": _entry("Referrals in", "Clinicians who send patients to this clinician.", "referral.direction = 'in'; no table."),
+    "referrals_out": _entry("Referrals out", "Clinicians this clinician sends patients to.", "referral.direction = 'out'; no table."),
+    "sites": _entry("Sites", "The clinician's top five practice locations by visits, named from the location's DBA or registered name, else its address.", "UI heading over practices[]; no table."),
+    "panel": _entry("Panel", "Age and sex of the clinician's patients, and the payers behind their visits.", "UI heading over the panel_* and visits_percent_* payer fields; no table."),
+    "payer_mix": _entry("Payer mix", "Share of claims by payer class: Medicare FFS, Medicare Advantage, Medicare Other, Medicaid, Commercial and HMO. Other is outside the denominator.", "UI heading over the six visits_percent_* payer-class fields; no table."),
+    "top_commercial_payers": _entry("Top commercial payers", "The five commercial payers with the most of the clinician's commercial claims, each as a share of commercial claims.", "UI heading over top_payer_name_1..5; no table."),
+    "cms": _entry("CMS", "Group size, telehealth, secondary specialties and MIPS scores as published by CMS.", "UI heading over group_size, telehealth_offered, secondary_specialty_* and mips_*; no table."),
+    "group_page_note": _entry("Summed across clinicians", "Figures on a group page are summed across member clinicians and can count an encounter twice when two members billed it.", "Caption for every group page; no table."),
+}
+
+
 def _group_scope() -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for key, entry in PROVIDER.items():
@@ -732,6 +760,7 @@ def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
         "utilization": UTILIZATION,
         "provider_filter": PROVIDER_FILTER,
         "group_filter": GROUP_FILTER,
+        "section": SECTION,
     }
     out: dict[str, dict[str, dict[str, Any]]] = {}
     for scope, fields in scopes.items():

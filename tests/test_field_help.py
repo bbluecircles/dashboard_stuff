@@ -28,6 +28,7 @@ SCOPE_MODELS = {
     "utilization": (models.ProviderUtilization,),
     "provider_filter": (),
     "group_filter": (),
+    "section": (),
 }
 
 
@@ -152,7 +153,7 @@ def test_every_dev_entry_names_registered_tables():
     cat = catalog(dev=True)
     for scope, fields in cat.items():
         for key, item in fields.items():
-            if (scope, key) in NO_TABLE_FIELDS:
+            if (scope, key) in NO_TABLE_FIELDS or scope == "section":
                 continue
             assert item["tables"], (scope, key)
             for table in item["tables"]:
@@ -334,3 +335,13 @@ def test_top_code_help_covers_five_ranks_and_primary_procedures():
     assert any("Visit-type codes" in c for c in cat["visits_top_primary_procedure_2"]["caveats"])
     group = catalog(dev=True)["group"]
     assert "stored top 5" in group["visits_top_primary_procedure_1_percent"]["help"]
+
+
+def test_section_scope_names_headings_and_group_sources():
+    sec = catalog(dev=False)["section"]
+    assert sec["top_primary_procedures"]["label"] == "Top primary procedures"
+    assert sec["work_rvu_vs_specialty"]["label"] == "Work RVU vs specialty"
+    assert sec["group_source_R"]["label"] == "Master reference file"
+    assert sec["group_source_C"]["label"] == "CMS reassignment"
+    for key in ("volume", "referrals", "payer_mix", "sites", "panel", "cms"):
+        assert key in sec

@@ -454,6 +454,32 @@ Sources marked * are external CMS files; the link is the dataset page they were 
 | `max_visits` | Maximum visits | Upper bound on the group's summed visits in Nov 2024 to Oct 2025. | pd_group_practice.visits_total <= value. | `pd_group_practice` |
 | `min_providers` | Minimum clinicians | Show only groups with at least this many member clinicians in the chosen roll-up. | pd_group_practice.provider_count >= value, in the selected member_scope. | `pd_group_practice` |
 
+## section
+
+| Field | Label | Help | Developer | Sources |
+| --- | --- | --- | --- | --- |
+| `volume` | Volume | Visits, panel size and work RVU for the clinician in Nov 2024 to Oct 2025. | UI heading over visits_total, panel_size, wrvu_total, wrvu_average and wrvu_procedure_count; no table. |  |
+| `work_rvu_vs_specialty` | Work RVU vs specialty | How the clinician's work RVU total compares with same-specialty peers who practise in the state with at least 50 visits. | UI heading over the wrvu_state_specialty_* fields and wrvu_specialty_percentile; no table. |  |
+| `standing` | Standing | Where the clinician ranks among specialty peers on visits and on activity. | UI heading over visits_specialty_percentile and activity_specialty_percentile; no table. |  |
+| `office_em_visits` | Office visits | New and established patient office visits, from the office evaluation and management codes. | UI heading over visits_new_patient, visits_established and visits_percent_new_patient; no table. |  |
+| `place_of_service` | Place of service | Share of the clinician's visits by care setting. | UI heading over the visits_percent_office / hopd / asc / ed / telehealth / inpatient / lab / other_pos fields; no table. |  |
+| `visits_by_day` | Visits by day of week | Share of the clinician's visits on each weekday. | UI heading over visits_percent_monday through visits_percent_sunday; no table. |  |
+| `top_diagnoses` | Top diagnoses | The five diagnoses most often on the clinician's visits, with each one's share of visits. | UI heading over visits_top_diagnosis_1..5; no table. |  |
+| `top_procedures` | Top procedures | The five procedure codes most often billed on the clinician's visits, with each one's share of visits. | UI heading over visits_top_procedure_1..5; no table. |  |
+| `top_primary_procedures` | Top primary procedures | The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services. | UI heading over visits_top_primary_procedure_1..5; no table. |  |
+| `group_practices` | Group practices | The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them. | UI heading over group_practices[]; no table. |  |
+| `group_source_R` | Master reference file | Group practice recorded for the clinician in the master reference file. | group_practice.billing_type = 'R'; no table. |  |
+| `group_source_C` | CMS reassignment | A group the clinician reassigns Medicare benefits to, from the CMS reassignment file. | group_practice.billing_type = 'C'; no table. |  |
+| `referrals` | Referrals | Top 5 clinicians who refer to this clinician and top 5 this clinician refers to. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out. | UI heading over referrals[] in and out; no table. |  |
+| `referrals_in` | Referrals in | Clinicians who send patients to this clinician. | referral.direction = 'in'; no table. |  |
+| `referrals_out` | Referrals out | Clinicians this clinician sends patients to. | referral.direction = 'out'; no table. |  |
+| `sites` | Sites | The clinician's top five practice locations by visits, named from the location's DBA or registered name, else its address. | UI heading over practices[]; no table. |  |
+| `panel` | Panel | Age and sex of the clinician's patients, and the payers behind their visits. | UI heading over the panel_* and visits_percent_* payer fields; no table. |  |
+| `payer_mix` | Payer mix | Share of claims by payer class: Medicare FFS, Medicare Advantage, Medicare Other, Medicaid, Commercial and HMO. Other is outside the denominator. | UI heading over the six visits_percent_* payer-class fields; no table. |  |
+| `top_commercial_payers` | Top commercial payers | The five commercial payers with the most of the clinician's commercial claims, each as a share of commercial claims. | UI heading over top_payer_name_1..5; no table. |  |
+| `cms` | CMS | Group size, telehealth, secondary specialties and MIPS scores as published by CMS. | UI heading over group_size, telehealth_offered, secondary_specialty_* and mips_*; no table. |  |
+| `group_page_note` | Summed across clinicians | Figures on a group page are summed across member clinicians and can count an encounter twice when two members billed it. | Caption for every group page; no table. |  |
+
 ## Tables
 
 | Table | Kind | Refreshed by | Built from | Description |
