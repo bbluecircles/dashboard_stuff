@@ -44,7 +44,7 @@ GET /v1/providers?state=AZ&organization_id={id}&min_visits=1
 | Method | Path | Use |
 | --- | --- | --- |
 | GET | `/health` | Process up. No API key. NSSM / probes. |
-| GET | `/v1/mart?state=` | Frozen window, warehouse max, `slide_available`. Banner **as of** `window_end`. |
+| GET | `/v1/mart?state=` | Frozen window, warehouse max, `slide_available`, `window_label`. Banner **Data for {window_label}**, e.g. "Data for Nov 2024 to Oct 2025". |
 | GET | `/v1/providers?state=&limit=&offset=` | **Picker dump** — slim rows, paged. Max `limit` 500. |
 | GET | `/v1/providers/{npi}?state=` | Full profile after a row is selected |
 | GET | `/v1/group-practices?state=&limit=&offset=` | **Group-practice dump** — slim rows, paged. Same paging rules. |
@@ -121,7 +121,7 @@ Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`
 
 - Claims live in `{st}`, lookups in `{stal}`. The API reads **`{st}_pd` only**.
 - Universe: Type 1 NPIs. Visit = distinct `encounter_id`.
-- Frozen window: **Aug 2023 – Jul 2024** (`202308`–`202407`) until a `phase6 --slide`. Banner copy from `/v1/mart`: **as of {window_end month}**.
+- Frozen 12-month window until a `phase6 --slide`. Banner copy from `/v1/mart`: **Data for {window_label}** (the API formats it, e.g. "Nov 2024 to Oct 2025"); never "as of" a single month, the reviewers want to see the exact months. Prior-year comparisons use `prior_window_label` the same way.
 - Payer classes: 1 Medicare FFS (`visits_percent_medicare_traditional`), 2 Medicaid (`visits_percent_medicaid`), 3 Commercial (`visits_percent_third_party`), 4 HMO (`visits_percent_hmo`), 6 Medicare Advantage (`visits_percent_medicare_advantage`), 7 Medicare Other (`visits_percent_medicare_other`). Class 5 Other is outside the denominator. Label class 4 **HMO**, never Medicare Advantage. Dummy NPIs 0 and 4 are dropped.
 - `in_system_provider` is a **CMS Provider Data Catalog facility affiliation** (hospital CCN), not a Vue roster.
 - Blank phones are OK. Do not invent a phone.
@@ -148,7 +148,7 @@ Null if the NPI has no specialty or no visits/RVU. Schott-scale OTP volume will 
 
 Same keys as `python -m provider_directory.cli get --state AZ {npi}`, except HTTP GET omits Open Payments (`open_payments_*`) and Care Compare `utilization[]` (practice profile). CLI `get` still prints those. Claims sites stay on `practices[]`.
 
-**Sticky chrome (not a tab)** — banner from `/v1/mart` (“as of {window_end}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, group practice (`primary_organization_name`) + parent, **Bills under** (`billing_organization_name`, only when it differs from the group practice), **Affiliation** (`affiliation_name`, label and tooltip from the catalog; render the row even when blank, as an empty value, never hide it), NPI.
+**Sticky chrome (not a tab)** — banner from `/v1/mart` (“Data for {window_label}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, group practice (`primary_organization_name`) + parent, **Bills under** (`billing_organization_name`, only when it differs from the group practice), **Affiliation** (`affiliation_name`, label and tooltip from the catalog; render the row even when blank, as an empty value, never hide it), NPI.
 
 **Five tabs**, not eight sections and not one long scroll. Default tab is Overview.
 

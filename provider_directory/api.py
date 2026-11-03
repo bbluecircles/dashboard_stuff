@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from provider_directory import __version__
 from provider_directory.db import ConfigError, get_connection
-from provider_directory.field_help import render_catalog
+from provider_directory.field_help import format_period_range, render_catalog
 from provider_directory.jobs import PHASES, JobConflict, JobRunner
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
 from provider_directory.models import (
@@ -103,6 +103,8 @@ class MartStatus(BaseModel):
     window_end: int
     prior_window_start: int
     prior_window_end: int
+    window_label: str = ""
+    prior_window_label: str = ""
     warehouse_max_period: int | None = None
     warehouse_source: str | None = None
     slide_available: bool | None = None
@@ -222,6 +224,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             window_end=window_end,
             prior_window_start=prior_start,
             prior_window_end=prior_end,
+            window_label=format_period_range(window_start, window_end),
+            prior_window_label=format_period_range(prior_start, prior_end),
             warehouse_max_period=warehouse_max
             if warehouse_max is not None
             else refresh.get("warehouse_max_period"),

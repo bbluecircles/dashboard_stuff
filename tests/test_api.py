@@ -296,3 +296,17 @@ def test_phase_job_202_and_unknown_phase(tmp_path, monkeypatch):
     assert res.headers["location"] == f"/v1/jobs/{job_id}"
     assert client.get(f"/v1/jobs/{job_id}").status_code == 200
     assert client.post("/v1/jobs/phase9").status_code == 404
+
+
+def test_mart_status_carries_window_labels():
+    from provider_directory.api import MartStatus
+
+    body = MartStatus(state="AZ", mart_db="az_pd", claims_db="az_cms", lookup_db="azal",
+                      window_start=202411, window_end=202510, prior_window_start=202311, prior_window_end=202410,
+                      window_label="Nov 2024 to Oct 2025", prior_window_label="Nov 2023 to Oct 2024")
+    assert body.window_label == "Nov 2024 to Oct 2025"
+    import inspect
+
+    from provider_directory import api
+
+    assert "window_label=format_period_range(window_start, window_end)" in inspect.getsource(api.create_app)
