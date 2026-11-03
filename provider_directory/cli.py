@@ -140,7 +140,12 @@ def _cmd_phase4(args: argparse.Namespace) -> int:
 
 def _cmd_phase5(args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
-        summary = run_phase5(conn, **_market_kwargs(args))
+        summary = run_phase5(
+            conn,
+            referrals_only=args.referrals_only,
+            rebuild_edges=args.rebuild_edges,
+            **_market_kwargs(args),
+        )
     print(json.dumps(summary, indent=2, default=str))
     return 0
 
@@ -434,6 +439,17 @@ def build_parser() -> argparse.ArgumentParser:
         "phase5",
         parents=[state_parent],
         help="Referrals both ways, day-of-week mix, prior-year wRVU, state-specialty benchmarks",
+    )
+    p.add_argument(
+        "--referrals-only",
+        action="store_true",
+        help="Re-rank referral peers from the cached pd_stg_referral_edge with the current "
+        "exclusions and peer count; no warehouse read unless the cache is empty",
+    )
+    p.add_argument(
+        "--rebuild-edges",
+        action="store_true",
+        help="With --referrals-only: refill pd_stg_referral_edge from the warehouse first",
     )
     p.set_defaults(func=_cmd_phase5)
 

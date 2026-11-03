@@ -10,7 +10,7 @@ import requests
 from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.activity import rebuild_activity, rebuild_top_codes
 from provider_directory.analytics import rebuild_analytics, rebuild_payer_columns
-from provider_directory.complete import rebuild_complete
+from provider_directory.complete import rebuild_complete, rebuild_referrals
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -241,10 +241,23 @@ def run_phase5(
     claims_db: str = CLAIMS_DB,
     lookup_db: str = LOOKUP_DB,
     market_state: str = MARKET_STATE,
+    referrals_only: bool = False,
+    rebuild_edges: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
+    if referrals_only:
+        summary = rebuild_referrals(
+            conn,
+            mart_db=mart_db,
+            claims_db=claims_db,
+            window_start=window_start,
+            window_end=window_end,
+            rebuild_edges=rebuild_edges,
+        )
+        summary["state"] = market_state
+        return summary
     summary = rebuild_complete(
         conn,
         mart_db=mart_db,

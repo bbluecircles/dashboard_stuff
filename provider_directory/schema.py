@@ -76,15 +76,16 @@ PHASE4_STAGING_TABLES = (
 PHASE5_STAGING_TABLES = (
     "pd_stg_npi_dow",
     "pd_stg_site_dow",
-    "pd_stg_referral_edge",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
     "pd_stg_npi_visits_percentile",
 )
 
+# Kept across phase5 runs (reuse_cached); rebuilt only with --no-reuse / --rebuild-edges.
 PHASE5_CACHED_STAGING_TABLES = (
     "pd_stg_visit_date",
     "pd_stg_npi_wrvu_prior",
+    "pd_stg_referral_edge",
 )
 
 STAGING_TABLES = (

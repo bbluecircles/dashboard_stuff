@@ -44,6 +44,8 @@ def test_group_profile_sql_aggregates_mart_not_pat_dt():
     assert "GROUP BY pr.cluster_key" in sites
     assert "pd_provider_referral" in refs
     assert "GROUP BY r.direction, r.peer_npi" in refs
+    assert "IFNULL(pp.primary_organization_id, 0) <> %s" in refs
+    assert "g.npi = r.peer_npi AND g.organization_id = %s" in refs
     assert "pd_stg_top_dx" in attach
     assert "pd_stg_top_px" in attach
     assert "pd_stg_npi_payor" in payers

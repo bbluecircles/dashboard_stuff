@@ -31,6 +31,8 @@ from provider_directory.settings import (
     MAX_REFERRAL_PEERS,
     PRIOR_WINDOW_END,
     PRIOR_WINDOW_START,
+    REFERRAL_EXCLUDE_SAME_ORGANIZATION,
+    REFERRAL_EXCLUDED_SPECIALTY_REGEXP,
     REFERRAL_IN,
     REFERRAL_OUT,
     WINDOW_END,
@@ -176,7 +178,8 @@ def rebuild_complete(
         _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_provider_referral")
 
         counts["referral_edges"] = _fill_referral_edges(
-            cur, conn, mart, claims, dummy, period_in
+            cur, conn, mart, claims, dummy, period_in,
+            mart_db=mart_db, reuse_cached=reuse_cached,
         )
         counts["referral_rows"] = _rank_referrals(cur, conn, mart, max_peers)
 
@@ -219,7 +222,24 @@ def rebuild_complete(
     }
 
 
-def _fill_referral_edges(cur, conn, mart: str, claims: str, dummy: str, period_in: str) -> int:
+def _fill_referral_edges(
+    cur,
+    conn,
+    mart: str,
+    claims: str,
+    dummy: str,
+    period_in: str,
+    *,
+    mart_db: str = MART_DB,
+    reuse_cached: bool = True,
+) -> int:
+    """Every (npi, direction, peer) edge in the window from the warehouse referral
+    table. Cached: reused on later runs so peers can be re-ranked without
+    re-reading the warehouse (phase5 --referrals-only); --rebuild-edges refills."""
+    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_referral_edge"):
+        print("phase5 referral edges reused", flush=True)
+        return 0
+    _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_referral_edge")
     total = 0
     in_sql = f"""
         INSERT INTO {mart}.pd_stg_referral_edge (
@@ -281,8 +301,31 @@ def _fill_referral_edges(cur, conn, mart: str, claims: str, dummy: str, period_i
     return total
 
 
+def referral_exclusion_sql(me: str = "me", peer: str = "peer") -> str:
+    """Predicate that is TRUE for an edge to leave out of the ranked peers:
+    same primary billing organization (settings.REFERRAL_EXCLUDE_SAME_ORGANIZATION)
+    or a peer specialty on settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP (pathology,
+    diagnostic radiology, anesthesiology, lab). Returns '0' when nothing is excluded."""
+    parts: list[str] = []
+    if REFERRAL_EXCLUDE_SAME_ORGANIZATION:
+        parts.append(
+            f"({peer}.primary_organization_id IS NOT NULL "
+            f"AND {peer}.primary_organization_id = {me}.primary_organization_id)"
+        )
+    if REFERRAL_EXCLUDED_SPECIALTY_REGEXP:
+        pattern = REFERRAL_EXCLUDED_SPECIALTY_REGEXP.replace("'", "''")
+        parts.append(
+            f"UPPER(CONCAT_WS(' ', IFNULL({peer}.primary_specialty_description, ''), "
+            f"IFNULL({peer}.specialty_classification, ''))) REGEXP '{pattern}'"
+        )
+    return "(" + " OR ".join(parts) + ")" if parts else "0"
+
+
 def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
+    """Top max_peers per NPI per direction from the edge table, after the
+    exclusions, so rank 1..N are the first eligible peers."""
     total = 0
+    excluded = referral_exclusion_sql("me", "peer")
     sql = f"""
         INSERT INTO {mart}.pd_provider_referral (
             npi, direction, peer_rank, peer_npi, peer_name, peer_specialty,
@@ -317,7 +360,10 @@ def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
                     ORDER BY e.patient_count DESC, e.claim_count DESC, e.peer_npi
                 ) AS rk
             FROM {mart}.pd_stg_referral_edge e
+            INNER JOIN {mart}.pd_provider me ON me.npi = e.npi
+            INNER JOIN {mart}.pd_provider peer ON peer.npi = e.peer_npi
             WHERE MOD(e.npi, {PROVIDER_BUCKETS}) = %s
+              AND NOT {excluded}
         ) ranked
         INNER JOIN {mart}.pd_provider peer ON peer.npi = ranked.peer_npi
         WHERE ranked.rk <= {int(max_peers)}
@@ -662,3 +708,34 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
         total += n
         print(f"phase5 benchmark overlay bucket {bucket}: {n} rows", flush=True)
     return total
+
+
+def rebuild_referrals(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    window_start: int = WINDOW_START,
+    window_end: int = WINDOW_END,
+    max_peers: int = MAX_REFERRAL_PEERS,
+    rebuild_edges: bool = False,
+) -> dict:
+    """phase5 --referrals-only: re-rank referral peers from the cached edge table
+    with the current exclusions and MAX_REFERRAL_PEERS. Reads the warehouse only
+    when the edge table is empty or rebuild_edges is set. Minutes."""
+    create_schema(conn, mart_db)
+    mart = quote_ident(mart_db)
+    claims = quote_ident(claims_db)
+    dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
+    period_in = period_in_sql(window_start, window_end)
+    counts: dict[str, int | bool] = {"referrals_only": True, "referral_edges": 0, "referral_rows": 0}
+    with conn.cursor() as cur:
+        _session_timeouts(cur)
+        conn.commit()
+        counts["referral_edges"] = _fill_referral_edges(
+            cur, conn, mart, claims, dummy, period_in,
+            mart_db=mart_db, reuse_cached=not rebuild_edges,
+        )
+        _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_provider_referral")
+        counts["referral_rows"] = _rank_referrals(cur, conn, mart, max_peers)
+    return {"window_start": window_start, "window_end": window_end, **counts}

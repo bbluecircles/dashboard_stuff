@@ -432,14 +432,20 @@ def fetch_group_referrals(
                     SUM(r.claim_count) AS claim_count
                 FROM {mart}.pd_provider p
                 INNER JOIN {mart}.pd_provider_referral r ON r.npi = p.npi
+                INNER JOIN {mart}.pd_provider pp ON pp.npi = r.peer_npi
                 WHERE p.primary_organization_id = %s
+                  AND IFNULL(pp.primary_organization_id, 0) <> %s
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {mart}.pd_provider_group_practice g
+                      WHERE g.npi = r.peer_npi AND g.organization_id = %s
+                  )
                 GROUP BY r.direction, r.peer_npi
             ) g
         ) ranked
         WHERE ranked.peer_rank <= %s
         ORDER BY ranked.direction, ranked.peer_rank
     """
-    rows = _fetch(conn, sql, (organization_id, int(max_peers)))
+    rows = _fetch(conn, sql, (organization_id, organization_id, organization_id, int(max_peers)))
     items = []
     for row in rows:
         row["npi"] = organization_id

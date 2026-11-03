@@ -88,3 +88,36 @@ def test_pipeline_exports_phase5():
     assert callable(run_phase4)
     assert callable(run_phase5)
     assert callable(run_phase6)
+
+
+def test_referral_rank_applies_exclusions_and_edges_are_cached():
+    import inspect
+
+    from provider_directory.cli import build_parser
+    from provider_directory.complete import (
+        _fill_referral_edges,
+        _rank_referrals,
+        rebuild_referrals,
+        referral_exclusion_sql,
+    )
+    from provider_directory.pipeline import run_phase5
+    from provider_directory.schema import PHASE5_CACHED_STAGING_TABLES, PHASE5_STAGING_TABLES
+    from provider_directory.settings import MAX_REFERRAL_PEERS
+
+    assert MAX_REFERRAL_PEERS == 5
+    excluded = referral_exclusion_sql("me", "peer")
+    assert "peer.primary_organization_id = me.primary_organization_id" in excluded
+    assert "DIAGNOSTIC RADIOLOGY" in excluded and "PATHOLOG" in excluded and "ANESTHESIOLOGY" in excluded
+    assert "NURSE PRACTITIONER" not in excluded
+    rank = inspect.getsource(_rank_referrals)
+    assert "INNER JOIN {mart}.pd_provider me ON me.npi = e.npi" in rank
+    assert "AND NOT {excluded}" in rank
+    assert "pd_stg_referral_edge" in PHASE5_CACHED_STAGING_TABLES
+    assert "pd_stg_referral_edge" not in PHASE5_STAGING_TABLES
+    fill = inspect.getsource(_fill_referral_edges)
+    assert "referral edges reused" in fill and "TRUNCATE TABLE {mart}.pd_stg_referral_edge" in fill
+    only = inspect.getsource(rebuild_referrals)
+    assert "TRUNCATE TABLE {mart}.pd_provider_referral" in only and "reuse_cached=not rebuild_edges" in only
+    assert "referrals_only" in inspect.getsource(run_phase5)
+    args = build_parser().parse_args(["phase5", "--referrals-only", "--rebuild-edges"])
+    assert args.referrals_only and args.rebuild_edges

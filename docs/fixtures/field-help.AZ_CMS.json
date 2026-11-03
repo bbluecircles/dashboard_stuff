@@ -588,7 +588,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 3 clinicians who refer to this clinician, and top 3 this clinician refers to."
+        "help": "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -1190,7 +1190,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 3 clinicians who refer to this clinician, and top 3 this clinician refers to."
+        "help": "Top 5 clinicians who refer to this clinician, and top 5 this clinician refers to. Clinicians in the same billing organization, and pathology, radiology, anesthesiology and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -1466,7 +1466,7 @@
       },
       "peer_rank": {
         "label": "Rank",
-        "help": "Top 3 per direction by patients."
+        "help": "Top 5 per direction by patients, after leaving out clinicians in the same billing organization and pathology, radiology, anesthesiology and lab clinicians."
       },
       "peer_npi": {
         "label": "Peer NPI",

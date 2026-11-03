@@ -103,7 +103,12 @@ MARKET_STATE = DEFAULT_MARKET_STATE if _is_market_key(DEFAULT_MARKET_STATE) else
 MAX_PRACTICE_SITES = 5
 MAX_HOSPITAL_AFFILIATIONS = 5
 MIN_HOSPITAL_AFFILIATION_SHARE_PCT = 2.0
-MAX_REFERRAL_PEERS = 3
+MAX_REFERRAL_PEERS = 5
+# Referral peers left out of the ranked lists. Same primary billing organization
+# catches the in-practice NP / partner case; the specialty pattern drops imaging,
+# lab and anesthesia "referrals" that are orders rather than hand-offs.
+REFERRAL_EXCLUDE_SAME_ORGANIZATION = True
+REFERRAL_EXCLUDED_SPECIALTY_REGEXP = "PATHOLOG|DIAGNOSTIC RADIOLOGY|ANESTHESIOLOGY|CLINICAL LABORATORY|STUDENT"
 # Ranked lists on the profile (diagnoses, procedures, primary procedures) are top TOP_N.
 TOP_N = 5
 # (pd_provider column prefix, staging table) for each ranked code list.
