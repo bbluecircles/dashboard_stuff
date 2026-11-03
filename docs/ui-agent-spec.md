@@ -148,7 +148,7 @@ Null if the NPI has no specialty or no visits/RVU. Schott-scale OTP volume will 
 
 Same keys as `python -m provider_directory.cli get --state AZ {npi}`, except HTTP GET omits Open Payments (`open_payments_*`) and Care Compare `utilization[]` (practice profile). CLI `get` still prints those. Claims sites stay on `practices[]`.
 
-**Sticky chrome (not a tab)** — banner from `/v1/mart` (“as of {window_end}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, primary org + parent, NPI.
+**Sticky chrome (not a tab)** — banner from `/v1/mart` (“as of {window_end}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, primary org + parent, **Affiliation** (`affiliation_name`, label and tooltip from the catalog; render the row even when blank, as an empty value, never hide it), NPI.
 
 **Five tabs**, not eight sections and not one long scroll. Default tab is Overview.
 

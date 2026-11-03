@@ -38,6 +38,15 @@ python -m provider_directory.cli ref-check
 
 It prints host, user, engine, approximate rows, primary key, columns and one sample row for each table. Read-only.
 
+Then copy and overlay:
+
+```
+python -m provider_directory.cli sync --state AZ_CMS --ref
+python -m provider_directory.cli ref-compare --state AZ_CMS
+```
+
+`sync --ref` copies every `111_physician` row for the market state (all NPI types, so organizations are named) plus any spine NPI whose reference address is out of state into `pd_src_physician`, and every `cms_group_practice` row whose group or clinician is in the state into `pd_src_group_practice`, each built as a `_new` table and swapped in with one `RENAME`. It then writes `affiliation_code` / `affiliation_name` / `affiliation_source` and `reference_group_id` / `reference_group_name` onto `pd_provider`, with the `'888'+NPI` and `NAME-NPI` self placeholders, `<Unavail>` and `Unknown` shown as blank. The affiliation is always on the profile, blank when the master file has none. `ref-compare` reports coverage and how the warehouse billing organization agrees with the reference group practice, for the group-key decision. Both read the reference server only through the read-only paged session.
+
 ## Phase 2
 
 Activity, panel, and top codes for `period_code` 202308–202407. Reads `az.pat_dt` / `azal.diagnosis` / `azal.procd`. Writes only `az_pd`.

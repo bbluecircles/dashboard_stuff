@@ -22,6 +22,8 @@ TABLES = (
     "pd_provider_referral",
     "pd_provider_utilization",
     "pd_group_practice",
+    "pd_src_physician",
+    "pd_src_group_practice",
     "pd_stg_window_claim",
     "pd_stg_visit",
     "pd_stg_panel_patient",
@@ -116,6 +118,16 @@ def _top_code_columns() -> tuple[tuple[str, str], ...]:
 
 
 TOP_CODE_COLUMNS = _top_code_columns()
+
+# From the reference server (sync --ref). Always on the profile, blank when the
+# master file has nothing for the NPI.
+PD_PROVIDER_REFERENCE_COLUMNS = (
+    ("affiliation_code", "BIGINT UNSIGNED NULL"),
+    ("affiliation_name", "VARCHAR(180) NULL"),
+    ("affiliation_source", "VARCHAR(16) NULL"),
+    ("reference_group_id", "BIGINT UNSIGNED NULL"),
+    ("reference_group_name", "VARCHAR(180) NULL"),
+)
 
 PD_PROVIDER_PHASE2_COLUMNS = (
     ("active_provider", "TINYINT NULL"),
@@ -486,6 +498,76 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             last_slide_at DATETIME NULL,
             notes VARCHAR(255) NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_src_physician (
+            npi BIGINT UNSIGNED NOT NULL,
+            npi_type VARCHAR(25) NULL,
+            first_name VARCHAR(30) NULL,
+            middle_name VARCHAR(15) NULL,
+            last_name VARCHAR(254) NULL,
+            suffix VARCHAR(4) NULL,
+            specialty_primary VARCHAR(4) NULL,
+            specialty_grp_code INT NULL,
+            specialty_grp_abbr VARCHAR(4) NULL,
+            specialty_grp_name VARCHAR(200) NULL,
+            npi_spec_grp_code VARCHAR(25) NULL,
+            npi_spec_grp_name VARCHAR(80) NULL,
+            taxonomy_cat VARCHAR(20) NULL,
+            taxonomy_cat_name VARCHAR(80) NULL,
+            degree_code SMALLINT NULL,
+            degree_abbr VARCHAR(10) NULL,
+            degree_name VARCHAR(30) NULL,
+            zip_code VARCHAR(5) NULL,
+            street VARCHAR(80) NULL,
+            city VARCHAR(80) NULL,
+            county_code VARCHAR(6) NULL,
+            county_name VARCHAR(80) NULL,
+            state_abbr VARCHAR(2) NULL,
+            physician_name VARCHAR(253) NULL,
+            dba_name VARCHAR(253) NULL,
+            latitude DECIMAL(10,6) NULL,
+            longitude DECIMAL(10,6) NULL,
+            phone_number VARCHAR(30) NULL,
+            group_prac_code BIGINT UNSIGNED NULL,
+            group_prac_name VARCHAR(180) NULL,
+            inpatient INT NULL,
+            outpatient INT NULL,
+            ed INT NULL,
+            claim INT UNSIGNED NULL,
+            affiliation_code BIGINT UNSIGNED NULL,
+            affiliation_name VARCHAR(255) NULL,
+            affiliation_dba_name VARCHAR(255) NULL,
+            rec_create_date DATETIME NULL,
+            rec_modify_date DATETIME NULL,
+            copied_at DATETIME NULL,
+            PRIMARY KEY (npi),
+            KEY idx_state_type (state_abbr, npi_type),
+            KEY idx_group (group_prac_code),
+            KEY idx_affiliation (affiliation_code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_src_group_practice (
+            rec_id BIGINT UNSIGNED NOT NULL,
+            group_pac_id VARCHAR(10) NULL,
+            group_enrollment_id VARCHAR(15) NULL,
+            group_name VARCHAR(70) NULL,
+            group_state VARCHAR(2) NULL,
+            group_member_count BIGINT UNSIGNED NULL,
+            record_type VARCHAR(19) NULL,
+            individual_enrollment_id VARCHAR(15) NULL,
+            npi BIGINT UNSIGNED NULL,
+            first_name VARCHAR(25) NULL,
+            last_name VARCHAR(35) NULL,
+            individual_state VARCHAR(2) NULL,
+            specialty_description VARCHAR(150) NULL,
+            employer_associations INT UNSIGNED NULL,
+            copied_at DATETIME NULL,
+            PRIMARY KEY (rec_id),
+            KEY idx_npi (npi),
+            KEY idx_group (group_pac_id)
         ) {table_options()}
         """,
         f"""
@@ -895,6 +977,16 @@ def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
         )
 
 
+def migrate_reference_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add the reference-server columns (affiliation, reference group) to pd_provider."""
+    provider = f"{quote_ident(mart_db)}.pd_provider"
+    with conn.cursor() as cur:
+        for name, definition in PD_PROVIDER_REFERENCE_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {provider} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
+
+
 def migrate_extras_columns(conn, mart_db: str = MART_DB) -> None:
     """Add cheap extras columns to existing pd_provider / cms_pdc_clinician."""
     provider = f"{quote_ident(mart_db)}.pd_provider"
@@ -1065,5 +1157,6 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     migrate_phase4_columns(conn, mart_db)
     migrate_phase5_columns(conn, mart_db)
     migrate_extras_columns(conn, mart_db)
+    migrate_reference_columns(conn, mart_db)
     convert_engine(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

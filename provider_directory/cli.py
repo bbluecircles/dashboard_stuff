@@ -188,7 +188,7 @@ def _cmd_extras(args: argparse.Namespace) -> int:
 
 
 def _cmd_sync(args: argparse.Namespace) -> int:
-    other = args.cms or args.open_payments or args.mips or args.utilization or args.spine
+    other = args.cms or args.open_payments or args.mips or args.utilization or args.spine or args.ref
     claims = args.claims or not other
     with get_connection(autocommit=False) as conn:
         summary = run_sync(
@@ -202,9 +202,21 @@ def _cmd_sync(args: argparse.Namespace) -> int:
             reload_pdc=args.reload_pdc,
             skip_staging_indexes=args.skip_staging_indexes,
             dry_run=args.dry_run,
+            ref=args.ref,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
+def _cmd_ref_compare(args: argparse.Namespace) -> int:
+    from provider_directory.reference import reference_compare
+
+    market = _market_kwargs(args)
+    with get_connection(autocommit=False) as conn:
+        out = reference_compare(conn, mart_db=market["mart_db"], limit=args.limit)
+    out["state"] = market["market_state"]
+    print(json.dumps(out, indent=2, default=str))
     return 0
 
 
@@ -548,11 +560,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pass through to phase6 if a slide runs",
     )
     p.add_argument(
+        "--ref",
+        action="store_true",
+        help="Reference clock: copy master_ref.111_physician (state rows + spine NPIs) and "
+        "cms_group_practice into pd_src_*, then overlay affiliation_* on pd_provider. "
+        "Read-only, paged, no locks on the reference server.",
+    )
+    p.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the window plan and what would run; do not write the mart",
     )
     p.set_defaults(func=_cmd_sync)
+
+    p = sub.add_parser(
+        "ref-compare",
+        parents=[state_parent],
+        help="How warehouse groups and affiliations line up with the reference copy (pd_src_*); mart only",
+    )
+    p.add_argument("--limit", type=int, default=15)
+    p.set_defaults(func=_cmd_ref_compare)
 
     p = sub.add_parser(
         "serve",

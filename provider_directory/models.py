@@ -129,6 +129,11 @@ class ProviderSpine(BaseModel):
     primary_specialty_description: str | None = None
     specialty_classification: str | None = None
     in_system_provider: bool | None = None
+    affiliation_code: int | None = None
+    affiliation_name: str | None = None
+    affiliation_source: str | None = None
+    reference_group_id: int | None = None
+    reference_group_name: str | None = None
     name_source: str | None = None
     gender_source: str | None = None
     school_source: str | None = None

@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 from provider_directory.settings import (
+    REF_DB,
     NPPES_INDEX_URL,
     OPEN_PAYMENTS_SITE,
     PDC_CLINICIAN_DATASET,
@@ -72,6 +73,10 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
     "claims.physician_affiliation_i": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Every institutional billing org an NPI billed under, with cases and last month."},
     "claims.period": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Loaded months; its max drives the refresh window."},
     # warehouse: lookup database
+    "ref.111_physician": {"kind": "warehouse", "phase": "reference server, outside this pipeline", "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref."},
+    "ref.cms_group_practice": {"kind": "warehouse", "phase": "reference server, outside this pipeline", "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref."},
+    "pd_src_physician": {"kind": "mart", "phase": "sync --ref", "built_from": ['ref.111_physician'], "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy."},
+    "pd_src_group_practice": {"kind": "mart", "phase": "sync --ref", "built_from": ['ref.cms_group_practice'], "description": "Mart copy of the CMS group membership rows that touch the market state."},
     "lookup.npi_spec_grp": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Specialty group code to name and taxonomy category."},
     "lookup.diagnosis": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "ICD-10 diagnosis code to description."},
     "lookup.procd": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Procedure code to description and fee-schedule RVU columns."},
@@ -119,7 +124,7 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
                           "description": "Retired. No longer loaded; stays empty."},
 }
 
-_QUALIFIED_RE = re.compile(r"\b(az_cms|az|azal)\.([a-z_]+[a-z])")
+_QUALIFIED_RE = re.compile(r"\b(az_cms|az|azal|master_ref)\.([a-z0-9_]+[a-z])")
 _MART_RE = re.compile(r"\bpd_[a-z_]*[a-z_]")
 _CMS_RE = re.compile(r"\bcms_[a-z0-9_]*[a-z0-9]")
 
@@ -135,7 +140,7 @@ def tables_in(text: str) -> list[str]:
             found.append(key)
 
     for db, table in _QUALIFIED_RE.findall(text):
-        add(("lookup." if db == "azal" else "claims.") + table)
+        add(("lookup." if db == "azal" else "ref." if db == "master_ref" else "claims.") + table)
     for match in _MART_RE.findall(text) + _CMS_RE.findall(text):
         if match.endswith("_"):
             for key in TABLE_REGISTRY:
@@ -156,6 +161,8 @@ def describe_table(key: str, *, claims_db: str = "az", lookup_db: str = "azal") 
         name = f"{claims_db}.{key[len('claims.'):]}"
     elif key.startswith("lookup."):
         name = f"{lookup_db}.{key[len('lookup.'):]}"
+    elif key.startswith("ref."):
+        name = f"{REF_DB}.{key[len('ref.'):]}"
     else:
         name = key
     out: dict[str, Any] = {
@@ -179,6 +186,8 @@ def _qualify(key: str, *, claims_db: str = "az", lookup_db: str = "azal") -> str
         return f"{claims_db}.{key[len('claims.'):]}"
     if key.startswith("lookup."):
         return f"{lookup_db}.{key[len('lookup.'):]}"
+    if key.startswith("ref."):
+        return f"{REF_DB}.{key[len('ref.'):]}"
     return key
 
 
@@ -308,6 +317,11 @@ PROVIDER: dict[str, dict[str, str]] = {
                                        "azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name."),
     "in_system_provider": _entry("In-system", "The clinician has a hospital affiliation on file with CMS.",
                                  "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs."),
+    "affiliation_name": _entry("Affiliation", "The organization the clinician is affiliated with in the master reference file. One per clinician; blank when none is on file.", "master_ref.111_physician.affiliation_dba_name, else affiliation_name, on the clinician's row (pd_src_physician). The '888'+NPI code and 'NAME-NPI' name placeholders, <Unavail> and Unknown are shown as blank. Written by sync --ref; it does not come from visits."),
+    "affiliation_code": _entry("Affiliation id", "Reference identifier of the affiliated organization.", "master_ref.111_physician.affiliation_code via pd_src_physician, null for the '888'+NPI self placeholder."),
+    "affiliation_source": _entry("Affiliation source", "master_ref when the reference file had an affiliation for the clinician; blank otherwise.", "'master_ref' when affiliation_code or affiliation_name was filled from pd_src_physician, else null."),
+    "reference_group_id": _entry("Reference group id", "Group practice id for the clinician in the master reference file, kept alongside the billing organization for comparison.", "master_ref.111_physician.group_prac_code via pd_src_physician, null for the '888'+NPI self placeholder. Same id space as primary_organization_id (billing NPI)."),
+    "reference_group_name": _entry("Reference group", "Group practice name for the clinician in the master reference file.", "master_ref.111_physician.group_prac_name via pd_src_physician, cleaned like affiliation_name."),
     "name_source": _entry("Name source", "Which source supplied the name: claims, CMS PDC, or NPPES.", "transforms.merge_identity: 'claims' (az.physician) unless the claims last name is blank, then 'pdc' (cms_pdc_clinician), then 'nppes' (cms_nppes_type1)."),
     "gender_source": _entry("Gender source", "Which CMS file supplied the gender.", "'pdc' when cms_pdc_clinician has a gender, else 'nppes' from cms_nppes_type1, else null."),
     "school_source": _entry("School source", "Which CMS file supplied the medical school.", "'pdc' when cms_pdc_clinician has a school, else 'nppes' from cms_nppes_type1, else null."),
@@ -586,6 +600,8 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("group", "member_count_any"): ["Counts every clinician with a billing row for the group; totals on the page count only primary members."],
     ("provider", "estimated_age"): ["An estimate from medical school graduation year."],
     ("provider", "gender"): ["The clinician's gender as recorded by CMS."],
+    ("provider", "affiliation_name"): ["One affiliation per clinician from the reference file; blank means none on file."],
+    ("provider", "reference_group_name"): ["Shown for comparison with the billing organization until the group source is decided."],
     ("provider", "in_system_provider"): ["A hospital affiliation on file with CMS."],
     ("provider", "group_size"): ["Group size as reported by CMS."],
     ("provider", "mips_final_score"): ["Latest published CMS program year, which lags the claims window."],
