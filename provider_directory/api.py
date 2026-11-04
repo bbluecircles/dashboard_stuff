@@ -34,6 +34,7 @@ from provider_directory.settings import (
     API_PORT,
     DUMP_PAGE_DEFAULT,
     MARKET_STATE,
+    REFERRAL_SOURCE,
     NPI_MAX,
     NPI_MIN,
     SEARCH_LIMIT_MAX,
@@ -111,6 +112,7 @@ class MartStatus(BaseModel):
     last_action: str | None = None
     current_job: dict | None = None
     get_reads_mart_only: bool = True
+    referral_source: str = REFERRAL_SOURCE
 
 
 class JobRequest(BaseModel):

@@ -1,3 +1,4 @@
+import pytest
 from provider_directory.cli import build_parser
 from provider_directory.complete import (
     dow_overlay_set,
@@ -182,3 +183,41 @@ def test_specialty_benchmarks_of_averages_per_procedure():
         assert c in cols, c
     assert "pd_stg_npi_avg_percentile" in PHASE5_STAGING_TABLES
     assert "median_wrvu_per_procedure DECIMAL(10,3)" in "\n".join(ddl_statements("az_pd"))
+
+
+def test_claim_referral_edges_come_from_window_claims_behind_the_setting():
+    import inspect
+    import subprocess
+    import sys
+
+    from provider_directory.complete import _fill_claim_referral_edges, _fill_referral_edges, claim_referral_edge_sql
+    from provider_directory.settings import REFERRAL_IN, REFERRAL_OUT, REFERRAL_SOURCE, REFERRAL_SOURCES
+
+    assert REFERRAL_SOURCES == ("implied", "claims") and REFERRAL_SOURCE in REFERRAL_SOURCES
+    sql_in = claim_referral_edge_sql("`az_pd`", "0, 4", REFERRAL_IN)
+    sql_out = claim_referral_edge_sql("`az_pd`", "0, 4", REFERRAL_OUT)
+    for sql in (sql_in, sql_out):
+        assert "FROM `az_pd`.pd_stg_window_claim c" in sql
+        assert "COUNT(DISTINCT c.pat_id)" in sql and "COUNT(DISTINCT c.encounter_id)" in sql
+        assert "INNER JOIN `az_pd`.pd_provider refr ON refr.npi = c.referring_physician_code" in sql
+        assert "c.rendering_physician_code <> c.referring_physician_code" in sql
+        assert "dash_physician_referrals" not in sql and "pat_dt" not in sql
+        sql % (3,)
+    assert "GROUP BY c.rendering_physician_code, c.referring_physician_code" in sql_in
+    assert "GROUP BY c.referring_physician_code, c.rendering_physician_code" in sql_out
+    for sql in (sql_in, sql_out):
+        # split by patient so distinct counts add up exactly across buckets
+        assert "MOD(IFNULL(c.pat_id, 0), 4) = %s" in sql and "ON DUPLICATE KEY UPDATE" in sql
+    assert "for bucket in range(CLAIM_ID_BUCKETS)" in inspect.getsource(_fill_claim_referral_edges)
+    with pytest.raises(ValueError):
+        claim_referral_edge_sql("`az_pd`", "0, 4", "sideways")
+    fill = inspect.getsource(_fill_referral_edges)
+    assert 'if source == "claims":' in fill and "_fill_claim_referral_edges" in fill
+    assert "Phase2Required" in inspect.getsource(_fill_claim_referral_edges)
+    bad = subprocess.run(
+        [sys.executable, "-c", "import provider_directory.settings"],
+        env={"PD_REFERRAL_SOURCE": "sideways", "PATH": ""},
+        capture_output=True,
+        text=True,
+    )
+    assert bad.returncode != 0 and "PD_REFERRAL_SOURCE" in bad.stderr

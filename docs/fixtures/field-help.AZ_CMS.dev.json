@@ -11639,9 +11639,10 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5).",
+            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts, from claims.dash_physician_referrals_to_rendering (settings.REFERRAL_SOURCE = implied); cached across Phase 5 runs (Phase 5).",
             "built_from": [
-              "az_cms.dash_physician_referrals_to_rendering"
+              "az_cms.dash_physician_referrals_to_rendering",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -25340,9 +25341,10 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5).",
+            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts, from claims.dash_physician_referrals_to_rendering (settings.REFERRAL_SOURCE = implied); cached across Phase 5 runs (Phase 5).",
             "built_from": [
-              "az_cms.dash_physician_referrals_to_rendering"
+              "az_cms.dash_physician_referrals_to_rendering",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -30402,9 +30404,10 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5).",
+            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts, from claims.dash_physician_referrals_to_rendering (settings.REFERRAL_SOURCE = implied); cached across Phase 5 runs (Phase 5).",
             "built_from": [
-              "az_cms.dash_physician_referrals_to_rendering"
+              "az_cms.dash_physician_referrals_to_rendering",
+              "pd_provider"
             ],
             "upstream": true
           },
@@ -30486,9 +30489,10 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5).",
+            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts, from claims.dash_physician_referrals_to_rendering (settings.REFERRAL_SOURCE = implied); cached across Phase 5 runs (Phase 5).",
             "built_from": [
-              "az_cms.dash_physician_referrals_to_rendering"
+              "az_cms.dash_physician_referrals_to_rendering",
+              "pd_provider"
             ],
             "upstream": false
           },
@@ -30684,11 +30688,48 @@
             "kind": "mart",
             "external": false,
             "phase": "Phase 5",
-            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5).",
+            "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts, from claims.dash_physician_referrals_to_rendering (settings.REFERRAL_SOURCE = implied); cached across Phase 5 runs (Phase 5).",
             "built_from": [
-              "az_cms.dash_physician_referrals_to_rendering"
+              "az_cms.dash_physician_referrals_to_rendering",
+              "pd_provider"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": true
           }
         ]
       },
@@ -32308,7 +32349,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.",
+        "help": "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. The warehouse infers these from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.",
         "dev": "UI heading on the group page; no table.",
         "caveats": [],
         "derived_from": [],
@@ -32826,9 +32867,10 @@
       "kind": "mart",
       "external": false,
       "phase": "Phase 5",
-      "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5).",
+      "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts, from claims.dash_physician_referrals_to_rendering (settings.REFERRAL_SOURCE = implied); cached across Phase 5 runs (Phase 5).",
       "built_from": [
-        "az_cms.dash_physician_referrals_to_rendering"
+        "az_cms.dash_physician_referrals_to_rendering",
+        "pd_provider"
       ]
     },
     {

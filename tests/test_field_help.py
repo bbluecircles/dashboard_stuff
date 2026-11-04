@@ -355,3 +355,33 @@ def test_group_section_rewords_captions_for_member_sums():
         assert "clinician in" not in sec["group_section"][key]["help"]
     assert "member" in sec["group_section"]["volume"]["help"]
     assert "modal_specialty" in sec["group_section"]
+
+
+def test_referral_wording_follows_the_referral_source_setting():
+    import json
+    import subprocess
+    import sys
+
+    from provider_directory.api import MartStatus
+    from provider_directory.settings import REFERRAL_SOURCE
+
+    assert MartStatus.model_fields["referral_source"].default == REFERRAL_SOURCE
+    code = (
+        "import json; from provider_directory.field_help import render_catalog; "
+        "r = render_catalog(dev=True, window_start=202411, window_end=202510, prior_window_start=202311, "
+        "prior_window_end=202410, claims_db='az_cms', lookup_db='azal'); "
+        "print(json.dumps({'ref': r['scopes']['referral'], 'sec': r['scopes']['section']['referrals'], "
+        "'tables': [t for t in r['tables'] if t['key'] == 'pd_stg_referral_edge']}))"
+    )
+    out = {}
+    for source in ("implied", "claims"):
+        run = subprocess.run([sys.executable, "-c", code], env={"PD_REFERRAL_SOURCE": source, "PATH": ""}, capture_output=True, text=True, check=True)
+        out[source] = json.loads(run.stdout)
+    assert "infers" in out["implied"]["sec"]["help"] and "recorded on the claim" not in out["implied"]["sec"]["help"]
+    assert "recorded on the claim" in out["claims"]["sec"]["help"] and "infers" not in out["claims"]["sec"]["help"]
+    assert "Distinct patients" in out["claims"]["ref"]["patient_count"]["help"]
+    assert "pd_stg_window_claim" in out["claims"]["ref"]["patient_count"]["dev"]
+    assert "dash_physician_referrals_to_rendering" in out["implied"]["ref"]["patient_count"]["dev"]
+    for source in ("implied", "claims"):
+        for key in ("patient_count", "direction"):
+            assert ", not " not in out[source]["ref"][key]["help"]
