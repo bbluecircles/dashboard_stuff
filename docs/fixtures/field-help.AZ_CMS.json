@@ -472,7 +472,11 @@
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it."
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_average_per_procedure": {
+        "label": "Specialty average work RVU per procedure",
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
@@ -1102,7 +1106,11 @@
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it."
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_average_per_procedure": {
+        "label": "Specialty average work RVU per procedure",
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",

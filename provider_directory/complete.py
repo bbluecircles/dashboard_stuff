@@ -651,12 +651,13 @@ def _fill_specialty_stats(cur, conn, mart: str, state: str = MARKET_STATE) -> in
     peers = benchmark_peer_where(mart, state)
     sql = f"""
         INSERT INTO {mart}.pd_stg_specialty_wrvu (
-            specialty_code, npi_count, avg_wrvu, p25_wrvu, median_wrvu, p75_wrvu
+            specialty_code, npi_count, avg_wrvu, avg_wrvu_per_procedure, p25_wrvu, median_wrvu, p75_wrvu
         )
         SELECT
             primary_specialty_code,
             cnt,
             avg_wrvu,
+            ROUND(SUM(wrvu_total) / NULLIF(SUM(wrvu_procedure_count), 0), 3),
             MAX(CASE WHEN rn = p25_rn THEN wrvu_total END),
             MAX(CASE WHEN rn = p50_rn THEN wrvu_total END),
             MAX(CASE WHEN rn = p75_rn THEN wrvu_total END)
@@ -664,6 +665,7 @@ def _fill_specialty_stats(cur, conn, mart: str, state: str = MARKET_STATE) -> in
             SELECT
                 primary_specialty_code,
                 wrvu_total,
+                wrvu_procedure_count,
                 ROW_NUMBER() OVER (
                     PARTITION BY primary_specialty_code
                     ORDER BY wrvu_total, npi
@@ -738,6 +740,7 @@ def _overlay_benchmarks(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
         LEFT JOIN {mart}.pd_stg_npi_visits_percentile vis ON vis.npi = p.npi
         SET
             p.wrvu_state_specialty_average = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu, p.wrvu_state_specialty_average),
+            p.wrvu_state_specialty_average_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu_per_procedure, p.wrvu_state_specialty_average_per_procedure),
             p.wrvu_state_specialty_median = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.median_wrvu, p.wrvu_state_specialty_median),
             p.wrvu_state_specialty_p25 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p25_wrvu, p.wrvu_state_specialty_p25),
             p.wrvu_state_specialty_p75 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p75_wrvu, p.wrvu_state_specialty_p75),

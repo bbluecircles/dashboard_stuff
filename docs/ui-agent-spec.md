@@ -130,7 +130,7 @@ Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`
 
 ## RVU
 
-Every RVU figure is now a **physician work RVU** priced per billed procedure line from the Medicare fee schedule; labels come from the catalog ("Work RVU total", "Average work RVU per procedure", "Priced procedures"). Drop the "under review" caption. Lead the Overview with `wrvu_total` and `wrvu_average`; show **median / p25 / p75 / percentile** (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`) as the specialty context. Do not show `wrvu_state_specialty_average`.
+Every RVU figure is now a **physician work RVU** priced per billed procedure line from the Medicare fee schedule; labels come from the catalog ("Work RVU total", "Average work RVU per procedure", "Priced procedures"). Drop the "under review" caption. Lead the Overview with `wrvu_total` and `wrvu_average`; in the specialty strip show the cohort **average work RVU per procedure** (`wrvu_state_specialty_average_per_procedure`) next to the clinician's own average, then **median / p25 / p75 / percentile** of totals (`wrvu_state_specialty_median`, `wrvu_state_specialty_p25`, `wrvu_state_specialty_p75`, `wrvu_specialty_percentile`). `wrvu_state_specialty_average` (mean total) may be shown as a secondary number now that peers are in-state clinicians with volume.
 
 ## Activity vs specialty peers
 

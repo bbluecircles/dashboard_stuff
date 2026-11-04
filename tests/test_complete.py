@@ -151,3 +151,17 @@ def test_peer_specialty_prefixes_role_for_generic_descriptions():
     sql = peer_specialty_sql("peer")
     assert "'MEDICAL', 'SURGICAL'" in sql and "CONCAT(" in sql and "specialty_classification" in sql
     assert "peer_specialty_sql" in inspect.getsource(_rank_referrals)
+
+
+def test_specialty_stats_include_cohort_average_per_procedure():
+    import inspect
+
+    from provider_directory.complete import _fill_specialty_stats, _overlay_benchmarks
+    from provider_directory.schema import PD_PROVIDER_PHASE5_COLUMNS, ddl_statements
+
+    fill = inspect.getsource(_fill_specialty_stats)
+    assert "ROUND(SUM(wrvu_total) / NULLIF(SUM(wrvu_procedure_count), 0), 3)" in fill
+    assert "avg_wrvu_per_procedure" in fill
+    assert "wrvu_state_specialty_average_per_procedure" in inspect.getsource(_overlay_benchmarks)
+    assert "wrvu_state_specialty_average_per_procedure" in dict(PD_PROVIDER_PHASE5_COLUMNS)
+    assert "avg_wrvu_per_procedure DECIMAL(10,3)" in "\n".join(ddl_statements("az_pd"))

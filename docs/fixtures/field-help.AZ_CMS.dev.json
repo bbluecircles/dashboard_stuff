@@ -8131,8 +8131,8 @@
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it.",
-        "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits.",
+        "dev": "AVG(wrvu_total) over the benchmark peer set (complete.benchmark_peer_where), in pd_stg_specialty_wrvu.",
         "caveats": [
           "Skewed by a few very high totals; the median is the better centre.",
           "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
@@ -8146,6 +8146,18 @@
           }
         ],
         "tables": [
+          {
+            "key": "pd_stg_specialty_wrvu",
+            "name": "pd_stg_specialty_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Specialty RVU average, p25, median, p75 and count (Phase 5).",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          },
           {
             "key": "pd_provider",
             "name": "pd_provider",
@@ -8174,8 +8186,77 @@
               "pd_stg_visit_site",
               "cms_pdc_mips"
             ],
-            "upstream": false
+            "upstream": true
           },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_wrvu",
+            "name": "pd_stg_npi_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
+            "upstream": true
+          }
+        ]
+      },
+      "wrvu_state_specialty_average_per_procedure": {
+        "label": "Specialty average work RVU per procedure",
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure.",
+        "dev": "SUM(wrvu_total) / SUM(wrvu_procedure_count) over the benchmark peer set, 3 decimals, in pd_stg_specialty_wrvu.avg_wrvu_per_procedure (Phase 5).",
+        "caveats": [
+          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Procedure-weighted: a cohort average per billed procedure, so high-volume clinicians weigh more."
+        ],
+        "derived_from": [
+          {
+            "ref": "provider.wrvu_total",
+            "scope": "provider",
+            "field": "wrvu_total",
+            "label": "Work RVU total"
+          },
+          {
+            "ref": "provider.wrvu_procedure_count",
+            "scope": "provider",
+            "field": "wrvu_procedure_count",
+            "label": "Priced procedures"
+          }
+        ],
+        "tables": [
           {
             "key": "pd_stg_specialty_wrvu",
             "name": "pd_stg_specialty_wrvu",
@@ -8187,6 +8268,36 @@
               "pd_provider"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
@@ -20409,8 +20520,8 @@
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; the UI does not show it.",
-        "dev": "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu.",
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits.",
+        "dev": "AVG(wrvu_total) over the benchmark peer set (complete.benchmark_peer_where), in pd_stg_specialty_wrvu.",
         "caveats": [],
         "derived_from": [
           {
@@ -20421,6 +20532,18 @@
           }
         ],
         "tables": [
+          {
+            "key": "pd_stg_specialty_wrvu",
+            "name": "pd_stg_specialty_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Specialty RVU average, p25, median, p75 and count (Phase 5).",
+            "built_from": [
+              "pd_provider"
+            ],
+            "upstream": false
+          },
           {
             "key": "pd_provider",
             "name": "pd_provider",
@@ -20449,8 +20572,68 @@
               "pd_stg_visit_site",
               "cms_pdc_mips"
             ],
-            "upstream": false
+            "upstream": true
           },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_wrvu",
+            "name": "pd_stg_npi_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU total and priced procedure count per NPI (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
+            "upstream": true
+          }
+        ]
+      },
+      "wrvu_state_specialty_average_per_procedure": {
+        "label": "Specialty average work RVU per procedure",
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure.",
+        "dev": "SUM(wrvu_total) / SUM(wrvu_procedure_count) over the benchmark peer set, 3 decimals, in pd_stg_specialty_wrvu.avg_wrvu_per_procedure (Phase 5).",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.wrvu_state_specialty_average_per_procedure",
+            "scope": "provider",
+            "field": "wrvu_state_specialty_average_per_procedure",
+            "label": "Specialty average work RVU per procedure"
+          }
+        ],
+        "tables": [
           {
             "key": "pd_stg_specialty_wrvu",
             "name": "pd_stg_specialty_wrvu",
@@ -20462,6 +20645,36 @@
               "pd_provider"
             ],
             "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
           },
           {
             "key": "claims.pat_dt",
