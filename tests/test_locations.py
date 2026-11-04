@@ -94,7 +94,8 @@ def test_practice_name_sql_guards_unknown_and_drops_facility_npi():
     assert "npi_type = '2'" not in name_sql
     assert "'UNKNOWN'" in clean_name_sql("x.pos_type_name")
     wt = work_type_case_sql("sl")
-    assert "'UNKNOWN'" in wt and "pos_type_name" in wt
+    assert "'UNKNOWN'" in wt and "im_specialty_rollup" in wt
+    assert "pos_type_code" not in wt and "pos_type_name" not in wt
     # pymysql %s formatting must survive: no bare % in the generated SQL
     for sql in (name_sql, wt):
         assert "%" not in sql.replace("%%", "")

@@ -48,11 +48,11 @@
       },
       "primary_specialty_code": {
         "label": "Specialty code",
-        "help": "Taxonomy code of the clinician's primary specialty."
+        "help": "Code of the clinician's primary specialty, from the master reference file."
       },
       "primary_specialty_description": {
         "label": "Specialty",
-        "help": "The clinician's primary specialty."
+        "help": "The clinician's primary specialty, from the master reference file."
       },
       "specialty_classification": {
         "label": "Specialty group",
@@ -224,7 +224,7 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
@@ -281,6 +281,10 @@
       "visits_top_primary_procedure_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure."
+      },
+      "primary_procedures_filled": {
+        "label": "Primary procedures filled",
+        "help": "True when fewer than five of the clinician's procedures have a physician work RVU above 1, so the Top primary procedures list was filled from their other billed codes, office visits included."
       },
       "panel_size": {
         "label": "Panel size",
@@ -878,7 +882,7 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
@@ -935,6 +939,10 @@
       "visits_top_primary_procedure_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "primary_procedures_filled": {
+        "label": "Primary procedures filled",
+        "help": "True when fewer than five of the clinician's procedures have a physician work RVU above 1, so the Top primary procedures list was filled from their other billed codes, office visits included."
       },
       "panel_size": {
         "label": "Panel size",
@@ -1419,8 +1427,8 @@
         "help": "Phone number from CMS for this clinician at this address, when one matches. Blank means no match; never invented."
       },
       "work_type": {
-        "label": "Work type",
-        "help": "Type of care setting, from the place-of-service code on claims."
+        "label": "Service type",
+        "help": "The warehouse's service type for the location, for example Office Specialty or Short Term Acute Care Hospital."
       },
       "visits_at_site": {
         "label": "Visits at site",
@@ -1746,7 +1754,11 @@
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services."
+        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included."
+      },
+      "top_primary_procedures_filled": {
+        "label": "Includes all billed codes",
+        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1, so the list also shows their most billed office visits and other services."
       },
       "group_practices": {
         "label": "Group practices",
@@ -1836,7 +1848,7 @@
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out."
+        "help": "The five procedures most often billed by members, summed from each member's own top five primary procedures; a member with fewer than five procedures above a work RVU of 1 contributes their other billed codes too."
       },
       "group_practices": {
         "label": "Group practices",

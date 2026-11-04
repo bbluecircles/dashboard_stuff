@@ -386,11 +386,20 @@
       },
       "primary_specialty_code": {
         "label": "Specialty code",
-        "help": "Taxonomy code of the clinician's primary specialty.",
-        "dev": "az.physician.npi_spec_grp_code. Also the peer group for the specialty percentiles.",
+        "help": "Code of the clinician's primary specialty, from the master reference file.",
+        "dev": "master_ref.111_physician.npi_spec_grp_code via pd_src_physician (sync --ref / ref-overlay); the Phase 1 value from az.physician.npi_spec_grp_code stays when the master file has none. Also the peer group for the specialty benchmarks and percentiles.",
         "caveats": [],
         "derived_from": [],
         "tables": [
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": false
+          },
           {
             "key": "claims.physician",
             "name": "az_cms.physician",
@@ -399,16 +408,37 @@
             "phase": "warehouse load, outside this pipeline",
             "description": "Provider master: every NPI that has billed, with names and specialty group.",
             "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
+            "upstream": false
           }
         ]
       },
       "primary_specialty_description": {
         "label": "Specialty",
-        "help": "The clinician's primary specialty.",
-        "dev": "azal.npi_spec_grp.npi_spec_grp_name on npi_spec_grp_code, else az.physician.npi_spec_grp_name.",
+        "help": "The clinician's primary specialty, from the master reference file.",
+        "dev": "master_ref.111_physician.npi_spec_grp_name via pd_src_physician when the row has a specialty code; else the Phase 1 value (azal.npi_spec_grp.npi_spec_grp_name, else az.physician.npi_spec_grp_name).",
         "caveats": [],
         "derived_from": [],
         "tables": [
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": false
+          },
           {
             "key": "lookup.npi_spec_grp",
             "name": "azal.npi_spec_grp",
@@ -425,6 +455,18 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Provider master: every NPI that has billed, with names and specialty group.",
+            "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
             "upstream": false
           }
         ]
@@ -432,10 +474,19 @@
       "specialty_classification": {
         "label": "Specialty group",
         "help": "Broader classification of the specialty, for example Internal Medicine.",
-        "dev": "azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name.",
+        "dev": "master_ref.111_physician.taxonomy_cat_name via pd_src_physician when the row has a specialty code; else the Phase 1 value (azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name).",
         "caveats": [],
         "derived_from": [],
         "tables": [
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": false
+          },
           {
             "key": "lookup.npi_spec_grp",
             "name": "azal.npi_spec_grp",
@@ -452,6 +503,18 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Provider master: every NPI that has billed, with names and specialty group.",
+            "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
             "upstream": false
           }
         ]
@@ -3735,8 +3798,8 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes.",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -3773,6 +3836,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -3802,7 +3901,7 @@
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
         "help": "Description of the most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -3839,6 +3938,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4019,7 +4154,7 @@
       "visits_top_primary_procedure_2": {
         "label": "Top primary procedure 2",
         "help": "Second most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4056,6 +4191,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4085,7 +4256,7 @@
       "visits_top_primary_procedure_2_name": {
         "label": "Top primary procedure 2",
         "help": "Description of the second most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4122,6 +4293,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4302,7 +4509,7 @@
       "visits_top_primary_procedure_3": {
         "label": "Top primary procedure 3",
         "help": "Third most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4339,6 +4546,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4368,7 +4611,7 @@
       "visits_top_primary_procedure_3_name": {
         "label": "Top primary procedure 3",
         "help": "Description of the third most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4405,6 +4648,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4585,7 +4864,7 @@
       "visits_top_primary_procedure_4": {
         "label": "Top primary procedure 4",
         "help": "Fourth most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4622,6 +4901,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4651,7 +4966,7 @@
       "visits_top_primary_procedure_4_name": {
         "label": "Top primary procedure 4",
         "help": "Description of the fourth most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4688,6 +5003,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4868,7 +5219,7 @@
       "visits_top_primary_procedure_5": {
         "label": "Top primary procedure 5",
         "help": "Fifth most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4905,6 +5256,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -4934,7 +5321,7 @@
       "visits_top_primary_procedure_5_name": {
         "label": "Top primary procedure 5",
         "help": "Description of the fifth most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
         ],
@@ -4971,6 +5358,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -5135,6 +5558,106 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
+      "primary_procedures_filled": {
+        "label": "Primary procedures filled",
+        "help": "True when fewer than five of the clinician's procedures have a physician work RVU above 1, so the Top primary procedures list was filled from their other billed codes, office visits included.",
+        "dev": "pd_provider.primary_procedures_filled: 1 when any pd_stg_top_primary_px row for the NPI has is_strict = 0; 0 when all five are strict; null when the clinician has no procedures (Phase 2).",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
             "upstream": true
           },
           {
@@ -12860,7 +13383,7 @@
       "specialty_classification": {
         "label": "Specialty group",
         "help": "Broader classification of the specialty, for example Internal Medicine.",
-        "dev": "azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name.",
+        "dev": "master_ref.111_physician.taxonomy_cat_name via pd_src_physician when the row has a specialty code; else the Phase 1 value (azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name).",
         "caveats": [],
         "derived_from": [
           {
@@ -12871,6 +13394,15 @@
           }
         ],
         "tables": [
+          {
+            "key": "ref.111_physician",
+            "name": "master_ref.111_physician",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "reference server, outside this pipeline",
+            "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref.",
+            "upstream": false
+          },
           {
             "key": "lookup.npi_spec_grp",
             "name": "azal.npi_spec_grp",
@@ -12887,6 +13419,18 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Provider master: every NPI that has billed, with names and specialty group.",
+            "upstream": false
+          },
+          {
+            "key": "pd_src_physician",
+            "name": "pd_src_physician",
+            "kind": "mart",
+            "external": false,
+            "phase": "sync --ref",
+            "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy.",
+            "built_from": [
+              "master_ref.111_physician"
+            ],
             "upstream": false
           }
         ]
@@ -16645,8 +17189,8 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes.",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -16695,6 +17239,42 @@
             "upstream": false
           },
           {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_window_claim",
             "name": "pd_stg_window_claim",
             "kind": "mart",
@@ -16720,7 +17300,7 @@
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
         "help": "Description of the most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -16765,6 +17345,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -16966,7 +17582,7 @@
       "visits_top_primary_procedure_2": {
         "label": "Top primary procedure 2",
         "help": "Second most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17015,6 +17631,42 @@
             "upstream": false
           },
           {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_window_claim",
             "name": "pd_stg_window_claim",
             "kind": "mart",
@@ -17040,7 +17692,7 @@
       "visits_top_primary_procedure_2_name": {
         "label": "Top primary procedure 2",
         "help": "Description of the second most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17085,6 +17737,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -17286,7 +17974,7 @@
       "visits_top_primary_procedure_3": {
         "label": "Top primary procedure 3",
         "help": "Third most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17335,6 +18023,42 @@
             "upstream": false
           },
           {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_window_claim",
             "name": "pd_stg_window_claim",
             "kind": "mart",
@@ -17360,7 +18084,7 @@
       "visits_top_primary_procedure_3_name": {
         "label": "Top primary procedure 3",
         "help": "Description of the third most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17405,6 +18129,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -17606,7 +18366,7 @@
       "visits_top_primary_procedure_4": {
         "label": "Top primary procedure 4",
         "help": "Fourth most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17655,6 +18415,42 @@
             "upstream": false
           },
           {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_window_claim",
             "name": "pd_stg_window_claim",
             "kind": "mart",
@@ -17680,7 +18476,7 @@
       "visits_top_primary_procedure_4_name": {
         "label": "Top primary procedure 4",
         "help": "Description of the fourth most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17725,6 +18521,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -17926,7 +18758,7 @@
       "visits_top_primary_procedure_5": {
         "label": "Top primary procedure 5",
         "help": "Fifth most common primary procedure code.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -17975,6 +18807,42 @@
             "upstream": false
           },
           {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
             "key": "pd_stg_window_claim",
             "name": "pd_stg_window_claim",
             "kind": "mart",
@@ -18000,7 +18868,7 @@
       "visits_top_primary_procedure_5_name": {
         "label": "Top primary procedure 5",
         "help": "Description of the fifth most common primary procedure.",
-        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2).",
+        "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
           "A lower bound on the group page: only members' stored top 5 codes are summed."
@@ -18045,6 +18913,42 @@
             "built_from": [
               "pd_stg_visit",
               "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
             ],
             "upstream": false
           },
@@ -18239,6 +19143,113 @@
               "pd_src_physician",
               "pd_src_group_practice"
             ],
+            "upstream": true
+          }
+        ]
+      },
+      "primary_procedures_filled": {
+        "label": "Primary procedures filled",
+        "help": "True when fewer than five of the clinician's procedures have a physician work RVU above 1, so the Top primary procedures list was filled from their other billed codes, office visits included.",
+        "dev": "pd_provider.primary_procedures_filled: 1 when any pd_stg_top_primary_px row for the NPI has is_strict = 0; 0 when all five are strict; null when the clinician has no procedures (Phase 2).",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.primary_procedures_filled",
+            "scope": "provider",
+            "field": "primary_procedures_filled",
+            "label": "Primary procedures filled"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -27619,11 +28630,11 @@
         ]
       },
       "work_type": {
-        "label": "Work type",
-        "help": "Type of care setting, from the place-of-service code on claims.",
-        "dev": "az.sl.pos_type_code mapped via POS_WORK_TYPE (11 Office, 22 Hospital Outpatient, 23 Emergency Department, 24 Ambulatory Surgery Center, ...); else keyword match on az.sl.im_specialty_rollup; else null.",
+        "label": "Service type",
+        "help": "The warehouse's service type for the location, for example Office Specialty or Short Term Acute Care Hospital.",
+        "dev": "az.sl.im_specialty_rollup on the canonical location, as is; blank and Unknown become null. The CMS place-of-service code is not used for this column.",
         "caveats": [
-          "From the place-of-service code on claims; null when neither the code nor the rollup text maps."
+          "The warehouse's own label for the location; blank when it has none."
         ],
         "derived_from": [],
         "tables": [
@@ -32155,11 +33166,56 @@
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services.",
-        "dev": "UI heading over visits_top_primary_procedure_1..5; no table.",
+        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included.",
+        "dev": "UI heading over visits_top_primary_procedure_1..5; no table. Show section.top_primary_procedures_filled as the caption when primary_procedures_filled is true.",
         "caveats": [],
         "derived_from": [],
         "tables": []
+      },
+      "top_primary_procedures_filled": {
+        "label": "Includes all billed codes",
+        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1, so the list also shows their most billed office visits and other services.",
+        "dev": "Caption under Top primary procedures when pd_provider.primary_procedures_filled = 1; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
+          }
+        ]
       },
       "group_practices": {
         "label": "Group practices",
@@ -32333,7 +33389,7 @@
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out.",
+        "help": "The five procedures most often billed by members, summed from each member's own top five primary procedures; a member with fewer than five procedures above a work RVU of 1 contributes their other billed codes too.",
         "dev": "UI heading on the group page; no table.",
         "caveats": [],
         "derived_from": [],

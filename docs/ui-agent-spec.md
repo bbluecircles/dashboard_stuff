@@ -71,7 +71,7 @@ The spec is a table of providers with filters, with a typeahead on top. The API 
 | --- | --- |
 | `last_name`, `first_name`, `credential` | Name |
 | `gender` | Provider gender (`M` / `F`; null if no PDC/NPPES row). Panel sex is in the panel fields. |
-| `primary_specialty_description` | Specialty |
+| `primary_specialty_description` | Specialty, from the master reference file (`111_physician`) when it has one |
 | `primary_organization_name` | Organization |
 | `city` / `state` | Primary practice city (site_rank 1; may be null) |
 | `visits_total` | Visits |
@@ -125,7 +125,7 @@ Do not treat `parent_name` as CMS `in_system_provider`. That flag is still PDC f
 - Payer classes: 1 Medicare FFS (`visits_percent_medicare_traditional`), 2 Medicaid (`visits_percent_medicaid`), 3 Commercial (`visits_percent_third_party`), 4 HMO (`visits_percent_hmo`), 6 Medicare Advantage (`visits_percent_medicare_advantage`), 7 Medicare Other (`visits_percent_medicare_other`). Class 5 Other is outside the denominator. Label class 4 **HMO**, never Medicare Advantage. Dummy NPIs 0 and 4 are dropped.
 - `in_system_provider` is a **CMS Provider Data Catalog facility affiliation** (hospital CCN).
 - Blank phones are OK. Do not invent a phone.
-- Top lists are top 5: diagnoses (`visits_top_diagnosis_1..5`), procedures (`visits_top_procedure_1..5`), **primary procedures** (`visits_top_primary_procedure_1..5`: procedures with a physician work RVU above 1; visits, exams, therapy evaluations, psychotherapy and lab panels excluded) and commercial payers (`top_payer_name_1..5`). Hide blank slots. Referrals in and out are top 5 after exclusions (same group practice or billing organization, and pathology / radiology / anesthesiology / lab peers are left out). The source is a server setting reported as `referral_source` on `/v1/mart` (`implied`: inferred from visit order; `claims`: the referring NPI recorded on the claim); the catalog captions change with it, so never type referral wording. Practice **sites** stay top 5 addresses. `hospital_affiliations[]` stays hidden.
+- Top lists are top 5: diagnoses (`visits_top_diagnosis_1..5`), procedures (`visits_top_procedure_1..5`), **primary procedures** (`visits_top_primary_procedure_1..5`: procedures with a physician work RVU above 1; visits, exams, therapy evaluations, psychotherapy and lab panels excluded; when fewer than five qualify the list is filled from the clinician's other billed codes and `primary_procedures_filled` is true, so show `section.top_primary_procedures_filled` as the caption under the list in that case) and commercial payers (`top_payer_name_1..5`). Hide blank slots. Referrals in and out are top 5 after exclusions (same group practice or billing organization, and pathology / radiology / anesthesiology / lab peers are left out). The source is a server setting reported as `referral_source` on `/v1/mart` (`implied`: inferred from visit order; `claims`: the referring NPI recorded on the claim); the catalog captions change with it, so never type referral wording. Practice **sites** stay top 5 addresses. `hospital_affiliations[]` stays hidden.
 - Weekend / after-hours is **UI-only**: `visits_percent_saturday` and `visits_percent_sunday` are already on the provider and each practice.
 
 ## RVU
@@ -155,7 +155,7 @@ Same keys as `python -m provider_directory.cli get --state AZ {npi}`, except HTT
 | Tab | What’s on it |
 | --- | --- |
 | **Overview** | Volume **numbers**: visits, panel size, work RVU total and average per procedure, the per-procedure specialty strip (see Work RVU below), **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 5 dx and **Top primary procedures** (`visits_top_diagnosis_*_name` + `visits_top_diagnosis_*_percent`, `visits_top_primary_procedure_*`). Do **not** render the plain Top procedures list (`visits_top_procedure_*`) on the page: it is office visit codes for almost everyone; those already appear in the Office visits box. Keep `visits_top_procedure_*` in the Excel/PDF export only. Add a **Clinical summary** box at the top of Overview (`section.clinical_summary`): primary site ZIP (`practices[0].zip`), top diagnosis (`visits_top_diagnosis_1_name` with its percent) and top primary procedure (`visits_top_primary_procedure_1_name` with its percent). Label the third list "Top primary procedures" with the catalog help as its caption; it is empty for clinicians who only bill office visits, so hide it when slot 1 is blank. Shares are of `visits_total` and will not add to 100%. **Group practices** (`group_practices[]`): the master-file group practice first (`is_primary`, `billing_type` R), then every CMS reassignment group (`billing_type` C); `organization_npi`, `cases` and `max_period_code` are blank now, hide those columns. `hospital_affiliations[]` stays hidden. Hide the group list if empty. New vs established only if E/M counts exist. |
-| **Sites** | Top 5 **addresses** as a **list/table**: name, city, work type, visit share, work RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. `name` is the site's DBA or registered name, else street and city; it is never "Unknown", so no empty-state copy is needed for it. |
+| **Sites** | Top 5 **addresses** as a **list/table**: name, city, service type (`work_type`, label from the catalog: "Service type"), visit share, work RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. `name` is the site's DBA or registered name, else street and city; it is never "Unknown", so no empty-state copy is needed for it. |
 | **Panel** | **Bars** for age bands and sex. **Bars** for payer mix, six classes in this order: Medicare FFS / Medicare Advantage / Medicare Other / Medicaid / Commercial / HMO. Top 5 commercial parent **names** + percents. Hide a 0% or blank payer slot. |
 | **Referrals** | Two **lists**: in and out, top 5 each (peer name, specialty, patient count). Caption from the `referrals` catalog entry. No network graph. |
 | **CMS** | Group size, telehealth offered, secondary specialties, MIPS. |
@@ -201,7 +201,7 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 | `visits_percent_ed` | POS 23 | |
 | `visits_percent_telehealth` | POS 02 + 10 | |
 | `visits_percent_inpatient` | POS 21, or short-term acute hospital | Sean Smith smoke is mostly this |
-| `visits_percent_lab` | POS 81, or laboratory work_type | |
+| `visits_percent_lab` | POS 81, or a laboratory `im_specialty_rollup` | |
 | `visits_percent_other_pos` | Everything else | Hide if named buckets sum to ~100 |
 | `mips_final_score` / `mips_quality_score` | PDC clinician MIPS | |
 | `open_payments_*` / `utilization[]` | Loaded by `extras` / `sync --open-payments`; CLI `get` still shows them | Omitted from HTTP GET. Do not bind UI fields. |

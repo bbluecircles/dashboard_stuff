@@ -669,68 +669,11 @@ def physician_work_rvu(
     return None
 
 
-POS_WORK_TYPE = {
-    11: "Office",
-    12: "Home",
-    19: "Off Campus Outpatient Hospital",
-    20: "Urgent Care",
-    21: "Short Term Acute Care Hospital",
-    22: "Hospital Outpatient",
-    23: "Emergency Department",
-    24: "Ambulatory Surgery Center",
-    31: "Skilled Nursing Facility",
-    32: "Nursing Facility",
-    34: "Hospice",
-    41: "Ambulance (Land)",
-    49: "Independent Clinic",
-    50: "Federally Qualified Health Center",
-    65: "End-Stage Renal Disease Facility",
-    72: "Rural Health Clinic",
-    81: "Independent Laboratory",
-}
-
-
 def work_type_case_sql(sl: str = "sl") -> str:
-    """Site-of-care label: CMS POS code first, then rollup keywords, then the
-    warehouse's own pos_type_name / im_specialty_rollup text. Sentinels such as
-    Unknown fall through to NULL instead of becoming a work type."""
-    pos_whens = "\n".join(
-        f"WHEN {int(code)} THEN '{label}'" for code, label in sorted(POS_WORK_TYPE.items())
-    )
-    roll = f"LOWER(IFNULL({sl}.im_specialty_rollup, ''))"
-    # CONCAT('%%', ...) so pymysql %s formatting leaves a SQL LIKE wildcard.
-    return f"""
-        COALESCE(
-            CASE {sl}.pos_type_code
-                {pos_whens}
-                ELSE NULL
-            END,
-            CASE
-                WHEN {roll} LIKE CONCAT('%%', 'urgent', '%%') THEN 'Urgent Care'
-                WHEN {roll} LIKE CONCAT('%%', 'emergency', '%%') THEN 'Emergency Department'
-                WHEN {roll} LIKE CONCAT('%%', 'ambulatory surg', '%%') THEN 'Ambulatory Surgery Center'
-                WHEN {roll} LIKE CONCAT('%%', 'skilled nursing', '%%') THEN 'Skilled Nursing Facility'
-                WHEN {roll} LIKE CONCAT('%%', 'hospice', '%%') THEN 'Hospice'
-                WHEN {roll} LIKE CONCAT('%%', 'dialysis', '%%')
-                  OR {roll} LIKE CONCAT('%%', 'end-stage', '%%') THEN 'End-Stage Renal Disease Facility'
-                WHEN {roll} LIKE CONCAT('%%', 'acute care hospital', '%%')
-                  OR {roll} LIKE CONCAT('%%', 'general acute', '%%') THEN 'Short Term Acute Care Hospital'
-                WHEN {roll} LIKE CONCAT('%%', 'outpatient hospital', '%%') THEN 'Hospital Outpatient'
-                WHEN {roll} LIKE CONCAT('%%', 'office specialty', '%%') THEN 'Single Specialty Group'
-                WHEN {roll} LIKE CONCAT('%%', 'office', '%%') THEN 'Office'
-                ELSE NULL
-            END,
-            CASE UPPER({clean_name_sql(f"{sl}.pos_type_name")})
-                WHEN 'ED' THEN 'Emergency Department'
-                WHEN 'ER' THEN 'Emergency Department'
-                WHEN 'EMERGENCY ROOM' THEN 'Emergency Department'
-                WHEN 'EMERGENCY' THEN 'Emergency Department'
-                WHEN 'URGENT CARE CENTER' THEN 'Urgent Care'
-                ELSE {clean_name_sql(f"{sl}.pos_type_name")}
-            END,
-            {clean_name_sql(f"{sl}.im_specialty_rollup")}
-        )
-    """
+    """Service type of a site: the warehouse's own im_specialty_rollup label,
+    as is. Blank and sentinels such as Unknown become NULL. The CMS place of
+    service code is not used here; the POS mix (extras) has its own buckets."""
+    return clean_name_sql(f"{sl}.im_specialty_rollup")
 
 
 def payer_mix_percents(counts: Mapping[int, int]) -> dict[str, float | None]:

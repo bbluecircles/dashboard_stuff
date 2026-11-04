@@ -14,7 +14,6 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
-from provider_directory.transforms import work_type_case_sql
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -89,8 +88,9 @@ def known_pos_sql(alias: str) -> str:
 
 
 def pos_mix_bucket_sql(sl: str = "sl") -> str:
-    """Named POS buckets, then the same work_type polish used on practice sites."""
-    wt = work_type_case_sql(sl)
+    """Named POS buckets, then keywords on the warehouse's im_specialty_rollup."""
+    roll = f"LOWER(IFNULL({sl}.im_specialty_rollup, ''))"
+    like = lambda word: f"{roll} LIKE CONCAT('%%', '{word}', '%%')"  # noqa: E731
     return f"""
         CASE
             WHEN {pos_in_sql(sl, POS_OFFICE)} THEN 'office'
@@ -100,14 +100,12 @@ def pos_mix_bucket_sql(sl: str = "sl") -> str:
             WHEN {pos_in_sql(sl, POS_TELEHEALTH)} THEN 'telehealth'
             WHEN {pos_in_sql(sl, POS_INPATIENT)} THEN 'inpatient'
             WHEN {pos_in_sql(sl, POS_LAB)} THEN 'lab'
-            WHEN ({wt}) IN ('Office', 'Single Specialty Group', 'Independent Clinic') THEN 'office'
-            WHEN ({wt}) IN ('Hospital Outpatient', 'Off Campus Outpatient Hospital') THEN 'hopd'
-            WHEN ({wt}) = 'Ambulatory Surgery Center' THEN 'asc'
-            WHEN ({wt}) IN ('Emergency Department', 'Urgent Care') THEN 'ed'
-            WHEN ({wt}) = 'Short Term Acute Care Hospital' THEN 'inpatient'
-            WHEN ({wt}) = 'Independent Laboratory'
-              OR LOWER(IFNULL({sl}.im_specialty_rollup, '')) LIKE CONCAT('%%', 'laborator', '%%')
-              THEN 'lab'
+            WHEN {like('urgent')} OR {like('emergency')} THEN 'ed'
+            WHEN {like('ambulatory surg')} THEN 'asc'
+            WHEN {like('outpatient hospital')} THEN 'hopd'
+            WHEN {like('acute care hospital')} OR {like('general acute')} THEN 'inpatient'
+            WHEN {like('laborator')} THEN 'lab'
+            WHEN {like('office')} OR {like('clinic')} THEN 'office'
             ELSE 'other'
         END
     """

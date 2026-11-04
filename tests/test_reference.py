@@ -55,6 +55,9 @@ def test_overlay_cleans_placeholders_and_keeps_columns_on_profile():
     assert "'<UNAVAIL>'" in sql
     assert "p.affiliation_name = " in sql and "p.reference_group_id = " in sql
     assert "p.primary_organization_id = CASE WHEN" in sql and "p.primary_organization_name = CASE WHEN" in sql
+    # specialty comes from the master file when its row has a code; Phase 1 value otherwise
+    assert "p.primary_specialty_code = COALESCE(NULLIF(TRIM(s.npi_spec_grp_code), ''), p.primary_specialty_code)" in sql
+    assert "s.npi_spec_grp_name" in sql and "s.taxonomy_cat_name" in sql and "p.specialty_classification" in sql
     assert "billing_organization" not in sql
     overlay = inspect.getsource(ref.overlay_reference)
     assert "primary_organization_id = NULL" in overlay and 'startswith("billing_organization")' in overlay

@@ -172,6 +172,7 @@ class ProviderSpine(BaseModel):
     visits_top_primary_procedure_1: str | None = None
     visits_top_primary_procedure_1_name: str | None = None
     visits_top_primary_procedure_1_percent: float | None = None
+    primary_procedures_filled: bool | None = None
     visits_top_primary_procedure_2: str | None = None
     visits_top_primary_procedure_2_name: str | None = None
     visits_top_primary_procedure_2_percent: float | None = None
@@ -387,6 +388,7 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     visits_top_primary_procedure_1: str | None = None
     visits_top_primary_procedure_1_name: str | None = None
     visits_top_primary_procedure_1_percent: float | None = None
+    primary_procedures_filled: bool | None = None
     visits_top_primary_procedure_2: str | None = None
     visits_top_primary_procedure_2_name: str | None = None
     visits_top_primary_procedure_2_percent: float | None = None

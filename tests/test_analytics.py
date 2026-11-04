@@ -95,7 +95,7 @@ def test_phase4_sql_stays_on_mart_and_dash():
     case_sql = work_type_case_sql("sl")
     formatted = f"UPDATE t SET w = {case_sql} WHERE MOD(npi, 16) = %s"
     formatted % (3,)
-    assert "Urgent Care" in case_sql
+    assert "im_specialty_rollup" in case_sql and "pos_type_code" not in case_sql
     wrvu = strict_work_rvu_sql("pr")
     assert "NON_FACILITY_TOTAL" in wrvu
     assert "CHAR_LENGTH(TRIM(px)) = 5" in is_hcpcs_sql("px")
@@ -243,9 +243,12 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert build_parser().parse_args(["phase4", "--rvu-only"]).rvu_only is True
 
 
-def test_work_type_normalizes_warehouse_ed_labels():
+def test_service_type_is_the_rollup_and_pos_mix_keys_on_it():
     wt = work_type_case_sql("sl")
-    assert "WHEN 'ED' THEN 'Emergency Department'" in wt
+    assert "sl.im_specialty_rollup" in wt and "POS" not in wt
     from provider_directory.extras import pos_mix_bucket_sql
 
-    assert "IN ('Emergency Department', 'Urgent Care') THEN 'ed'" in pos_mix_bucket_sql("sl")
+    mix = pos_mix_bucket_sql("sl")
+    assert "'urgent'" in mix and "'emergency'" in mix and "THEN 'ed'" in mix
+    assert "Emergency Department" not in mix
+    f"SELECT {mix} FROM t WHERE npi = %s" % (1,)

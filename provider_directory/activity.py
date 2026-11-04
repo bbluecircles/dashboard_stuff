@@ -56,7 +56,7 @@ def top_code_columns() -> list[str]:
 
 
 def top_code_null_sql() -> str:
-    return ",\n            ".join(f"{c} = NULL" for c in top_code_columns()) + ","
+    return ",\n            ".join(f"{c} = NULL" for c in top_code_columns() + ["primary_procedures_filled"]) + ","
 
 
 def top_code_overlay_sql(mart: str) -> tuple[str, str]:
@@ -72,6 +72,8 @@ def top_code_overlay_sql(mart: str) -> tuple[str, str]:
             f"                MAX(CASE WHEN rk = {i} THEN name END) AS c{i}_name"
             for i in range(1, TOP_N + 1)
         )
+        if table == "pd_stg_top_primary_px":
+            picks += ",\n                MAX(CASE WHEN is_strict = 0 THEN 1 ELSE 0 END) AS filled"
         joins.append(f"""
         LEFT JOIN (
             SELECT
@@ -83,6 +85,8 @@ def top_code_overlay_sql(mart: str) -> tuple[str, str]:
         for i in range(1, TOP_N + 1):
             sets.append(f"p.{prefix}_{i} = {alias}.c{i}")
             sets.append(f"p.{prefix}_{i}_name = {alias}.c{i}_name")
+        if table == "pd_stg_top_primary_px":
+            sets.append(f"p.primary_procedures_filled = CASE WHEN {alias}.npi IS NULL THEN NULL ELSE {alias}.filled END")
     return "".join(joins), ",\n            ".join(sets)
 
 
@@ -90,10 +94,14 @@ def top_code_statements(mart: str, lookup: str) -> dict[str, str]:
     """INSERT ... SELECT per ranked list, one %s param: the NPI bucket.
 
     Diagnoses and procedures rank every code on the visit. Primary procedures
-    join the fee schedule before ranking and keep only codes whose strict
-    physician work RVU is above the floor, excluding the visit-type code
-    families in settings.PRIMARY_PROCEDURE_EXCLUDED_* plus Category II, C and
-    U codes, so ranks 1..TOP_N are the top eligible procedures.
+    join the fee schedule and flag each code as strict when its physician work
+    RVU is above the floor and it is not a visit-type code (the families in
+    settings.PRIMARY_PROCEDURE_EXCLUDED_* plus Category II, C and U codes).
+    Strict codes are picked first; when a clinician has fewer than TOP_N of
+    them the open slots are filled from their other billed codes, office
+    visits included, and the final TOP_N are ranked by visit count. is_strict
+    records which rows came from the fill, so pd_provider.primary_procedures_filled
+    can caption the list.
     """
     top_dx_sql = f"""
         INSERT INTO {mart}.pd_stg_top_dx (npi, code, name, visit_count, rk)
@@ -142,29 +150,38 @@ def top_code_statements(mart: str, lookup: str) -> dict[str, str]:
         WHERE ranked.rk <= {TOP_N}
     """
     top_primary_px_sql = f"""
-        INSERT INTO {mart}.pd_stg_top_primary_px (npi, code, name, visit_count, rk)
-        SELECT ranked.npi, ranked.code, ranked.name, ranked.visit_count, ranked.rk
+        INSERT INTO {mart}.pd_stg_top_primary_px (npi, code, name, visit_count, rk, is_strict)
+        SELECT picked.npi, picked.code, picked.name, picked.visit_count,
+               ROW_NUMBER() OVER (
+                   PARTITION BY picked.npi
+                   ORDER BY picked.visit_count DESC, picked.code
+               ) AS rk,
+               picked.is_strict
         FROM (
             SELECT
-                v.rendering_npi AS npi,
-                v.px AS code,
-                LEFT(MAX(pr.procd_name), 80) AS name,
-                COUNT(*) AS visit_count,
+                codes.npi, codes.code, codes.name, codes.visit_count, codes.is_strict,
                 ROW_NUMBER() OVER (
-                    PARTITION BY v.rendering_npi
-                    ORDER BY COUNT(*) DESC, v.px
-                ) AS rk
-            FROM {mart}.pd_stg_visit v
-            INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
-            INNER JOIN {lookup}.procd pr
-                ON pr.procd_code = v.px COLLATE {MART_COLLATION}
-            WHERE v.px IS NOT NULL AND v.px <> ''
-              AND CHAR_LENGTH(TRIM(v.px)) = 5
-              AND MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
-              AND {primary_procedure_filter_sql("v.px", "pr")}
-            GROUP BY v.rendering_npi, v.px
-        ) ranked
-        WHERE ranked.rk <= {TOP_N}
+                    PARTITION BY codes.npi
+                    ORDER BY codes.is_strict DESC, codes.visit_count DESC, codes.code
+                ) AS pick_rk
+            FROM (
+                SELECT
+                    v.rendering_npi AS npi,
+                    v.px AS code,
+                    LEFT(MAX(pr.procd_name), 80) AS name,
+                    COUNT(*) AS visit_count,
+                    MAX(CASE WHEN CHAR_LENGTH(TRIM(v.px)) = 5
+                              AND {primary_procedure_filter_sql("v.px", "pr")} THEN 1 ELSE 0 END) AS is_strict
+                FROM {mart}.pd_stg_visit v
+                INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
+                LEFT JOIN {lookup}.procd pr
+                    ON pr.procd_code = v.px COLLATE {MART_COLLATION}
+                WHERE v.px IS NOT NULL AND v.px <> ''
+                  AND MOD(v.rendering_npi, {PROVIDER_BUCKETS}) = %s
+                GROUP BY v.rendering_npi, v.px
+            ) codes
+        ) picked
+        WHERE picked.pick_rk <= {TOP_N}
     """
     return {
         "pd_stg_top_dx": top_dx_sql,

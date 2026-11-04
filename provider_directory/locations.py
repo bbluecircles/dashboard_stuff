@@ -133,8 +133,8 @@ def hospital_facility_name_sql(sl: str = "sl") -> str:
 
 
 def work_type_sql(sl: str = "sl") -> str:
-    """Phase 3 work type. The same rule Phase 4 and extras use (transforms.work_type_case_sql),
-    so the label does not change between phases."""
+    """Phase 3 service type (work_type column): the warehouse's im_specialty_rollup
+    as is (transforms.work_type_case_sql). Phase 4 applies the same rule."""
     return work_type_case_sql(sl)
 
 
