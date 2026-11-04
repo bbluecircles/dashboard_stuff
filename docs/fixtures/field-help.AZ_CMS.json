@@ -72,7 +72,7 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
+        "help": "master_ref when the affiliation comes from the reference file; claims when the optional claims tie-break (settings.REFERENCE_CLAIMS_TIEBREAK, off by default) moved it to a CMS reassignment group; blank otherwise."
       },
       "reference_group_id": {
         "label": "Reference group id",
@@ -726,7 +726,7 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
+        "help": "master_ref when the affiliation comes from the reference file; claims when the optional claims tie-break (settings.REFERENCE_CLAIMS_TIEBREAK, off by default) moved it to a CMS reassignment group; blank otherwise."
       },
       "reference_group_id": {
         "label": "Reference group id",

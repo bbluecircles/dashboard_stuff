@@ -104,6 +104,9 @@ def test_claims_tiebreak_picks_the_cms_group_matching_bills_under():
     assert "%" not in sql.replace("%%", "")
     src = inspect.getsource(ref.overlay_reference)
     assert "claims_group_tiebreak_sql" in src and "claims_tiebreaks" in src
+    assert "if not REFERENCE_CLAIMS_TIEBREAK:" in src
+    from provider_directory.settings import REFERENCE_CLAIMS_TIEBREAK
+    assert REFERENCE_CLAIMS_TIEBREAK is False
     from provider_directory.pipeline import run_phase4
 
     p4 = inspect.getsource(run_phase4)

@@ -591,8 +591,8 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise.",
-        "dev": "'master_ref' when filled from pd_src_physician; 'claims' when the claims tie-break replaced a stale group and the affiliation followed; else null.",
+        "help": "master_ref when the affiliation comes from the reference file; claims when the optional claims tie-break (settings.REFERENCE_CLAIMS_TIEBREAK, off by default) moved it to a CMS reassignment group; blank otherwise.",
+        "dev": "'master_ref' when filled from pd_src_physician; 'claims' only when REFERENCE_CLAIMS_TIEBREAK is on and the tie-break replaced the master-file group; else null.",
         "caveats": [],
         "derived_from": [],
         "tables": [
@@ -13057,8 +13057,8 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise.",
-        "dev": "'master_ref' when filled from pd_src_physician; 'claims' when the claims tie-break replaced a stale group and the affiliation followed; else null.",
+        "help": "master_ref when the affiliation comes from the reference file; claims when the optional claims tie-break (settings.REFERENCE_CLAIMS_TIEBREAK, off by default) moved it to a CMS reassignment group; blank otherwise.",
+        "dev": "'master_ref' when filled from pd_src_physician; 'claims' only when REFERENCE_CLAIMS_TIEBREAK is on and the tie-break replaced the master-file group; else null.",
         "caveats": [],
         "derived_from": [
           {

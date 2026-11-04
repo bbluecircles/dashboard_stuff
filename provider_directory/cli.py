@@ -584,7 +584,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--ref",
         action="store_true",
         help="Reference clock: copy master_ref.111_physician (state rows + spine NPIs) and "
-        "cms_group_practice into pd_src_*, then overlay the group key (primary_organization_*), affiliation_* and reference_group_* on pd_provider, with the claims tie-break. "
+        "cms_group_practice into pd_src_*, then overlay the group key (primary_organization_*), affiliation_* and reference_group_* on pd_provider (claims tie-break only if REFERENCE_CLAIMS_TIEBREAK). "
         "Read-only, paged, no locks on the reference server.",
     )
     p.add_argument(
@@ -597,7 +597,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "ref-overlay",
         parents=[state_parent],
-        help="Re-apply the group key (primary_organization_*), affiliation_* and reference_group_* from the existing pd_src_physician copy, with the claims tie-break (seconds); no reference-server read",
+        help="Re-apply the group key (primary_organization_*), affiliation_* and reference_group_* from the existing pd_src_physician copy (claims tie-break only if REFERENCE_CLAIMS_TIEBREAK) (seconds); no reference-server read",
     )
     p.set_defaults(func=_cmd_ref_overlay)
 

@@ -116,6 +116,13 @@ REFERRAL_EXCLUDE_SAME_ORGANIZATION = True
 #              Phase 2): the clinician the billing office named as referring.
 # Switching needs `phase5 --referrals-only --rebuild-edges` so the cached edges
 # are refilled from the new source.
+# Group practice source. The master reference file (111_physician.group_prac_code)
+# is the group key. When True, a clinician whose master-file group does not match
+# their claims billing organization or parent by name is moved to the CMS
+# reassignment group that does (affiliation_source = 'claims'). Off: the master
+# file is used as is. Changing it needs `ref-overlay` (seconds), then
+# `group-summary` and `phase5 --referrals-only`.
+REFERENCE_CLAIMS_TIEBREAK = os.environ.get("PD_REFERENCE_CLAIMS_TIEBREAK", "0").strip().lower() in ("1", "true", "yes")
 REFERRAL_SOURCES = ("implied", "claims")
 REFERRAL_SOURCE = os.environ.get("PD_REFERRAL_SOURCE", "implied").strip().lower()
 if REFERRAL_SOURCE not in REFERRAL_SOURCES:

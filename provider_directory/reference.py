@@ -23,6 +23,7 @@ from provider_directory.settings import (
     REF_DB,
     REF_GROUP_PRACTICE_TABLE,
     REF_PHYSICIAN_TABLE,
+    REFERENCE_CLAIMS_TIEBREAK,
 )
 from provider_directory.transforms import ORG_NAME_REGEXP, PERSON_NAME_REGEXP, clean_name_sql
 
@@ -392,8 +393,9 @@ def claims_group_tiebreak_sql(mart: str, bucket: int) -> str:
 
 def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
     """sync --ref step 2: write affiliation_*, reference_group_* and the group key
-    (primary_organization_id / name) onto pd_provider. billing_organization_* is
-    Phase 4's and is left alone."""
+    (primary_organization_id / name) onto pd_provider from the master file copy.
+    The claims tie-break runs only when settings.REFERENCE_CLAIMS_TIEBREAK is on.
+    billing_organization_* is Phase 4's and is left alone."""
     create_schema(conn, mart_db)
     mart = quote_ident(mart_db)
     null_sql = ", ".join(
@@ -412,7 +414,9 @@ def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
             updated += n
             print(f"ref overlay bucket {bucket}: {n} rows", flush=True)
         tiebreaks = 0
-        if _has_rows(cur, mart, "pd_src_group_practice"):
+        if not REFERENCE_CLAIMS_TIEBREAK:
+            print("ref group tie-break off (REFERENCE_CLAIMS_TIEBREAK): master file group kept as is", flush=True)
+        elif _has_rows(cur, mart, "pd_src_group_practice"):
             for bucket in range(PROVIDER_BUCKETS):
                 cur.execute(claims_group_tiebreak_sql(mart, bucket))
                 n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
