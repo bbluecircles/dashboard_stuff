@@ -10,7 +10,6 @@ from provider_directory.db import quote_ident
 from provider_directory.locations import (
     hospital_facility_name_sql,
     hospital_system_name_sql,
-    is_person_practice_name_sql,
     table_has_rows,
 )
 from provider_directory.schema import table_options
@@ -59,18 +58,6 @@ def _truncate_if_exists(cur, conn, mart_db: str, table: str) -> None:
         conn.commit()
 
 
-def _affiliation_name_ok_sql(alias: str) -> str:
-    name = f"{alias}.dba_name"
-    return f"""
-        NULLIF(TRIM({name}), '') IS NOT NULL
-        AND UPPER(TRIM({name})) NOT IN ('UNKNOWN GROUP PRACTICE', 'UNKNOWN')
-        AND NOT (
-            {alias}.provider_billing_code = {alias}.rendering_physician_code
-            AND {is_person_practice_name_sql(name)}
-        )
-    """
-
-
 def rebuild_org_lists(
     conn,
     *,
@@ -86,14 +73,12 @@ def rebuild_org_lists(
     the CMS group PAC ID, billing_type 'R') plus every CMS reassignment row for
     the NPI from pd_src_group_practice ('C'). Rank primary first.
 
-    Hospital affiliations: visit-weighted SL collapsed to distinct
-    sl_hospital_system_name (not campuses). Top `max_systems` with share
+    Hospital affiliations (hidden list): visit-weighted SL collapsed to one
+    row per sl_hospital_system_name. Top `max_systems` with share
     >= min_share_pct.
     """
     mart = quote_ident(mart_db)
     claims = quote_ident(claims_db)
-    dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
-    start = int(window_start)
     max_systems = int(max_systems)
     min_share = float(min_share_pct)
     has_npi_sl = table_has_rows(conn, mart_db, "pd_stg_npi_sl")

@@ -91,8 +91,9 @@ def top_code_statements(mart: str, lookup: str) -> dict[str, str]:
 
     Diagnoses and procedures rank every code on the visit. Primary procedures
     join the fee schedule before ranking and keep only codes whose strict
-    physician work RVU is above the floor, excluding E/M visit codes and
-    Category II codes, so ranks 1..TOP_N are the top eligible procedures.
+    physician work RVU is above the floor, excluding the visit-type code
+    families in settings.PRIMARY_PROCEDURE_EXCLUDED_* plus Category II, C and
+    U codes, so ranks 1..TOP_N are the top eligible procedures.
     """
     top_dx_sql = f"""
         INSERT INTO {mart}.pd_stg_top_dx (npi, code, name, visit_count, rk)

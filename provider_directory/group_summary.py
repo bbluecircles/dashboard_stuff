@@ -1,4 +1,4 @@
-"""Precomputed group-practice dump: one row per billing org per member scope.
+"""Precomputed group-practice dump: one row per group practice (CMS group PAC ID) per member scope.
 
 list_group_practices used to aggregate every pd_provider row and rank every
 group on each page request, twice (count + page). This table holds that
@@ -61,7 +61,7 @@ def rebuild_group_summary(conn, mart_db: str = MART_DB) -> dict[str, int]:
             print(f"group summary {scope}: {counts[scope]} rows", flush=True)
         # A clinician's parent organization is their group's parent (the value most
         # members carry), so one noisy warehouse row cannot put an HonorHealth
-        # clinician under an out-of-state system.
+        # clinician under an out-of-state organization.
         harmonized = 0
         for bucket in range(16):
             cur.execute(

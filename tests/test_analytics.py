@@ -6,7 +6,6 @@ from provider_directory.analytics import (
     period_in_sql,
     rebuild_analytics,
     top_payer_update_sql,
-    work_rvu_sql,
     work_type_case_sql,
 )
 from provider_directory.cli import build_parser
@@ -22,17 +21,9 @@ from provider_directory.transforms import (
     looks_like_person_name,
     payer_mix_percents,
     physician_work_rvu,
-    polish_work_type,
+    strict_work_rvu_sql,
     top_commercial_payers,
 )
-
-
-def test_polish_work_type_pos_and_rollup():
-    assert polish_work_type(pos_type_code=11) == "Office"
-    assert polish_work_type(pos_type_code=23) == "Emergency Department"
-    assert polish_work_type(im_specialty_rollup="Office Specialty") == "Single Specialty Group"
-    assert polish_work_type(im_specialty_rollup="General Acute Care Hospital") == "Short Term Acute Care Hospital"
-    assert polish_work_type(im_specialty_rollup="Urgent Care Center") == "Urgent Care"
 
 
 def test_payer_mix_excludes_other_from_denominator():
@@ -86,8 +77,8 @@ def test_phase4_sql_stays_on_mart_and_dash():
     assert "physician_primary_affiliation" in open(rebuild_analytics.__code__.co_filename, encoding="utf-8").read()
     assert "rebuild_org_lists" in source
     assert "strict_work_rvu_sql" in source
-    assert "NON_FACILITY_TOTAL" in work_rvu_sql("pr")
-    assert "nf_total_rvu" not in work_rvu_sql("pr")
+    assert "NON_FACILITY_TOTAL" in strict_work_rvu_sql("pr")
+    assert "nf_total_rvu" not in strict_work_rvu_sql("pr")
     assert "ROUND(SUM(pr.WORK_RVU)" not in source
     assert "FROM az.pat_dt" not in source
     assert "pd_stg_visit" in source
@@ -105,7 +96,7 @@ def test_phase4_sql_stays_on_mart_and_dash():
     formatted = f"UPDATE t SET w = {case_sql} WHERE MOD(npi, 16) = %s"
     formatted % (3,)
     assert "Urgent Care" in case_sql
-    wrvu = work_rvu_sql("pr")
+    wrvu = strict_work_rvu_sql("pr")
     assert "NON_FACILITY_TOTAL" in wrvu
     assert "CHAR_LENGTH(TRIM(px)) = 5" in is_hcpcs_sql("px")
     f"SELECT {wrvu} FROM t WHERE npi = %s" % (1,)

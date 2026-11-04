@@ -408,7 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "overlay-cms",
         parents=[state_parent],
-        help="Fill gender/school/age from cms_* tables",
+        help="Fill gender/school/age and in_system_provider from cms_* tables, refresh pd_network_npi, rebuild pd_group_practice",
     )
     p.set_defaults(func=_cmd_overlay)
 
@@ -425,7 +425,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "phase2",
         parents=[state_parent],
-        help="Activity + panel + top dx/px for period_code 202308–202407",
+        help="Activity + panel + top dx/px/primary px for the mart's current window (pd_refresh_state)",
     )
     p.add_argument(
         "--top-codes-only",
@@ -445,7 +445,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "phase4",
         parents=[state_parent],
-        help="wRVU, payer mix, primary org, group/hospital lists, and work_type polish for 202308–202407",
+        help="Work RVU per billed line, payer mix, Bills under and the group practice from the reference copy, group list, work_type polish for the current window",
     )
     p.add_argument(
         "--org-lists-only",
@@ -471,7 +471,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "phase5",
         parents=[state_parent],
-        help="Referrals both ways, day-of-week mix, prior-year wRVU, state-specialty benchmarks",
+        help="Referrals both ways, day-of-week mix, prior-year work RVU, in-state specialty benchmarks (average work RVU per procedure)",
     )
     p.add_argument(
         "--referrals-only",
@@ -494,7 +494,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--slide",
         action="store_true",
-        help="If az has a later usable month, drop the oldest month and rebuild 3–5 from updated staging",
+        help="If the claims warehouse has a later usable month, drop the oldest month and rebuild 3–5 from updated staging",
     )
     p.add_argument(
         "--skip-staging-indexes",
@@ -506,7 +506,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "extras",
         parents=[state_parent],
-        help="Cheap extras overlay (group size, POS mix, MIPS, Open Payments). Does not rescan pat_dt.",
+        help="Cheap extras overlay (group size, POS mix, MIPS, Open Payments; open_payments_* stay off HTTP GET). Does not rescan pat_dt.",
     )
     p.add_argument(
         "--download",
@@ -558,7 +558,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--open-payments",
         action="store_true",
-        help="Download/parse Open Payments into the mart. Reuses cache; general file is huge.",
+        help="Download/parse Open Payments into cms_open_payments and overlay pd_provider (off HTTP GET). Reuses cache; general file is huge.",
     )
     p.add_argument(
         "--mips",
@@ -584,7 +584,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--ref",
         action="store_true",
         help="Reference clock: copy master_ref.111_physician (state rows + spine NPIs) and "
-        "cms_group_practice into pd_src_*, then overlay affiliation_* on pd_provider. "
+        "cms_group_practice into pd_src_*, then overlay the group key (primary_organization_*), affiliation_* and reference_group_* on pd_provider, with the claims tie-break. "
         "Read-only, paged, no locks on the reference server.",
     )
     p.add_argument(
@@ -597,7 +597,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "ref-overlay",
         parents=[state_parent],
-        help="Re-apply affiliation_* / reference_group_* from the existing pd_src_physician copy (seconds); no reference-server read",
+        help="Re-apply the group key (primary_organization_*), affiliation_* and reference_group_* from the existing pd_src_physician copy, with the claims tie-break (seconds); no reference-server read",
     )
     p.set_defaults(func=_cmd_ref_overlay)
 
@@ -631,13 +631,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--out", help="Write to this file instead of stdout (parent folders are created)")
     p.set_defaults(func=_cmd_field_help)
 
-    p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (preview of the future API)")
+    p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (same payload as GET /v1/providers/{npi}, plus the columns GET omits)")
     p.add_argument("npi", nargs="?", type=int)
     p.add_argument("--last-name")
     p.add_argument("--specialty")
     p.add_argument(
         "--organization",
-        help="Contains match on primary_organization_name",
+        help="Contains match on the group practice name (primary_organization_name)",
     )
     p.add_argument("--city", help="Contains match on primary practice city (site_rank 1)")
     p.add_argument("--active", action="store_true", help="Only providers with activity in the frozen window")
@@ -651,7 +651,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--organization-id",
         type=int,
         dest="organization_id",
-        help="Exact primary_organization_id (billing NPI). Use after picking a group row.",
+        help="Exact group practice id (primary_organization_id, the CMS group PAC ID). Use after picking a group row.",
     )
     p.add_argument("--min-visits", type=int, dest="min_visits", help="Minimum visits_total")
     p.add_argument("--max-visits", type=int, dest="max_visits", help="Maximum visits_total")
@@ -661,11 +661,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "groups",
         parents=[state_parent],
-        help="Paged group-practice dump (sums of Type 1 NPIs on primary_organization_id)",
+        help="Paged group-practice dump (sums of Type 1 NPIs by group practice id). Lists every state; the API defaults to the market state",
     )
     p.add_argument("--organization", help="Contains match on group name")
     p.add_argument("--organization-id", type=int, dest="organization_id")
-    p.add_argument("--parent", help="Contains match on parent system name")
+    p.add_argument("--parent", help="Contains match on parent organization name")
     p.add_argument("--active", action="store_true", help="Only roll up NPIs active in the frozen window")
     p.add_argument(
         "--in-system",

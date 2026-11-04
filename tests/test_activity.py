@@ -131,7 +131,7 @@ def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
     from provider_directory.pipeline import run_phase2
     from provider_directory.schema import PD_PROVIDER_PHASE2_COLUMNS, TOP_CODE_TABLES
     from provider_directory.settings import TOP_N
-    from provider_directory.transforms import is_em_code_sql, primary_procedure_filter_sql, strict_work_rvu_sql
+    from provider_directory.transforms import primary_procedure_filter_sql, strict_work_rvu_sql
 
     assert TOP_N == 5
     st = top_code_statements("`az_pd`", "`azal`")
@@ -151,7 +151,7 @@ def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
     assert "BETWEEN '92521' AND '92524'" in primary
     assert "REGEXP '^[0-9]{4}F$'" in primary and "REGEXP '^[0-9]{4}U$'" in primary and "REGEXP '^C[0-9]{4}$'" in primary
     assert "nf_total_rvu" not in strict_work_rvu_sql("pr")
-    assert "99202" in is_em_code_sql("x") and "NOT" in primary_procedure_filter_sql("v.px", "pr")
+    assert "NOT" in primary_procedure_filter_sql("v.px", "pr")
     joins, sets = top_code_overlay_sql("`az_pd`")
     assert "pd_stg_top_primary_px" in joins
     assert "p.visits_top_primary_procedure_5_name = t_primary_px.c5_name" in sets

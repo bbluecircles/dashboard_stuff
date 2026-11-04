@@ -312,7 +312,7 @@ def test_payer_class_labels_match_the_warehouse_codes():
     assert cat["top_payer_name_5"]["label"] == "Top commercial payer 5"
     assert cat["is_primary_member"]["label"] == "Primary member"
     group = catalog(dev=True)["group"]
-    assert group["member_count_any"]["label"] == "Clinicians billing here"
+    assert group["member_count_any"]["label"] == "Clinicians listing this group"
 def test_filter_controls_have_help_for_every_query_parameter():
     cat = catalog(dev=False)
     for name in ("active", "in_system", "min_visits", "max_visits", "last_name", "specialty", "organization", "organization_id", "city"):

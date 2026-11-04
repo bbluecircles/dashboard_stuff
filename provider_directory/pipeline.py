@@ -1,4 +1,4 @@
-"""Phase 1 orchestration. CLI and (later) a FastAPI admin route can call this."""
+"""Orchestration of phases 1–6 and extras. The CLI and the FastAPI job routes call these."""
 
 from __future__ import annotations
 

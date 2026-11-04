@@ -1,4 +1,4 @@
-"""Phase 5: referrals, day-of-week mix, prior-year wRVU, specialty benchmarks.
+"""Phase 5: referrals, day-of-week mix, prior-year work RVU, in-state specialty benchmarks.
 
 Reads az / azal / Phase 2–4 staging. Writes az_pd only.
 Does not rescan Phase 2/3/4 tables and does not drop them.
@@ -11,8 +11,9 @@ is rendering; outgoing = this NPI is the implied referring physician.
 Day-of-week uses az.pat_dt.service_end_date (YYYYMMDD), not period_code.
 Visit dates are cached in pd_stg_visit_date and reused on reruns.
 
-Prior-year wRVU is the same visit-grain formula as Phase 4, for
-PRIOR_WINDOW_START–PRIOR_WINDOW_END. Cached in pd_stg_npi_wrvu_prior.
+Prior-year work RVU prices every billed line like Phase 4, for
+PRIOR_WINDOW_START–PRIOR_WINDOW_END. The lines are cached in
+pd_stg_npi_px_line_prior and re-priced into pd_stg_npi_wrvu_prior each run.
 """
 
 from __future__ import annotations

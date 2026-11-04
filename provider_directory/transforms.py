@@ -450,7 +450,6 @@ def org_name_sql(expr: str) -> str:
         END
     """
 MIN_PLAUSIBLE_WORK_RVU = 0.05
-MIN_PLAUSIBLE_TOTAL_RVU = 0.5
 
 
 def strict_work_rvu_sql(alias: str = "pr") -> str:
@@ -480,23 +479,11 @@ def strict_work_rvu_sql(alias: str = "pr") -> str:
     """
 
 
-def is_category_ii_sql(expr: str) -> str:
-    """CPT Category II tracking codes (four digits + F) carry no work."""
-    return f"TRIM({expr}) REGEXP '^[0-9]{{4}}F$'"
-
-
 def is_unpriced_code_sql(expr: str) -> str:
     """TRUE for codes that never carry physician work (settings.RVU_EXCLUDED_CODE_PATTERNS)."""
     from provider_directory.settings import RVU_EXCLUDED_CODE_PATTERNS
 
     return "(" + " OR ".join(f"TRIM({expr}) REGEXP '{pat}'" for pat in RVU_EXCLUDED_CODE_PATTERNS) + ")"
-
-
-def is_em_code_sql(expr: str) -> str:
-    """Evaluation and management CPT range (office and other visits)."""
-    from provider_directory.settings import EM_CODE_MAX, EM_CODE_MIN
-
-    return f"(TRIM({expr}) REGEXP '^[0-9]{{5}}$' AND TRIM({expr}) BETWEEN '{EM_CODE_MIN}' AND '{EM_CODE_MAX}')"
 
 
 def is_visit_code_sql(expr: str) -> str:
@@ -629,13 +616,11 @@ def street_city_label(*, street: Any = None, city: Any = None) -> str | None:
 
 def pick_practice_name(
     *,
-    npi_type: Any = None,
     dba_name: Any = None,
     sl_name: Any = None,
     common_name: Any = None,
     street: Any = None,
     city: Any = None,
-    **_ignored: Any,
 ) -> str | None:
     """Python twin of practice_name_sql: DBA, then name, then common name, each
     cleaned of sentinels and of LAST, FIRST clones; else street and city. Never
@@ -703,43 +688,6 @@ POS_WORK_TYPE = {
     72: "Rural Health Clinic",
     81: "Independent Laboratory",
 }
-
-
-def polish_work_type(
-    *,
-    pos_type_code: Any = None,
-    pos_type_name: Any = None,
-    im_specialty_rollup: Any = None,
-    hospital_system: Any = None,
-) -> str | None:
-    """Site-of-care label from CMS POS, then warehouse rollup."""
-    pos = parse_int(pos_type_code)
-    if pos in POS_WORK_TYPE:
-        return POS_WORK_TYPE[pos]
-    roll = (nonempty(im_specialty_rollup) or "").lower()
-    if "urgent" in roll:
-        return "Urgent Care"
-    if "emergency" in roll:
-        return "Emergency Department"
-    if "ambulatory surg" in roll:
-        return "Ambulatory Surgery Center"
-    if "skilled nursing" in roll:
-        return "Skilled Nursing Facility"
-    if "hospice" in roll:
-        return "Hospice"
-    if "dialysis" in roll or "end-stage" in roll:
-        return "End-Stage Renal Disease Facility"
-    if "acute care hospital" in roll or "general acute" in roll:
-        return "Short Term Acute Care Hospital"
-    if "outpatient hospital" in roll:
-        return "Hospital Outpatient"
-    if "office specialty" in roll:
-        return "Single Specialty Group"
-    if "office" in roll:
-        return "Office"
-    if nonempty(hospital_system) and "hospital" in roll:
-        return "Short Term Acute Care Hospital"
-    return nonempty(pos_type_name) or nonempty(im_specialty_rollup)
 
 
 def work_type_case_sql(sl: str = "sl") -> str:
@@ -813,17 +761,6 @@ def top_commercial_payers(
         if name is not None and pct is not None:
             out.append((name, pct))
     return out
-
-
-def pick_work_type(
-    pos_type_name: Any = None,
-    im_specialty_rollup: Any = None,
-    hospital_system: Any = None,
-) -> str | None:
-    """Raw Phase 3 label. Phase 4 polishes with polish_work_type."""
-    if nonempty(hospital_system):
-        return nonempty(im_specialty_rollup) or "Hospital"
-    return pick_value(pos_type_name, im_specialty_rollup)
 
 
 def rank_clusters(

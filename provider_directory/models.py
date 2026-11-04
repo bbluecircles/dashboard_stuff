@@ -58,7 +58,7 @@ class ProviderPractice(BaseModel):
 
 
 class ProviderGroupPractice(BaseModel):
-    """One billing org the Type 1 belongs to. Primary first (org_rank 1)."""
+    """One group on the clinician's list: the master-file group practice (primary, org_rank 1) or a CMS reassignment group."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -74,7 +74,7 @@ class ProviderGroupPractice(BaseModel):
 
 
 class HospitalAffiliation(BaseModel):
-    """Visit-weighted health system. Distinct systems, not campuses."""
+    """Hidden list: visit-weighted parent organization from claims.sl, one row per organization."""
 
     model_config = ConfigDict(extra="ignore")
 

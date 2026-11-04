@@ -225,7 +225,7 @@ def fetch_group_hospital_affiliations(
     max_systems: int = MAX_HOSPITAL_AFFILIATIONS,
     min_share_pct: float = MIN_HOSPITAL_AFFILIATION_SHARE_PCT,
 ) -> list[HospitalAffiliation]:
-    """Members' systems, re-ranked at the group. Sums can double-count visits."""
+    """Members' affiliated organizations (hidden list), re-ranked at the group. Sums can double-count visits."""
     denom = int(visits_total or 0)
     if denom <= 0:
         return []
@@ -521,9 +521,9 @@ def list_providers(
     """Paged dump for the picker table. Does not attach nested practices/referrals.
 
     membership="primary" (default) matches organization_id against the provider's
-    primary billing org, the same grain as the group dump and profile totals.
-    membership="any" matches every in-window billing org on the profile's
-    group_practices[] list and marks each row with is_primary_member.
+    master-file group practice, the same grain as the group dump and profile totals.
+    membership="any" matches every group on the profile's group_practices[] list
+    (master file or CMS reassignment) and marks each row with is_primary_member.
     """
     clauses, params = _provider_filter_clauses(
         prefix="p.",
@@ -648,9 +648,9 @@ def group_member_where(scope: str) -> str:
 
 
 def group_scored_sql(mart_db: str, scope: str) -> str:
-    """Live aggregation of pd_provider into one scored row per billing org.
+    """Live aggregation of pd_provider into one scored row per group practice.
 
-    Grain is primary_organization_id (billing NPI from physician_primary_affiliation).
+    Grain is primary_organization_id (the CMS group PAC ID from pd_src_physician).
     visits_total / panel_size / wrvu_total are sums of member Type 1 NPIs and can
     double-count an encounter billed by two members of the same group. Reads
     pd_provider only, never pat_dt. rebuild_group_summary materializes this into

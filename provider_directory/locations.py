@@ -91,18 +91,6 @@ def po_box_sql(street_expr: str) -> str:
     )
 
 
-def org_or_null_sql(expr: str) -> str:
-    """Keep clinic/system names; drop LAST, FIRST Type 1 clones."""
-    return f"""
-        CASE
-            WHEN NULLIF(TRIM({expr}), '') IS NULL THEN NULL
-            WHEN UPPER(TRIM({expr})) REGEXP '{ORG_NAME_REGEXP}' THEN TRIM({expr})
-            WHEN TRIM({expr}) REGEXP '{PERSON_NAME_REGEXP}' THEN NULL
-            ELSE TRIM({expr})
-        END
-    """
-
-
 def is_person_practice_name_sql(expr: str) -> str:
     return (
         f"UPPER(TRIM({expr})) NOT REGEXP '{ORG_NAME_REGEXP}' "
@@ -127,9 +115,9 @@ def practice_name_sql(sl: str = "sl") -> str:
 
 
 def hospital_system_name_sql(sl: str = "sl") -> str:
-    """Organization grouping for the (hidden) affiliation list: az.sl.sl_hospital_system_name
-    with blank and sentinel values dropped. Retired once the single affiliation
-    from the reference server lands."""
+    """Organization grouping for the hidden affiliation list
+    (pd_provider_hospital_affiliation): claims sl.sl_hospital_system_name with
+    blank and sentinel values dropped."""
     return f"LEFT({clean_name_sql(f'{sl}.sl_hospital_system_name COLLATE {MART_COLLATION}')}, 180)"
 
 

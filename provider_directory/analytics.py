@@ -1,18 +1,22 @@
-"""Phase 4: wRVU, payer mix, primary org, group/hospital lists, work_type polish.
+"""Phase 4: work RVU per billed line, payer mix, Bills under and the reference group key, group list, hidden affiliation list, work_type polish.
 
 Reads az / azal / existing Phase 2–3 staging. Writes az_pd only.
 Does not rescan az.pat_dt or drop Phase 2/3 tables.
 
-wRVU is one HCPCS/CPT work procedure per visit × a plausible physician work
-RVU from azal.procd (WORK_RVU when it looks real, else total − PE − MP).
-Do not round site wRVU per encounter bucket — Galera splits visits across
-16 hashes and ROUND(0.001, 2) zeros them out. Line-level procd_dt sums are
-a later refinement. Payer mix reuses az.dash_physician_payor_all claim
+Work RVU prices every billed pat_dt line (work_procd_code, else procd_code)
+with the strict physician work RVU from the fee schedule (WORK_RVU when it is
+at least 0.05, else total − PE − MP, non-facility then facility); the lines
+are cached in pd_stg_npi_px_line and wrvu_average is total / priced lines.
+Do not round per encounter bucket — Galera splits visits across 16 hashes
+and ROUND(0.001, 2) zeros them out. Payer mix reuses az.dash_physician_payor_all claim
 counts in the frozen window, except on markets whose payer_source is
 "pat_dt" (the az_cms blend, whose summary table only holds native claims):
 there it is visit-weighted from pat_dt × the payor lookup, one scan per
-month and encounter bucket like Phase 5. Code 5 Other is excluded from the
-four percents. Top 3 payers are commercial parents only.
+month and encounter bucket like Phase 5. Classes 1, 2, 3, 4, 6 and 7 become
+the six percents; class 5 Other is left out. Top 5 payers are commercial
+parents only. The group key (primary_organization_id, the CMS group PAC ID)
+and the affiliation come from the reference copy (reference.overlay_reference);
+physician_primary_affiliation only feeds Bills under and the parent.
 """
 
 from __future__ import annotations
@@ -43,9 +47,6 @@ from provider_directory.transforms import (
     strict_work_rvu_sql,
     EMPTY_NAME_SQL_LIST,
     work_type_case_sql,
-    MIN_PLAUSIBLE_TOTAL_RVU,
-    MIN_PLAUSIBLE_WORK_RVU,
-    POS_WORK_TYPE,
 )
 
 PROVIDER_BUCKETS = 16
@@ -77,12 +78,6 @@ def period_in_sql(start: int = WINDOW_START, end: int = WINDOW_END) -> str:
 def is_hcpcs_sql(expr: str) -> str:
     """Professional claims use 5-character CPT/HCPCS, not 7-character ICD-10-PCS."""
     return f"CHAR_LENGTH(TRIM({expr})) = 5"
-
-
-def work_rvu_sql(alias: str = "pr") -> str:
-    """Strict physician work RVU (transforms.strict_work_rvu_sql). Kept under the
-    old name for callers; the nf_total_rvu and WORK_RVU > 0 fallbacks are gone."""
-    return strict_work_rvu_sql(alias)
 
 
 def priced_line_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:

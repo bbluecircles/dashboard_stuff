@@ -104,8 +104,8 @@ MAX_PRACTICE_SITES = 5
 MAX_HOSPITAL_AFFILIATIONS = 5
 MIN_HOSPITAL_AFFILIATION_SHARE_PCT = 2.0
 MAX_REFERRAL_PEERS = 5
-# Referral peers left out of the ranked lists. Same primary billing organization
-# catches the in-practice NP / partner case; the specialty pattern drops imaging,
+# Referral peers left out of the ranked lists. Same group practice or same
+# claims billing organization catches the in-practice NP / partner case; the specialty pattern drops imaging,
 # lab and anesthesia "referrals" that are orders rather than hand-offs.
 REFERRAL_EXCLUDE_SAME_ORGANIZATION = True
 REFERRAL_EXCLUDED_SPECIALTY_REGEXP = "PATHOLOG|DIAGNOSTIC RADIOLOGY|BODY IMAGING|NEURORADIOLOG|NUCLEAR MEDICINE|ANESTHE|CLINICAL LABORATORY|STUDENT"
@@ -150,8 +150,6 @@ PRIMARY_PROCEDURE_EXCLUDED_CODES = (
 RVU_EXCLUDED_CODE_PATTERNS = ("^[0-9]{4}F$", "^C[0-9]{4}$")
 # Regex patterns left out of Top Primary Procedures: the above plus proprietary lab analyses (dddd U).
 PRIMARY_PROCEDURE_EXCLUDED_PATTERNS = RVU_EXCLUDED_CODE_PATTERNS + ("^[0-9]{4}U$",)
-EM_CODE_MIN = "99202"
-EM_CODE_MAX = "99499"
 GEO_CLUSTER_DECIMALS = 4
 REFERRAL_IN = "in"
 REFERRAL_OUT = "out"

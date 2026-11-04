@@ -5,7 +5,7 @@ Clocks, one mart per --state:
   claims         warehouse grew a usable month → phase6 --slide, then E/M + POS extras
   spine          Type 1 NPIs on {st}.physician missing from pd_provider (hung on claims)
   cms            new DAC/NPPES already in data/cms → overlay-cms (+ optional --reload-pdc)
-  open_payments  new Open Payments CSVs → extras --download (reuses cache; general file is huge)
+  open_payments  new Open Payments CSVs → extras --download (loads cms_open_payments; omitted from HTTP GET)
   mips / util    Care Compare yearly files → extras --download --skip-open-payments
   ref            reference server (master_ref) changed → copy pd_src_* and overlay affiliations
 """

@@ -14,7 +14,6 @@ from provider_directory.transforms import (
     is_po_box,
     normalize_street,
     pick_practice_name,
-    pick_work_type,
     rank_clusters,
 )
 
@@ -49,28 +48,22 @@ def test_cluster_key_prefers_street_zip_over_geo():
 
 def test_pick_practice_name_dba_first_never_unknown():
     type2 = pick_practice_name(
-        npi_type="2",
         dba_name="VALLEY HEART TYPE-2-ENTITY",
         sl_name="VALLEY HEART TYPE-2-ENTITY",
     )
     assert type2 == "VALLEY HEART"
     # The hospital-system string no longer names a site; a clinician's own DBA falls to the address.
     person = pick_practice_name(
-        npi_type="1",
         dba_name="SMITH, SEAN",
-        hospital_system="Banner Health",
         street="1 Main St",
         city="Mesa",
     )
     assert person == "1 Main St, Mesa"
     mayo = pick_practice_name(
-        npi_type="2",
         dba_name="Mayo Clinic Scottsdale",
-        hospital_system="Unknown",
     )
     assert mayo == "Mayo Clinic Scottsdale"
     unknown = pick_practice_name(
-        npi_type="2",
         dba_name="Unknown",
         sl_name="UNKNOWN",
         common_name="",
@@ -79,14 +72,13 @@ def test_pick_practice_name_dba_first_never_unknown():
     )
     assert unknown == "13400 E Shea Blvd, Scottsdale"
     clone = pick_practice_name(
-        npi_type="1",
         dba_name="ROBETORYE, RYAN",
         sl_name="ROBETORYE, RYAN",
         street="13400 E Shea Blvd",
         city="Scottsdale",
     )
     assert clone == "13400 E Shea Blvd, Scottsdale"
-    own = pick_practice_name(npi_type="1", dba_name="SMITH, SEAN", sl_name="SMITH, SEAN")
+    own = pick_practice_name(dba_name="SMITH, SEAN", sl_name="SMITH, SEAN")
     assert own is None
 
 
@@ -109,8 +101,6 @@ def test_practice_name_sql_guards_unknown_and_drops_facility_npi():
 
 
 def test_work_type_and_rank_clusters():
-    assert pick_work_type("Office", "Office Specialty", None) == "Office"
-    assert pick_work_type(None, "Office Other", "Banner Health") == "Office Other"
     ranked = rank_clusters(
         [
             {"cluster_key": "a:B", "visits": 10, "sl_code": 2},

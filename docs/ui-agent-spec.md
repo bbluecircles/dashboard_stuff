@@ -4,7 +4,7 @@
 
 Hand this to the UI agent.
 
-**Copy rule for every caption, tooltip and empty state the user sees:** say what the figure is and stop. Never write the "X, not Y" / "X; they are not Y" form ("a volume rank, not a quality measure", "...; they are not a wRVU report"). Take label and help strings from `GET /v1/field-help` or `docs/fixtures/field-help.AZ_CMS.json`; do not paraphrase them or hardcode older copies. The RVU caption is exactly: "RVU figures price one procedure per visit from the fee schedule and are under review." The Python mart is already live. The UI is a **.NET app on IIS**. FastAPI is a loopback lookup service, not a dashboard.
+**Copy rule for every caption, tooltip and empty state the user sees:** say what the figure is and stop. Never write the "X, not Y" / "X; they are not Y" form ("a volume rank, not a quality measure", "...; they are not a wRVU report"). Take label and help strings from `GET /v1/field-help` or `docs/fixtures/field-help.AZ_CMS.json`; do not paraphrase them or hardcode older copies. The Python mart is already live. The UI is a **.NET app on IIS**. FastAPI is a loopback lookup service, not a dashboard.
 
 Do **not** rerun `phase1` (it TRUNCATEs `pd_provider`). Do **not** put Phase 1–6 job buttons in the UI. Do **not** scan `pat_dt` from the app.
 
@@ -28,7 +28,7 @@ client.DefaultRequestHeaders.Add("X-API-Key", config["PdApiKey"]);
 
 CORS is only needed if the browser talks to FastAPI directly. A server-side .NET `HttpClient` does not need CORS.
 
-Every lookup request must send **`state`** (two-letter USPS, default `AZ`). That selects the mart: `AZ` → `az` / `azal` / `az_pd`, `TX` → `tx` / `txal` / `tx_pd`. Do not hard-code Arizona in the UI.
+Every lookup request must send **`state`** (two-letter USPS, default `AZ`; the `AZ_CMS` mart alias is also accepted). That selects the mart: `AZ` → `az` / `azal` / `az_pd`, `TX` → `tx` / `txal` / `tx_pd`. Do not hard-code Arizona in the UI.
 
 ```
 GET /v1/mart?state=AZ
@@ -54,7 +54,7 @@ Do **not** call `POST /v1/jobs/phaseN` from the UI. Phase jobs stay CLI / NSSM.
 
 ## Picker modal (data dump)
 
-The spec is a table of providers, not a typeahead-only search. The API will **not** return 500k rows in one JSON. Page it.
+The spec is a table of providers with filters, with a typeahead on top. The API will **not** return 500k rows in one JSON. Page it.
 
 **How to dump without melting the browser**
 
@@ -70,7 +70,7 @@ The spec is a table of providers, not a typeahead-only search. The API will **no
 | JSON | Table column |
 | --- | --- |
 | `last_name`, `first_name`, `credential` | Name |
-| `gender` | Provider gender (`M` / `F`; null if no PDC/NPPES row). Not patient panel sex. |
+| `gender` | Provider gender (`M` / `F`; null if no PDC/NPPES row). Panel sex is in the panel fields. |
 | `primary_specialty_description` | Specialty |
 | `primary_organization_name` | Organization |
 | `city` / `state` | Primary practice city (site_rank 1; may be null) |
@@ -92,7 +92,7 @@ Same picker pattern, different grain: one row per **group practice** (`primary_o
 
 Page it the same way (`limit` default 50, max 500, `offset` + `total`). Default `min_visits=1` on the **sum** of member visits. Sort is server-side: `visits_total` desc, then `provider_count`, then name.
 
-**This is not distinct encounters for the org.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: "Visits are summed across member clinicians." `activity_percentile` / `visits_percentile` are among **all** groups, not the current search filter.
+**These are sums across member NPIs, so an encounter two members billed counts twice.** `visits_total`, `panel_size`, and `wrvu_total` are sums across member NPIs. Two clinicians in the same group who billed the same encounter can both contribute. Show a caption: "Visits are summed across member clinicians." `activity_percentile` / `visits_percentile` are ranked among **all** groups, whatever the current search filter.
 
 Optional filters: `organization` (contains on group name), `parent` (contains on parent organization name), `organization_id` (exact), `active` (only roll up NPIs active in the window), `in_system` (group has **at least one** facility-affiliated NPI), `min_visits` / `max_visits` (on the sum), `min_providers`, and `group_state` (default `market`: only groups whose members mostly practise in this state; `any` lifts it). Render it as the checkbox **Include out-of-state groups** from `group_filter.group_state`, unchecked by default, sending `group_state=any` when checked. Each group row carries `state`. Remove the Billing NPI from the group header and picker; `organization_npi` is blank now.
 
@@ -108,14 +108,14 @@ Optional filters: `organization` (contains on group name), `parent` (contains on
 | `visits_percentile` | Percentile of summed visits among all groups (name filters do not change this) |
 | `activity_percentile` | Percentile of visits per attributed NPI among all groups. This is the group activity score. Large orgs do not auto-win. |
 | `panel_size` | Sum of member panel |
-| `wrvu_total` | Sum of member RVU (label **RVU**) |
+| `wrvu_total` | Work RVU total, members combined (label from the catalog) |
 | `organization_id` | Group practice id, the CMS group PAC ID (secondary column) |
 
-Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the **same five-tab profile as a provider**, with numbers and lists rolled up from member Type 1s. Dump members ("Browse providers") with `GET /v1/providers?state=&organization_id={id}&membership=any` (exact id, not a name contains) and **do not** send `min_visits=1` there, so a clinician whose profile lists this group is always in the list. `membership=any` matches every in-window billing org on a provider's `group_practices[]`; the default `membership=primary` matches only the primary org, the grain the group totals use. Each row carries `is_primary_member` (true / false; null when no `organization_id` was sent). Show non-primary rows with a muted "also bills here" tag. The group profile returns `member_count_any` next to `provider_count`; caption the list as "{member_count_any} clinicians bill here, {provider_count} counted in totals". Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
+Response includes `visits_are_summed_across_npis: true`. On group row select, `GET /v1/group-practices/{organization_id}?state=` for the **same five-tab profile as a provider**, with numbers and lists rolled up from member Type 1s. Dump members ("Browse providers") with `GET /v1/providers?state=&organization_id={id}&membership=any` (exact id) and **do not** send `min_visits=1` there, so a clinician whose profile lists this group is always in the list. `membership=any` matches every group on a provider's `group_practices[]` (the master-file group practice plus CMS reassignment groups); the default `membership=primary` matches only the master-file group practice, the grain the group totals use. Each row carries `is_primary_member` (true / false; null when no `organization_id` was sent). Show non-primary rows with a muted "reassignment" tag. The group profile returns `member_count_any` next to `provider_count`; caption the list as "{member_count_any} clinicians list this group, {provider_count} counted in totals". Then a member click is still `GET /v1/providers/{npi}`. Dump list rows stay slim (no nested arrays).
 
-**Same caption as visits:** sites, referrals, hospital affiliations, panel, payers, top dx/px, and RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Group top dx/px (and their percents) are rolled up from each member’s stored top 5, never a scan of every visit on GET. Percent is that summed count / group `visits_total`, so it is a **lower bound** of the true org share. Mix percents are visit-weighted (panel percents are panel-weighted). The three dx/px shares will not add to 100%.
+**Same caption as visits:** sites, referrals, panel, payers, top dx/px, and work RVU on the group profile are summed across members and can double-count an encounter two clinicians billed. Group top dx/px (and their percents) are rolled up from each member’s stored top 5, never a scan of every visit on GET. Percent is that summed count / group `visits_total`, so it is a **lower bound** of the true org share. Mix percents are visit-weighted (panel percents are panel-weighted). The three dx/px shares will not add to 100%.
 
-Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`. That flag is still PDC facility CCN (`in_system_provider` on the group is true if **any** member has a CCN).
+Do not treat `parent_name` as CMS `in_system_provider`. That flag is still PDC facility CCN (`in_system_provider` on the group is true if **any** member has a CCN).
 
 ## Product locks
 
@@ -123,9 +123,9 @@ Do not treat `parent_name` / `hospital_affiliations` as CMS `in_system_provider`
 - Universe: Type 1 NPIs. Visit = distinct `encounter_id`.
 - Frozen 12-month window until a `phase6 --slide`. Banner copy from `/v1/mart`: **Data for {window_label}** (the API formats it, e.g. "Nov 2024 to Oct 2025"); never "as of" a single month, the reviewers want to see the exact months. Prior-year comparisons use `prior_window_label` the same way.
 - Payer classes: 1 Medicare FFS (`visits_percent_medicare_traditional`), 2 Medicaid (`visits_percent_medicaid`), 3 Commercial (`visits_percent_third_party`), 4 HMO (`visits_percent_hmo`), 6 Medicare Advantage (`visits_percent_medicare_advantage`), 7 Medicare Other (`visits_percent_medicare_other`). Class 5 Other is outside the denominator. Label class 4 **HMO**, never Medicare Advantage. Dummy NPIs 0 and 4 are dropped.
-- `in_system_provider` is a **CMS Provider Data Catalog facility affiliation** (hospital CCN), not a Vue roster.
+- `in_system_provider` is a **CMS Provider Data Catalog facility affiliation** (hospital CCN).
 - Blank phones are OK. Do not invent a phone.
-- Top lists are top 5: diagnoses (`visits_top_diagnosis_1..5`), procedures (`visits_top_procedure_1..5`), **primary procedures** (`visits_top_primary_procedure_1..5`: procedures with a physician work RVU above 1; visits, exams, therapy evaluations, psychotherapy and lab panels excluded) and commercial payers (`top_payer_name_1..5`). Hide blank slots. Referrals in and out are top 5 after exclusions (same billing organization, and pathology / radiology / anesthesiology / lab peers are left out). Practice **sites** stay top 5 addresses. Hospital **affiliations** stay top 5 **distinct systems** (not five campuses of the same system).
+- Top lists are top 5: diagnoses (`visits_top_diagnosis_1..5`), procedures (`visits_top_procedure_1..5`), **primary procedures** (`visits_top_primary_procedure_1..5`: procedures with a physician work RVU above 1; visits, exams, therapy evaluations, psychotherapy and lab panels excluded) and commercial payers (`top_payer_name_1..5`). Hide blank slots. Referrals in and out are top 5 after exclusions (same group practice or billing organization, and pathology / radiology / anesthesiology / lab peers are left out). Practice **sites** stay top 5 addresses. `hospital_affiliations[]` stays hidden.
 - Weekend / after-hours is **UI-only**: `visits_percent_saturday` and `visits_percent_sunday` are already on the provider and each practice.
 
 ## RVU
@@ -134,28 +134,28 @@ Every RVU figure is now a **physician work RVU** priced per billed procedure lin
 
 ## Activity vs specialty peers
 
-Not quality, not MIPS. Peer group is `primary_specialty_code`.
+A volume rank within `primary_specialty_code`.
 
 | JSON | Meaning |
 | --- | --- |
-| `visits_specialty_percentile` | Visit volume vs other Type 1s in the same specialty (`visits_total > 0`). 100 = highest. |
-| `wrvu_specialty_percentile` | RVU vs specialty peers with RVU > 0. Already existed. |
+| `visits_specialty_percentile` | Visit volume vs same-specialty clinicians with a practice site in the state and at least 50 visits. 100 = highest. |
+| `wrvu_specialty_percentile` | Work RVU total vs the same in-state peer set, those with a work RVU total. |
 | `activity_specialty_percentile` | Mean of the two when both exist; otherwise the one that exists. |
 
-Null if the NPI has no specialty or no visits/RVU. Schott-scale OTP volume will sit at the top of that NP’s specialty — that is volume, not a quality grade. After a code drop, ops must run `phase5` (no `--slide`) so the new columns fill; GET will show null until then.
+Null if the NPI has no specialty or no visits/RVU. Schott-scale OTP volume will sit at the top of that NP’s specialty. After a code drop, ops must run `phase5` (no `--slide`) so the new columns fill; GET will show null until then.
 
 ## Profile layout (`GET /v1/providers/{npi}`)
 
 Same keys as `python -m provider_directory.cli get --state AZ {npi}`, except HTTP GET omits Open Payments (`open_payments_*`) and Care Compare `utilization[]` (practice profile). CLI `get` still prints those. Claims sites stay on `practices[]`.
 
-**Sticky chrome (not a tab)** — banner from `/v1/mart` (“Data for {window_label}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, group practice (`primary_organization_name`) + parent, **Bills under** (`billing_organization_name`, only when it differs from the group practice), **Affiliation** (`affiliation_name`, label and tooltip from the catalog; render the row even when blank, as an empty value, never hide it), NPI.
+**Sticky chrome (outside the tabs)** — banner from `/v1/mart` (“Data for {window_label}”). Header: name, credential, specialty, estimated age / school if present, in-system badge, group practice (`primary_organization_name`) + parent, **Bills under** (`billing_organization_name`, only when it differs from the group practice), **Affiliation** (`affiliation_name`, label and tooltip from the catalog; render the row even when blank, as an empty value, never hide it), NPI.
 
-**Five tabs**, not eight sections and not one long scroll. Default tab is Overview.
+**Five tabs.** Default tab is Overview.
 
 | Tab | What’s on it |
 | --- | --- |
-| **Overview** | Volume **numbers**: visits, panel size, RVU total, specialty median / p25 / p75, **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 5 dx and **Top primary procedures** (`visits_top_diagnosis_*_name` + `visits_top_diagnosis_*_percent`, `visits_top_primary_procedure_*`). Do **not** render the plain Top procedures list (`visits_top_procedure_*`) on the page: it is office visit codes for almost everyone; those already appear in the Office visits box. Keep `visits_top_procedure_*` in the Excel/PDF export only. Add a **Clinical summary** box at the top of Overview (`section.clinical_summary`): primary site ZIP (`practices[0].zip`), top diagnosis (`visits_top_diagnosis_1_name` with its percent) and top primary procedure (`visits_top_primary_procedure_1_name` with its percent). Label the third list "Top primary procedures" with the catalog help as its caption; it is empty for clinicians who only bill office visits, so hide it when slot 1 is blank. Shares are of `visits_total` and will not add to 100%. **Group practices** (`group_practices[]`): the master-file group practice first (`is_primary`, `billing_type` R), then every CMS reassignment group (`billing_type` C); `organization_npi`, `cases` and `max_period_code` are blank now, hide those columns. **Hospital affiliations** (`hospital_affiliations[]`): top-in **distinct** health systems (`hospital_system_name`), optional campus `facility_name`, visit share. Hide either list if empty. New vs established only if E/M counts exist. |
-| **Sites** | Top 5 **addresses** as a **list/table**: name, city, work type, visit share, RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. `name` is the site's DBA or registered name, else street and city; it is never "Unknown", so no empty-state copy is needed for it. |
+| **Overview** | Volume **numbers**: visits, panel size, work RVU total and average per procedure, the per-procedure specialty strip (see Work RVU below), **visits percentile**, **activity vs specialty peers** (`activity_specialty_percentile`). **Bars** for POS mix and Mon–Sun (including Sat/Sun). Ranked **lists** for top 5 dx and **Top primary procedures** (`visits_top_diagnosis_*_name` + `visits_top_diagnosis_*_percent`, `visits_top_primary_procedure_*`). Do **not** render the plain Top procedures list (`visits_top_procedure_*`) on the page: it is office visit codes for almost everyone; those already appear in the Office visits box. Keep `visits_top_procedure_*` in the Excel/PDF export only. Add a **Clinical summary** box at the top of Overview (`section.clinical_summary`): primary site ZIP (`practices[0].zip`), top diagnosis (`visits_top_diagnosis_1_name` with its percent) and top primary procedure (`visits_top_primary_procedure_1_name` with its percent). Label the third list "Top primary procedures" with the catalog help as its caption; it is empty for clinicians who only bill office visits, so hide it when slot 1 is blank. Shares are of `visits_total` and will not add to 100%. **Group practices** (`group_practices[]`): the master-file group practice first (`is_primary`, `billing_type` R), then every CMS reassignment group (`billing_type` C); `organization_npi`, `cases` and `max_period_code` are blank now, hide those columns. `hospital_affiliations[]` stays hidden. Hide the group list if empty. New vs established only if E/M counts exist. |
+| **Sites** | Top 5 **addresses** as a **list/table**: name, city, work type, visit share, work RVU share, phone if present, weekend % on the row. **No map.** Do not use lat/long in v1. Blank phone = blank cell. `name` is the site's DBA or registered name, else street and city; it is never "Unknown", so no empty-state copy is needed for it. |
 | **Panel** | **Bars** for age bands and sex. **Bars** for payer mix, six classes in this order: Medicare FFS / Medicare Advantage / Medicare Other / Medicaid / Commercial / HMO. Top 5 commercial parent **names** + percents. Hide a 0% or blank payer slot. |
 | **Referrals** | Two **lists**: in and out, top 5 each (peer name, specialty, patient count). Caption from the `referrals` catalog entry. No network graph. |
 | **CMS** | Group size, telehealth offered, secondary specialties, MIPS. |
@@ -168,29 +168,29 @@ Hide any other block inside a tab when every field in it is null. Hide a POS buc
 
 Reuse the **same five tabs and the same JSON keys** as the provider profile. Do not invent a second layout. The payload is `GroupPracticeProfile`: dump identity fields plus the provider metric/nested fields, aggregated.
 
-**Sticky chrome** — same banner. Header: `organization_name`, `parent_name`, modal specialty (`primary_specialty_description` = members’ highest-visit specialty), `provider_count` Type 1s, in-system badge (`in_system_provider`), `organization_id` (billing NPI). No person name, age, school, credential, or gender.
+**Sticky chrome** — same banner. Header: `organization_name`, `parent_name`, modal specialty (`primary_specialty_description` = members’ highest-visit specialty), `provider_count` Type 1s, in-system badge (`in_system_provider`), `organization_id` (CMS group PAC ID). No person name, age, school, credential, or gender.
 
 | Tab | Same as provider, except |
 | --- | --- |
-| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (among groups, not specialty peers — do not look for `activity_specialty_percentile`). POS and Mon–Sun bars. Top 5 dx/px and primary procedures, names **and percents** (`visits_top_diagnosis_1_percent` …). Hospital affiliations. Hide `group_practices[]` (this page is the group). Caption: summed across providers. Group dx/px percents are a lower bound (members’ stored top 5 only). |
+| **Overview** | `visits_total`, `panel_size`, `wrvu_total`, **`activity_percentile`** / **`visits_percentile`** (ranked among all groups; `activity_specialty_percentile` is per clinician only). POS and Mon–Sun bars. Top 5 dx/px and primary procedures, names **and percents** (`visits_top_diagnosis_1_percent` …). Hide `hospital_affiliations[]` and `group_practices[]` (this page is the group). Caption: summed across providers. Group dx/px percents are a lower bound (members’ stored top 5 only). |
 | **Sites** | `practices[]` top 5 street+ZIP clusters, visits/RVU summed across members at that cluster. **No map.** |
 | **Panel** | Age / sex / payer mix (same six classes) from weighted member percents. Top 5 commercial parents. |
 | **Referrals** | Top 5 in and out; `patient_count` is summed; members of the group are left out. |
-| **CMS** | `group_size` is max CMS `num_org_mem` on members (not `provider_count`). `telehealth_offered` if any member offers it. Hide MIPS / secondary specialties (not group scores). |
+| **CMS** | `group_size` is max CMS `num_org_mem` on members; `provider_count` is the member count. `telehealth_offered` if any member offers it. Hide MIPS / secondary specialties; they are per clinician. |
 
 `visits_are_summed_across_npis` is true on this payload. Keep the summed-across-providers caption on every tab that shows volume.
 
 ### Numbers vs bars
 
-- **Numbers** for counts and scores: visits, panel size, RVU total, percentile, MIPS, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
+- **Numbers** for counts and scores: visits, panel size, work RVU total, percentile, MIPS, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
 - **Bars** for mixes that sum toward 100%: POS, weekday, panel age, panel sex, payer mix. A simple horizontal stacked or small-multiples bar is enough. No chart library required if CSS bars are easier.
-- **Lists** for ranked names: dx, px, group practices, hospital affiliations, sites, referrals. Dx/px send `visits_top_diagnosis_*_percent` / `visits_top_procedure_*_percent` (share of visits, not a 100% bar). Affiliations send `visit_share_pct`.
+- **Lists** for ranked names: dx, px, group practices, sites, referrals. Dx/px send `visits_top_diagnosis_*_percent` / `visits_top_procedure_*_percent` (share of visits; the shares will not add to 100%). Sites send `visit_share_pct`.
 
-### Extras fields (null means CMS has no row, not that extras never ran)
+### Extras fields (null means CMS has no row for the clinician)
 
 | JSON field | Meaning | UI note |
 | --- | --- | --- |
-| `group_size` | CMS `num_org_mem` on the ranked PDC row | Group practice size, not claims panel |
+| `group_size` | CMS `num_org_mem` on the ranked PDC row | Group practice size as reported by CMS |
 | `telehealth_offered` | PDC `telehlth` Y/N | Boolean. Not visit share. |
 | `secondary_specialty_1` … `_4` | PDC `Sec_spec_1`–`4` | Hide blanks |
 | `visits_new_patient` / `visits_established` | CPT 99202–05 vs 99212–15 | Office E/M only |
@@ -204,16 +204,16 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 | `visits_percent_lab` | POS 81, or laboratory work_type | |
 | `visits_percent_other_pos` | Everything else | Hide if named buckets sum to ~100 |
 | `mips_final_score` / `mips_quality_score` | PDC clinician MIPS | |
-| `open_payments_*` / `utilization[]` | Built into the mart; CLI `get` still shows them | **Not on HTTP GET.** Do not bind UI fields. |
+| `open_payments_*` / `utilization[]` | Loaded by `extras` / `sync --open-payments`; CLI `get` still shows them | Omitted from HTTP GET. Do not bind UI fields. |
 
 ## Field help / tooltips
 
 Every rendered field gets a hover tooltip. Do not hardcode the text: fetch `GET /v1/field-help?state=` once per session and bind by **scope + JSON key**.
 
 - Scopes: `provider` (profile and picker rows), `group` (group dump and group profile; same keys, summed/weighted meaning), `practice` (`practices[]`), `group_practice` (`group_practices[]`), `hospital_affiliation`, `referral`, `utilization`.
-- Page headings, captions and enumerated values come from the `section` scope: `volume`, `work_rvu_vs_specialty`, `standing`, `office_em_visits`, `place_of_service`, `visits_by_day`, `top_diagnoses`, `top_procedures`, `top_primary_procedures`, `group_practices`, `group_source_R`, `group_source_C`, `referrals`, `referrals_in`, `referrals_out`, `sites`, `panel`, `payer_mix`, `top_commercial_payers`, `cms`, `group_page_note`. Use `label` as the heading (or the displayed value for a code such as `billing_type` R / C) and `help` as the caption under it. Nothing on the page should be a typed string.
+- Page headings, captions and enumerated values come from the `section` scope: `volume`, `work_rvu_vs_specialty`, `standing`, `office_em_visits`, `place_of_service`, `visits_by_day`, `top_diagnoses`, `top_procedures`, `top_primary_procedures`, `clinical_summary`, `group_practices`, `group_source_R`, `group_source_C`, `referrals`, `referrals_in`, `referrals_out`, `sites`, `panel`, `payer_mix`, `top_commercial_payers`, `cms`, `group_page_note`. Use `label` as the heading (or the displayed value for a code such as `billing_type` R / C) and `help` as the caption under it. Nothing on the page should be a typed string.
 - On a **group page** use `group_section.<key>` for the same headings (worded for member-summed figures: "Visits ... summed across the group's member clinicians"), falling back to `section.<key>` when a key is missing; `group_section.clinicians` heads the clinician-count strip and `group_section.modal_specialty` captions the specialty in the group header. Never show a provider-page caption ("for the clinician") on a group page.
-- Filter controls have their own scopes, keyed by query parameter: `provider_filter` for `/v1/providers` (`active`, `in_system`, `min_visits`, `max_visits`, `last_name`, `specialty`, `organization`, `organization_id`, `city`) and `group_filter` for `/v1/group-practices` (`active`, `in_system`, `min_visits`, `max_visits`, `min_providers`, `organization`, `organization_id`, `parent`). Use `label` as the checkbox or input label ("Active only", "In-system only", "Roll up active providers only", "Has in-system providers") and `help` as its tooltip, exactly like a field.
+- Filter controls have their own scopes, keyed by query parameter: `provider_filter` for `/v1/providers` (`active`, `in_system`, `min_visits`, `max_visits`, `last_name`, `specialty`, `organization`, `organization_id`, `membership`, `npi`, `zip`, `city`) and `group_filter` for `/v1/group-practices` (`active`, `in_system`, `min_visits`, `max_visits`, `min_providers`, `organization`, `organization_id`, `parent`, `group_state`). Use `label` as the checkbox or input label ("Active only", "In-system only", "Roll up active providers only", "Has in-system providers") and `help` as its tooltip, exactly like a field.
 - Each entry: `label`, `help`. Use `label` for the field caption and `help` as the tooltip body. Text already has the window filled in ("Nov 2024 to Oct 2025").
 - **Dev mode**: `GET /v1/field-help?state=&dev=true` with header `X-Dev-Key: <PD_DEV_HELP_KEY>` adds `dev` per entry: the formula, thresholds and the mart/warehouse tables behind the number. Show it as a second paragraph in the tooltip when the app is started with a dev flag (query string, setting, or build flag; your call). Without the key the API answers 403, so a client build can never show it by accident.
 - In dev mode each entry also has `tables[]`: the sources behind the number, in order of mention. Each has `name` (db-qualified for warehouse tables), `kind` (`warehouse` = your claims/lookup databases, `mart` = built by this pipeline, `cms` = public CMS file), `external` (true for CMS), `description`, and for CMS files `source` and `url` (the CMS dataset page). Render them at the bottom of the developer tooltip; mark `external` ones with `*` and link the name to `url`. The top-level `tables[]` is the whole registry if you want a glossary page.
@@ -235,7 +235,7 @@ Every rendered field gets a hover tooltip. Do not hardcode the text: fetch `GET 
 - Geocoding beyond lat/long already on `practices`
 - Loading the entire spine in one HTTP call
 
-## New data (ops only, not the UI)
+## New data (ops only)
 
 When the warehouse or CMS publishes, run CLI/`scripts/*.ps1` — never phase buttons.
 
@@ -249,7 +249,7 @@ When the warehouse or CMS publishes, run CLI/`scripts/*.ps1` — never phase but
 
 ## After code drops
 
-Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`. Run **`phase4 --state AZ`** (fills `group_practices[]` / `hospital_affiliations[]`; do not `phase1`). Then restart NSSM. Until phase4, GET still works; those lists are empty.
+Copy `provider_directory/` into `C:\Users\jluna\Documents\Analysis Scripts`. Run **`sync --state AZ --ref`** then **`phase4 --state AZ`** (fills the group key and `group_practices[]`; do not `phase1`). Then restart NSSM. Until then, GET still works; the group list is empty.
 
 ```
 python -m provider_directory.cli phase4 --state AZ

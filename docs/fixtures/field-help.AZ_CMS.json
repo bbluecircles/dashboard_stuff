@@ -76,7 +76,7 @@
       },
       "reference_group_id": {
         "label": "Reference group id",
-        "help": "Group practice id for the clinician in the master reference file, kept alongside the billing organization for comparison."
+        "help": "Group practice id for the clinician in the master reference file. The same value as the group practice id on this profile."
       },
       "reference_group_name": {
         "label": "Reference group",
@@ -420,7 +420,7 @@
       },
       "primary_organization_parent_id": {
         "label": "Parent organization id",
-        "help": "Identifier of the parent organization of the primary billing organization."
+        "help": "Identifier of the parent organization most of the clinician's group members are recorded under."
       },
       "primary_organization_parent_name": {
         "label": "Parent organization",
@@ -496,15 +496,15 @@
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
-        "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide."
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 25th percentile of the specialty."
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_p75": {
         "label": "Specialty 75th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 75th percentile of the specialty."
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_npi_count": {
         "label": "Peers in specialty",
@@ -512,15 +512,15 @@
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
-        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest."
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
-        "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
+        "help": "Where the clinician's visit count ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
       },
       "is_primary_member": {
         "label": "Primary member",
-        "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
+        "help": "On a group member list, whether this group is the clinician's group practice in the master reference file. Blank outside a group list."
       },
       "zip": {
         "label": "Primary site ZIP",
@@ -608,23 +608,23 @@
       },
       "open_payments_year": {
         "label": "Open Payments year",
-        "help": "Not shown. Open Payments was retired from the directory."
+        "help": "Hidden in the UI. Program year of the clinician's Open Payments totals."
       },
       "open_payments_general_total": {
         "label": "Open Payments general",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. General payments total for the program year."
       },
       "open_payments_research_total": {
         "label": "Open Payments research",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Research payments total for the program year."
       },
       "open_payments_ownership_total": {
         "label": "Open Payments ownership",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Ownership and investment interest total for the program year."
       },
       "open_payments_count": {
         "label": "Open Payments count",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Number of payment records for the program year."
       },
       "practices": {
         "label": "Sites",
@@ -635,12 +635,12 @@
         "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
       },
       "hospital_affiliations": {
-        "label": "Facility affiliations (not shown)",
-        "help": "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
+        "label": "Facility affiliations (hidden)",
+        "help": "Hidden in the UI: a visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits, so they are shared-patient flow rather than written referral orders. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -730,7 +730,7 @@
       },
       "reference_group_id": {
         "label": "Reference group id",
-        "help": "Group practice id for the clinician in the master reference file, kept alongside the billing organization for comparison."
+        "help": "Group practice id for the clinician in the master reference file. The same value as the group practice id on this profile."
       },
       "reference_group_name": {
         "label": "Reference group",
@@ -1074,7 +1074,7 @@
       },
       "primary_organization_parent_id": {
         "label": "Parent organization id",
-        "help": "Identifier of the parent organization of the primary billing organization."
+        "help": "Identifier of the parent organization most of the clinician's group members are recorded under."
       },
       "primary_organization_parent_name": {
         "label": "Parent organization",
@@ -1150,15 +1150,15 @@
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
-        "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide."
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 25th percentile of the specialty."
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_p75": {
         "label": "Specialty 75th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 75th percentile of the specialty."
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_npi_count": {
         "label": "Peers in specialty",
@@ -1166,15 +1166,15 @@
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
-        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians. 100 is the highest."
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
-        "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
+        "help": "Where the clinician's visit count ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
       },
       "is_primary_member": {
         "label": "Primary member",
-        "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
+        "help": "On a group member list, whether this group is the clinician's group practice in the master reference file. Blank outside a group list."
       },
       "zip": {
         "label": "Primary site ZIP",
@@ -1262,23 +1262,23 @@
       },
       "open_payments_year": {
         "label": "Open Payments year",
-        "help": "Not shown. Open Payments was retired from the directory."
+        "help": "Hidden in the UI. Program year of the clinician's Open Payments totals."
       },
       "open_payments_general_total": {
         "label": "Open Payments general",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. General payments total for the program year."
       },
       "open_payments_research_total": {
         "label": "Open Payments research",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Research payments total for the program year."
       },
       "open_payments_ownership_total": {
         "label": "Open Payments ownership",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Ownership and investment interest total for the program year."
       },
       "open_payments_count": {
         "label": "Open Payments count",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Number of payment records for the program year."
       },
       "practices": {
         "label": "Sites",
@@ -1289,12 +1289,12 @@
         "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
       },
       "hospital_affiliations": {
-        "label": "Facility affiliations (not shown)",
-        "help": "Not shown in the UI. A visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
+        "label": "Facility affiliations (hidden)",
+        "help": "Hidden in the UI: a visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits, so they are shared-patient flow rather than written referral orders. Clinicians in the same organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -1317,7 +1317,7 @@
         "help": "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is."
       },
       "organization_name": {
-        "label": "Organization",
+        "label": "Group practice",
         "help": "Name of the group practice."
       },
       "organization_npi": {
@@ -1334,7 +1334,7 @@
       },
       "provider_count": {
         "label": "Clinicians",
-        "help": "Number of individual clinicians whose primary organization is this group."
+        "help": "Number of individual clinicians whose group practice in the master reference file is this group."
       },
       "active_provider_count": {
         "label": "Active clinicians",
@@ -1361,8 +1361,8 @@
         "help": "Volume on this page is summed across member clinicians."
       },
       "member_count_any": {
-        "label": "Clinicians billing here",
-        "help": "Number of clinicians with any billing under this organization in Nov 2024 to Oct 2025, primary or not. The totals on this page use only primary members."
+        "label": "Clinicians listing this group",
+        "help": "Number of clinicians whose group list includes this group, from the master reference file or the CMS reassignment file, primary or not. The totals on this page use only primary members."
       }
     },
     "practice": {
@@ -1535,8 +1535,8 @@
         "help": "Not shown in the UI. Affiliated organizations ordered by the clinician's visits there, at most 5."
       },
       "hospital_system_name": {
-        "label": "Affiliated organization (not shown)",
-        "help": "Not shown in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined."
+        "label": "Affiliated organization (hidden)",
+        "help": "Hidden in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined."
       },
       "facility_name": {
         "label": "Facility",
@@ -1570,7 +1570,7 @@
       },
       "peer_rank": {
         "label": "Rank",
-        "help": "Top 5 per direction by patients, after leaving out clinicians in the same billing organization and pathology, radiology, anesthesiology and lab clinicians."
+        "help": "Top 5 per direction by patients, after leaving out clinicians in the same group practice or billing organization and pathology, radiology, anesthesiology and lab clinicians."
       },
       "peer_npi": {
         "label": "Peer NPI",
@@ -1633,12 +1633,12 @@
         "help": "Clinicians whose specialty code matches, or whose specialty description contains the text."
       },
       "organization": {
-        "label": "Organization contains",
-        "help": "Clinicians whose primary billing organization name contains the text."
+        "label": "Group practice contains",
+        "help": "Clinicians whose group practice name (master reference file) contains the text."
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Clinicians whose primary billing organization has this id."
+        "label": "Group practice id",
+        "help": "Clinicians whose group practice (master reference file) has this id."
       },
       "city": {
         "label": "City contains",
@@ -1666,7 +1666,7 @@
       },
       "membership": {
         "label": "Membership",
-        "help": "With an organization id: primary lists clinicians whose primary billing organization is the group; any lists every clinician with billing under the group in Nov 2024 to Oct 2025."
+        "help": "With a group practice id: primary lists clinicians whose master-file group practice is this group; any lists every clinician whose group list, from the master reference file or CMS reassignment, includes it."
       }
     },
     "group_filter": {
@@ -1675,8 +1675,8 @@
         "help": "Groups whose name contains the text."
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "One group by its exact billing organization id."
+        "label": "Group practice id",
+        "help": "One group by its exact group practice id (CMS group PAC ID)."
       },
       "parent": {
         "label": "Parent organization contains",
@@ -1762,7 +1762,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. Inferred by the warehouse from the sequence of visits, so this is shared-patient flow rather than written referral orders. Same-organization, pathology, radiology, anesthesia and lab clinicians are left out."
+        "help": "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "referrals_in": {
         "label": "Referrals in",
@@ -1808,7 +1808,7 @@
       },
       "work_rvu_vs_specialty": {
         "label": "Work RVU vs specialty",
-        "help": "Not shown on a group page: specialty benchmarks are per clinician."
+        "help": "Hidden on a group page; specialty benchmarks are per clinician."
       },
       "standing": {
         "label": "Standing",
@@ -1840,7 +1840,7 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Not shown on a group page."
+        "help": "Hidden on a group page."
       },
       "referrals": {
         "label": "Referrals",

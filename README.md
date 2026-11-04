@@ -1,6 +1,6 @@
 # Arizona provider directory
 
-Python mart first. FastAPI later wraps the same functions (`get_provider`, `run_phase1`).
+Python mart first. FastAPI (`serve`) wraps the same functions (`get_provider`, `run_phase1`).
 
 data dict => https://d3low7qefzg7gr.cloudfront.net/myfantasyai/assets/data-dict.csv  
 snapshot => https://d3low7qefzg7gr.cloudfront.net/myfantasyai/assets/db_snapshot.json
@@ -19,7 +19,7 @@ python -m provider_directory.cli get 1234567893
 
 `--download` pulls current CMS PDC CSVs (and the ~1.1 GB NPPES monthly zip unless `--skip-nppes`). Files land in `data/cms/` and are reused on the next run.
 
-`in_system_provider` is filled from PDC facility affiliations (hospital CCN), not a Vue roster. After Phase 1 has already loaded `cms_pdc_facility_affil`, refresh the flag without rebuilding the spine:
+`in_system_provider` is filled from PDC facility affiliations (hospital CCN). After Phase 1 has already loaded `cms_pdc_facility_affil`, refresh the flag without rebuilding the spine:
 
 ```
 python -m provider_directory.cli overlay-cms
@@ -45,11 +45,11 @@ python -m provider_directory.cli sync --state AZ_CMS --ref
 python -m provider_directory.cli ref-compare --state AZ_CMS
 ```
 
-Run `sync --ref` before Phase 4 (or `ref-overlay` after it) so the group key is filled; a full Phase 4 re-applies the overlay itself when `pd_src_physician` has rows. `sync --ref` copies every `111_physician` row for the market state (all NPI types, so organizations are named) plus any spine NPI whose reference address is out of state into `pd_src_physician`, and every `cms_group_practice` row whose group or clinician is in the state into `pd_src_group_practice`, each built as a `_new` table and swapped in with one `RENAME`. It then writes `affiliation_code` / `affiliation_name` / `affiliation_source` and `reference_group_id` / `reference_group_name` onto `pd_provider`, with the `'888'+NPI` and `NAME-NPI` self placeholders, `<Unavail>` and `Unknown` shown as blank. The affiliation is always on the profile, blank when the master file has none. `ref-compare` reports coverage and how the warehouse billing organization agrees with the reference group practice, for the group-key decision. Both read the reference server only through the read-only paged session.
+Run `sync --ref` before Phase 4 (or `ref-overlay` after it) so the group key is filled; a full Phase 4 re-applies the overlay itself when `pd_src_physician` has rows. `sync --ref` copies every `111_physician` row for the market state (all NPI types, so organizations are named) plus any spine NPI whose reference address is out of state into `pd_src_physician`, and every `cms_group_practice` row whose group or clinician is in the state into `pd_src_group_practice`, each built as a `_new` table and swapped in with one `RENAME`. It then writes the group key `primary_organization_id` / `primary_organization_name` (the master file's group practice id, the CMS group PAC ID), `affiliation_code` / `affiliation_name` / `affiliation_source` and `reference_group_id` / `reference_group_name` onto `pd_provider`, with the `'888'+NPI` and `NAME-NPI` self placeholders, `<Unavail>` and `Unknown` shown as blank. Where the master file's group disagrees with claims, the CMS tie-break picks the group whose name matches the clinician's billing organization or parent (`affiliation_source = 'claims'`). The affiliation is always on the profile, blank when the master file has none. `ref-compare` reports coverage and how often the claims billing organization (Bills under) agrees with the group practice by name. Both read the reference server only through the read-only paged session.
 
 ## Phase 2
 
-Activity, panel, and top codes for `period_code` 202308–202407. Reads `az.pat_dt` / `azal.diagnosis` / `azal.procd`. Writes only `az_pd`.
+Activity, panel, and top codes for the mart's current 12-month window (`pd_refresh_state`, shown by `/v1/mart`). Reads `az.pat_dt` / `azal.diagnosis` / `azal.procd`. Writes only `az_pd`.
 
 Wait until Phase 1 `--download` has finished (it updates `pd_provider`). Then:
 
@@ -62,7 +62,7 @@ This scan is large (12 months of `pat_dt`). Galera cannot replicate one giant tr
 
 Keep Phase 2 staging (`pd_stg_visit`, `pd_stg_window_claim`) around for Phase 3.
 
-`phase2 --top-codes-only` re-ranks the top 5 diagnoses, top 5 procedures and the top 5 **primary procedures** (codes whose strict physician work RVU is above 1, leaving out visit-type services: E/M and telehealth visits, eye exams, psychiatry, therapy evaluations, wellness G codes, plus Category II and lab-panel codes; the list is `settings.PRIMARY_PROCEDURE_EXCLUDED_*`) from the existing `pd_stg_visit`, overlays only those columns and rebuilds `pd_group_practice`. No claims are read; minutes. Run it once after pulling the top 5 change.
+`phase2 --top-codes-only` re-ranks the top 5 diagnoses, top 5 procedures and the top 5 **primary procedures** (codes whose strict physician work RVU is above 1, leaving out visit-type services: E/M and telehealth visits, eye exams, psychiatry, therapy evaluations, wellness G codes, plus Category II and lab-panel codes; the list is `settings.PRIMARY_PROCEDURE_EXCLUDED_*`) from the existing `pd_stg_visit`, overlays only those columns and rebuilds `pd_group_practice`. No claims are read; minutes.
 
 ```
 python -m provider_directory.cli phase2 --state AZ_CMS --top-codes-only
@@ -98,7 +98,7 @@ python -m provider_directory.cli get 1952863797
 
 Keep Phase 2–3 staging. Re-run `phase4` after `phase2`/`phase3` rebuilds.
 
-`phase4 --payers-only` refills the payer-class shares and top 5 commercial payers from the `pd_stg_npi_payor` staging the last full Phase 4 left behind (adds the new columns, no claims read, a few minutes), then rebuilds `pd_group_practice`. Run it once after pulling the class 4/6/7 change so `visits_percent_medicare_advantage` switches from class 4 (HMO, the old mislabel) to class 6.
+`phase4 --payers-only` refills the payer-class shares and top 5 commercial payers from the `pd_stg_npi_payor` staging the last full Phase 4 left behind (adds the new columns, no claims read, a few minutes), then rebuilds `pd_group_practice`. Payer classes: 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage, 7 Medicare Other; class 5 Other is left out of the percents.
 
 ```
 python -m provider_directory.cli phase4 --state AZ_CMS --payers-only
@@ -106,9 +106,9 @@ python -m provider_directory.cli phase4 --state AZ_CMS --payers-only
 
 ## Phase 5
 
-Referrals both directions from `az.dash_physician_referrals_to_rendering`, day-of-week mix from `az.pat_dt.service_end_date`, prior-year work RVU on the same line-level basis as Phase 4 (the prior-year lines are cached in `pd_stg_npi_px_line_prior`; pricing is redone each run), and state-specialty work RVU benchmarks (average / p25 / median / p75 / percentile of per-provider totals among NPIs with the same taxonomy). Nested `referrals` on `get` (`in` = who sends to this NPI, `out` = who this NPI sends to). Top 5 peers per direction by summed monthly `patient_count`, after leaving out peers in the same primary billing organization and peers whose specialty matches `settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP` (pathology, diagnostic radiology, anesthesiology, lab). Dummy NPIs 0/4 and self-referrals dropped. Type 1 spine only. The edge table `pd_stg_referral_edge` is cached across runs; `phase5 --referrals-only` re-ranks from it in minutes after a change to the exclusions or peer count, and `--rebuild-edges` refills it from the warehouse first.
+Referrals both directions from `az.dash_physician_referrals_to_rendering`, day-of-week mix from `az.pat_dt.service_end_date`, prior-year work RVU on the same line-level basis as Phase 4 (the prior-year lines are cached in `pd_stg_npi_px_line_prior`; pricing is redone each run), and in-state specialty work RVU benchmarks. Peers are same-specialty clinicians with a practice site in the market state and at least `BENCHMARK_MIN_VISITS` (50) visits. The main strip is average work RVU per procedure: the cohort average, p25 / median / p75 of the clinicians' averages, and the clinician's percentile of their average (`wrvu_average_specialty_percentile`); the same statistics on per-provider totals are kept as secondary figures. Nested `referrals` on `get` (`in` = who sends to this NPI, `out` = who this NPI sends to). Top 5 peers per direction by summed monthly `patient_count`, after leaving out peers in the same group practice or the same claims billing organization and peers whose specialty matches `settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP` (pathology, diagnostic radiology, anesthesiology, lab). Dummy NPIs 0/4 and self-referrals dropped. Type 1 spine only. The edge table `pd_stg_referral_edge` is cached across runs; `phase5 --referrals-only` re-ranks from it in minutes after a change to the exclusions or peer count, and `--rebuild-edges` refills it from the warehouse first.
 
-Day-of-week is visit grain (encounter date), not `period_code`. Site DOW uses Phase 3 `pd_stg_visit_site`. Visit dates and prior-year wRVU are cached (`pd_stg_visit_date`, `pd_stg_npi_wrvu_prior`) and reused on reruns. Drop those two tables if you need a full rebuild.
+Day-of-week is visit grain, by encounter date. Site DOW uses Phase 3 `pd_stg_visit_site`. Visit dates and the prior-year billed lines are cached (`pd_stg_visit_date`, `pd_stg_npi_px_line_prior`) and reused on reruns; the prior-year work RVU is re-priced from the cached lines each run. Drop those two tables if you need a full rebuild.
 
 ```
 python -m provider_directory.cli phase5
@@ -138,7 +138,7 @@ python -m provider_directory.cli phase6 --slide
 
 `--slide` does **not** rescan the 11 months that stay in the window. It **does** rebuild Phase 3–5 from staging (locations cannot reuse stale `pd_stg_visit_site`; Phase 5 date/prior-wRVU caches are dropped). After a slide, later `phase2`–`phase5` runs use the window stored in `pd_refresh_state`.
 
-If the warehouse is still 202409, usable end stays 202407 and `--slide` is a no-op after indexes.
+If the warehouse has no month past the current window plus the 2-month lag, the usable end stays where it is and `--slide` is a no-op after indexes.
 
 ## Phase 7 — HTTP API for .NET
 
@@ -156,15 +156,15 @@ Defaults: `http://127.0.0.1:8080` (loopback only), OpenAPI at `/docs`. Set `PD_A
 | GET | `/health` | Process up (no API key). Use this for NSSM / probes. |
 | GET | `/v1/mart?state=` | Frozen window, warehouse max, running job (`AZ` → `az_pd`) |
 | GET | `/v1/providers/{npi}?state=` | Full profile + `practices` + `group_practices` + `hospital_affiliations` + `referrals` |
-| GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page |
-| GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by billing org). Max 500 per page |
+| GET | `/v1/providers?state=&limit=&offset=` | Picker dump, slim rows, max 500 per page. Filters include `organization_id` + `membership` (`primary` / `any`) and `zip` |
+| GET | `/v1/group-practices?state=&limit=&offset=` | Group-practice dump (sums of Type 1s by group practice, the CMS group PAC ID from the master reference file). `group_state` defaults to `market` (groups whose members mostly practise in the state); `any` lifts it. Max 500 per page |
 | GET | `/v1/group-practices/{organization_id}?state=` | Group profile (same tabs as a provider, member-aggregated) |
-| GET | `/v1/field-help?state=&dev=` | Label + hover text for every field, by scope (`provider`, `group`, `practice`, `group_practice`, `hospital_affiliation`, `referral`, `utilization`) and JSON key. `dev=true` adds the developer tier: formula, `caveats[]`, `derived_from[]` (lineage to other fields) and `tables[]` (kind warehouse / mart / cms, `external` flag, `upstream` flag, `phase`, CMS dataset `url`); set `PD_DEV_HELP_KEY` and send it as `X-Dev-Key` to gate it. Static per deployment; cache it |
+| GET | `/v1/field-help?state=&dev=` | Label + hover text for every field, by scope (`provider`, `group`, `practice`, `group_practice`, `hospital_affiliation`, `referral`, `utilization`, plus `provider_filter`, `group_filter`, `section` and `group_section` for controls and headings) and JSON key. `dev=true` adds the developer tier: formula, `caveats[]`, `derived_from[]` (lineage to other fields) and `tables[]` (kind warehouse / mart / cms, `external` flag, `upstream` flag, `phase`, CMS dataset `url`); set `PD_DEV_HELP_KEY` and send it as `X-Dev-Key` to gate it. Static per deployment; cache it |
 | POST | `/v1/jobs/phase1` … `phase6` | 202 + `Location`. Body optional: `{state, …}` plus phase1 `{download, skip_pdc, skip_nppes}`, phase6 `{slide, skip_staging_indexes}` |
 | GET | `/v1/jobs/{id}` | `queued` / `running` / `succeeded` / `failed` |
 | GET | `/v1/jobs` | Recent jobs |
 
-The group-practice dump and group profile read `pd_group_practice`, one precomputed row per billing org per member scope (`all` / `active` / `inactive`), so filter, sort and page are indexed reads instead of a 858K-row aggregation per request. It is rebuilt at the end of `phase2`, `phase4`, `overlay-cms` and `phase6` (a few seconds). After pulling this change run `phase6 --state AZ_CMS` once to fill it; until then the dump falls back to the live aggregation.
+The group-practice dump and group profile read `pd_group_practice`, one precomputed row per group practice (CMS group PAC ID) per member scope (`all` / `active` / `inactive`), so filter, sort and page are indexed reads instead of a 858K-row aggregation per request. It is rebuilt at the end of `phase2`, `phase4`, `overlay-cms` and `phase6` (a few seconds). After pulling this change run `phase6 --state AZ_CMS` once to fill it; until then the dump falls back to the live aggregation.
 
 Field help: the UI should fetch `/v1/field-help` once per session and bind each field's tooltip by scope + key. The same text prints from `python -m provider_directory.cli field-help --state AZ_CMS [--dev] [--format md|json]` for a handout. `{window}` in the text resolves to the mart's current window.
 
@@ -215,7 +215,7 @@ python -m provider_directory.cli extras --state AZ --open-payments-overlay-only
 python -m provider_directory.cli get --state AZ 1952863797
 ```
 
-Default `extras` overlays group size, PDC telehealth Y/N, secondary specialties (if `sec_spec_*` already on `cms_pdc_clinician`), new vs established E/M from `pd_stg_visit.px`, and POS mix (office / HOPD / ASC / ED / telehealth POS 02+10 / inpatient POS 21 / lab POS 81) from `pd_stg_visit_site` + `{st}.sl`. `--state AZ` is the current mart. `--reload-pdc` TRUNCATEs **only** `cms_pdc_clinician` and reloads the cached DAC CSV so `Sec_spec_1`–`4` land. `--download` fetches MIPS (`a174-a962`), Care Compare utilization (`n0yb-util`), and Open Payments CSVs into `data/cms` (latest complete program year; general file is huge; reruns reuse cached files; shared across states). `--year 2024` pins Open Payments. `--skip-mips` / `--skip-utilization` / `--skip-open-payments` skip those files. `--open-payments-kinds ownership` re-parses only the ownership CSV (uses `Physician_NPI` and `Value_of_Interest`) without rereading the 9GB general file. `--open-payments-overlay-only` rewrites `pd_provider` from `cms_open_payments` without reading CSVs. Missing Open Payments kinds are null, not `$0`.
+Default `extras` overlays group size, PDC telehealth Y/N, secondary specialties (if `sec_spec_*` already on `cms_pdc_clinician`), new vs established E/M from `pd_stg_visit.px`, and POS mix (office / HOPD / ASC / ED / telehealth POS 02+10 / inpatient POS 21 / lab POS 81) from `pd_stg_visit_site` + `{st}.sl`. `--state AZ` is the current mart. `--reload-pdc` TRUNCATEs **only** `cms_pdc_clinician` and reloads the cached DAC CSV so `Sec_spec_1`–`4` land. `--download` fetches MIPS (`a174-a962`), Care Compare utilization (`n0yb-util`), and Open Payments CSVs into `data/cms` (latest complete program year; general file is huge; reruns reuse cached files; shared across states). `--year 2024` pins Open Payments. `--skip-mips` / `--skip-utilization` / `--skip-open-payments` skip those files. `--open-payments-kinds ownership` re-parses only the ownership CSV (uses `Physician_NPI` and `Value_of_Interest`) without rereading the 9GB general file. `--open-payments-overlay-only` rewrites `pd_provider` from `cms_open_payments` without reading CSVs. Missing Open Payments kinds stay null.
 
 Weekend / after-hours is UI-only (`visits_percent_saturday` / `sunday` already exist). HTTP GET includes `group_size`, `telehealth_offered`, `secondary_specialty_*`, E/M and POS percents, and `mips_*`. It omits `open_payments_*` and Care Compare `utilization[]` (practice profile). CLI `get` still prints those omitted columns. Claims sites stay on `practices[]`.
 
