@@ -44,6 +44,7 @@ TABLES = (
     "pd_stg_npi_wrvu_prior",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
+    "pd_stg_npi_avg_percentile",
     "pd_stg_npi_visits_percentile",
 )
 
@@ -84,6 +85,7 @@ PHASE5_STAGING_TABLES = (
     "pd_stg_npi_wrvu_prior",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
+    "pd_stg_npi_avg_percentile",
     "pd_stg_npi_visits_percentile",
 )
 
@@ -202,6 +204,10 @@ PD_PROVIDER_PHASE5_COLUMNS = (
     ("wrvu_yoy_change_pct", "DECIMAL(12,2) NULL"),
     ("wrvu_state_specialty_average", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_average_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_state_specialty_median_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_state_specialty_p25_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_state_specialty_p75_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_average_specialty_percentile", "DECIMAL(5,1) NULL"),
     ("wrvu_state_specialty_median", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_p25", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_p75", "DECIMAL(14,2) NULL"),
@@ -907,11 +913,21 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             p25_wrvu DECIMAL(14,2) NULL,
             median_wrvu DECIMAL(14,2) NULL,
             p75_wrvu DECIMAL(14,2) NULL,
+            p25_wrvu_per_procedure DECIMAL(10,3) NULL,
+            median_wrvu_per_procedure DECIMAL(10,3) NULL,
+            p75_wrvu_per_procedure DECIMAL(10,3) NULL,
             PRIMARY KEY (specialty_code)
         ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_percentile (
+            npi BIGINT UNSIGNED NOT NULL,
+            pct DECIMAL(5,1) NOT NULL,
+            PRIMARY KEY (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_avg_percentile (
             npi BIGINT UNSIGNED NOT NULL,
             pct DECIMAL(5,1) NOT NULL,
             PRIMARY KEY (npi)

@@ -478,6 +478,22 @@
         "label": "Specialty average work RVU per procedure",
         "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
       },
+      "wrvu_state_specialty_median_per_procedure": {
+        "label": "Specialty median average work RVU per procedure",
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_p25_per_procedure": {
+        "label": "Specialty 25th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+      },
+      "wrvu_state_specialty_p75_per_procedure": {
+        "label": "Specialty 75th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+      },
+      "wrvu_average_specialty_percentile": {
+        "label": "Average work RVU per procedure percentile within specialty",
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
+      },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
         "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide."
@@ -1112,6 +1128,22 @@
         "label": "Specialty average work RVU per procedure",
         "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
       },
+      "wrvu_state_specialty_median_per_procedure": {
+        "label": "Specialty median average work RVU per procedure",
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_p25_per_procedure": {
+        "label": "Specialty 25th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+      },
+      "wrvu_state_specialty_p75_per_procedure": {
+        "label": "Specialty 75th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+      },
+      "wrvu_average_specialty_percentile": {
+        "label": "Average work RVU per procedure percentile within specialty",
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
+      },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
         "help": "The middle value of the per-provider work RVU totals among clinicians in the same specialty statewide."
@@ -1670,7 +1702,7 @@
       },
       "work_rvu_vs_specialty": {
         "label": "Work RVU vs specialty",
-        "help": "How the clinician's work RVU total compares with same-specialty peers who practise in the state with at least 50 visits."
+        "help": "How the clinician's average work RVU per procedure, and their total, compare with same-specialty peers who practise in the state with at least 50 visits."
       },
       "standing": {
         "label": "Standing",

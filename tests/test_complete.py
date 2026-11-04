@@ -165,3 +165,20 @@ def test_specialty_stats_include_cohort_average_per_procedure():
     assert "wrvu_state_specialty_average_per_procedure" in inspect.getsource(_overlay_benchmarks)
     assert "wrvu_state_specialty_average_per_procedure" in dict(PD_PROVIDER_PHASE5_COLUMNS)
     assert "avg_wrvu_per_procedure DECIMAL(10,3)" in "\n".join(ddl_statements("az_pd"))
+
+
+def test_specialty_benchmarks_of_averages_per_procedure():
+    import inspect
+
+    from provider_directory.complete import _fill_specialty_stats, _overlay_benchmarks
+    from provider_directory.schema import PD_PROVIDER_PHASE5_COLUMNS, PHASE5_STAGING_TABLES, ddl_statements
+
+    fill = inspect.getsource(_fill_specialty_stats)
+    assert "ORDER BY wrvu_average, npi" in fill and "median_wrvu_per_procedure" in fill
+    over = inspect.getsource(_overlay_benchmarks)
+    assert "pd_stg_npi_avg_percentile" in over and "p.wrvu_average_specialty_percentile = avgp.pct" in over
+    cols = dict(PD_PROVIDER_PHASE5_COLUMNS)
+    for c in ("wrvu_state_specialty_median_per_procedure", "wrvu_state_specialty_p25_per_procedure", "wrvu_state_specialty_p75_per_procedure", "wrvu_average_specialty_percentile"):
+        assert c in cols, c
+    assert "pd_stg_npi_avg_percentile" in PHASE5_STAGING_TABLES
+    assert "median_wrvu_per_procedure DECIMAL(10,3)" in "\n".join(ddl_statements("az_pd"))

@@ -651,7 +651,8 @@ def _fill_specialty_stats(cur, conn, mart: str, state: str = MARKET_STATE) -> in
     peers = benchmark_peer_where(mart, state)
     sql = f"""
         INSERT INTO {mart}.pd_stg_specialty_wrvu (
-            specialty_code, npi_count, avg_wrvu, avg_wrvu_per_procedure, p25_wrvu, median_wrvu, p75_wrvu
+            specialty_code, npi_count, avg_wrvu, avg_wrvu_per_procedure, p25_wrvu, median_wrvu, p75_wrvu,
+            p25_wrvu_per_procedure, median_wrvu_per_procedure, p75_wrvu_per_procedure
         )
         SELECT
             primary_specialty_code,
@@ -660,16 +661,24 @@ def _fill_specialty_stats(cur, conn, mart: str, state: str = MARKET_STATE) -> in
             ROUND(SUM(wrvu_total) / NULLIF(SUM(wrvu_procedure_count), 0), 3),
             MAX(CASE WHEN rn = p25_rn THEN wrvu_total END),
             MAX(CASE WHEN rn = p50_rn THEN wrvu_total END),
-            MAX(CASE WHEN rn = p75_rn THEN wrvu_total END)
+            MAX(CASE WHEN rn = p75_rn THEN wrvu_total END),
+            MAX(CASE WHEN rn_avg = p25_rn THEN wrvu_average END),
+            MAX(CASE WHEN rn_avg = p50_rn THEN wrvu_average END),
+            MAX(CASE WHEN rn_avg = p75_rn THEN wrvu_average END)
         FROM (
             SELECT
                 primary_specialty_code,
                 wrvu_total,
                 wrvu_procedure_count,
+                wrvu_average,
                 ROW_NUMBER() OVER (
                     PARTITION BY primary_specialty_code
                     ORDER BY wrvu_total, npi
                 ) AS rn,
+                ROW_NUMBER() OVER (
+                    PARTITION BY primary_specialty_code
+                    ORDER BY wrvu_average, npi
+                ) AS rn_avg,
                 COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt,
                 ROUND(AVG(wrvu_total) OVER (PARTITION BY primary_specialty_code), 2) AS avg_wrvu,
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.25)) AS p25_rn,
@@ -714,6 +723,28 @@ def _overlay_benchmarks(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
         cur,
         conn,
         f"""
+        INSERT INTO {mart}.pd_stg_npi_avg_percentile (npi, pct)
+        SELECT
+            npi,
+            ROUND(100.0 * rn / cnt, 1)
+        FROM (
+            SELECT
+                npi,
+                ROW_NUMBER() OVER (
+                    PARTITION BY primary_specialty_code
+                    ORDER BY wrvu_average, npi
+                ) AS rn,
+                COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
+            FROM {mart}.pd_provider p
+            WHERE p.wrvu_average IS NOT NULL AND p.wrvu_average > 0
+              AND {peers}
+        ) ranked
+        """,
+    )
+    _run(
+        cur,
+        conn,
+        f"""
         INSERT INTO {mart}.pd_stg_npi_visits_percentile (npi, pct)
         SELECT
             npi,
@@ -737,10 +768,15 @@ def _overlay_benchmarks(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
         LEFT JOIN {mart}.pd_stg_specialty_wrvu s
             ON s.specialty_code = p.primary_specialty_code
         LEFT JOIN {mart}.pd_stg_npi_percentile wrvu ON wrvu.npi = p.npi
+        LEFT JOIN {mart}.pd_stg_npi_avg_percentile avgp ON avgp.npi = p.npi
         LEFT JOIN {mart}.pd_stg_npi_visits_percentile vis ON vis.npi = p.npi
         SET
             p.wrvu_state_specialty_average = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu, p.wrvu_state_specialty_average),
             p.wrvu_state_specialty_average_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu_per_procedure, p.wrvu_state_specialty_average_per_procedure),
+            p.wrvu_state_specialty_median_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.median_wrvu_per_procedure, p.wrvu_state_specialty_median_per_procedure),
+            p.wrvu_state_specialty_p25_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p25_wrvu_per_procedure, p.wrvu_state_specialty_p25_per_procedure),
+            p.wrvu_state_specialty_p75_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p75_wrvu_per_procedure, p.wrvu_state_specialty_p75_per_procedure),
+            p.wrvu_average_specialty_percentile = avgp.pct,
             p.wrvu_state_specialty_median = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.median_wrvu, p.wrvu_state_specialty_median),
             p.wrvu_state_specialty_p25 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p25_wrvu, p.wrvu_state_specialty_p25),
             p.wrvu_state_specialty_p75 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p75_wrvu, p.wrvu_state_specialty_p75),

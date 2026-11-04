@@ -233,6 +233,10 @@ class ProviderSpine(BaseModel):
     wrvu_yoy_change_pct: float | None = None
     wrvu_state_specialty_average: float | None = None
     wrvu_state_specialty_average_per_procedure: float | None = None
+    wrvu_state_specialty_median_per_procedure: float | None = None
+    wrvu_state_specialty_p25_per_procedure: float | None = None
+    wrvu_state_specialty_p75_per_procedure: float | None = None
+    wrvu_average_specialty_percentile: float | None = None
     wrvu_state_specialty_median: float | None = None
     wrvu_state_specialty_p25: float | None = None
     wrvu_state_specialty_p75: float | None = None
