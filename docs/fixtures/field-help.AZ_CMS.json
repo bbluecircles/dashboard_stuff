@@ -1844,7 +1844,7 @@
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out."
+        "help": "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. The warehouse infers these from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out."
       },
       "referrals_in": {
         "label": "Referrals in",

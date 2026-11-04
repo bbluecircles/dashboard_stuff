@@ -21,6 +21,7 @@ from typing import Any
 
 from provider_directory.settings import (
     REF_DB,
+    REFERRAL_SOURCE,
     NPPES_INDEX_URL,
     OPEN_PAYMENTS_SITE,
     PDC_CLINICIAN_DATASET,
@@ -29,6 +30,34 @@ from provider_directory.settings import (
     PDC_MIPS_DATASET,
     PDC_UTILIZATION_DATASET,
 )
+
+# Referral wording follows settings.REFERRAL_SOURCE.
+_CLAIM_REFERRALS = REFERRAL_SOURCE == "claims"
+_REFERRAL_BASIS = (
+    "The referring clinician is the one recorded on the claim."
+    if _CLAIM_REFERRALS
+    else "The warehouse infers these from the sequence of visits."
+)
+_REFERRAL_IN_TEXT = "Clinicians recorded as referring on this clinician's claims." if _CLAIM_REFERRALS else "Clinicians whose patients went on to see this clinician."
+_REFERRAL_OUT_TEXT = "Clinicians whose claims record this clinician as referring." if _CLAIM_REFERRALS else "Clinicians this clinician's patients went on to see."
+_REFERRAL_GROUP_IN_TEXT = "Clinicians recorded as referring on the members' claims." if _CLAIM_REFERRALS else "Clinicians whose patients went on to see a member of the group."
+_REFERRAL_GROUP_OUT_TEXT = "Clinicians whose claims record a member of the group as referring." if _CLAIM_REFERRALS else "Clinicians the members' patients went on to see."
+_REFERRAL_LEAD = (
+    "Top 5 clinicians who referred patients to this clinician, and top 5 this clinician referred patients to."
+    if _CLAIM_REFERRALS
+    else "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see."
+)
+_REFERRAL_SECTION_LEAD = (
+    "Clinicians who referred patients to this clinician, and clinicians this clinician referred patients to, top 5 each."
+    if _CLAIM_REFERRALS
+    else "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each."
+)
+_REFERRAL_GROUP_LEAD = (
+    "Clinicians who referred patients to the group's members, and clinicians the members referred patients to, top 5 each, summed across members."
+    if _CLAIM_REFERRALS
+    else "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members."
+)
+_REFERRAL_EDGE_SOURCE = "pd_stg_window_claim" if _CLAIM_REFERRALS else "claims.dash_physician_referrals_to_rendering"
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
@@ -103,7 +132,7 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
     "pd_stg_visit_date": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'pd_stg_visit'], "description": "Service date per encounter, cached (Phase 5)."},
     "pd_stg_npi_dow": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_visit_date', 'pd_stg_visit'], "description": "Visits per NPI per weekday (Phase 5)."},
     "pd_stg_site_dow": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_visit_date', 'pd_stg_visit_site'], "description": "Visits per NPI per site per weekday (Phase 5)."},
-    "pd_stg_referral_edge": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.dash_physician_referrals_to_rendering'], "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5)."},
+    "pd_stg_referral_edge": {"kind": "mart", "phase": "Phase 5", "built_from": [_REFERRAL_EDGE_SOURCE, 'pd_provider'], "description": f"Every referral edge (npi, direction, peer) in the window with patient and claim counts, from {_REFERRAL_EDGE_SOURCE} (settings.REFERRAL_SOURCE = {REFERRAL_SOURCE}); cached across Phase 5 runs (Phase 5)."},
     "pd_stg_npi_px_line_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'pd_provider'], "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5)."},
     "pd_stg_npi_wrvu_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_npi_px_line_prior', 'lookup.procd'], "description": "Prior-year work RVU per NPI, priced each run (Phase 5)."},
     "pd_stg_specialty_wrvu": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Work RVU benchmarks per specialty among in-state peers with 50 or more visits: cohort average work RVU per procedure, p25, median and p75 of the clinicians' averages, the same statistics on totals, and the peer count (Phase 5)."},
@@ -415,7 +444,7 @@ PROVIDER: dict[str, dict[str, str]] = {
     "practices": _entry("Sites", "Up to 5 practice locations ranked by the clinician's visits there, from claims.", "pd_provider_practice rows, site_rank 1 to 5. See the practice scope."),
     "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "pd_provider_group_practice rows. See the group_practice scope."),
     "hospital_affiliations": _entry("Facility affiliations (hidden)", "Hidden in the UI: a visit-based grouping of facilities whose parent grouping data is not reliable enough to display.", "pd_provider_hospital_affiliation rows. See the hospital_affiliation scope."),
-    "referrals": _entry("Referrals", "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "pd_provider_referral rows. See the referral scope."),
+    "referrals": _entry("Referrals", f"{_REFERRAL_LEAD} {_REFERRAL_BASIS} Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "pd_provider_referral rows. See the referral scope."),
     "utilization": _entry("Care Compare utilization", "Not on the HTTP profile.", "pd_provider_utilization from cms_pdc_utilization (n0yb-util), top 5 by percentile. CLI get only."),
     # Picker (dump) rows only
     "practice_name": _entry("Primary site", "Name of the clinician's primary practice site.", "pd_provider_practice.name where site_rank = 1."),
@@ -502,9 +531,9 @@ SECTION: dict[str, dict[str, str]] = {
     "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "UI heading over group_practices[]; no table."),
     "group_source_R": _entry("Master reference file", "Group practice recorded for the clinician in the master reference file.", "group_practice.billing_type = 'R'; no table."),
     "group_source_C": _entry("CMS reassignment", "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file.", "group_practice.billing_type = 'C'; no table."),
-    "referrals": _entry("Referrals", "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "UI heading over referrals[] in and out; no table."),
-    "referrals_in": _entry("Referrals in", "Clinicians whose patients went on to see this clinician.", "referral.direction = 'in'; no table."),
-    "referrals_out": _entry("Referrals out", "Clinicians this clinician's patients went on to see.", "referral.direction = 'out'; no table."),
+    "referrals": _entry("Referrals", f"{_REFERRAL_SECTION_LEAD} {_REFERRAL_BASIS} Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "UI heading over referrals[] in and out; no table."),
+    "referrals_in": _entry("Referrals in", _REFERRAL_IN_TEXT, "referral.direction = 'in'; no table."),
+    "referrals_out": _entry("Referrals out", _REFERRAL_OUT_TEXT, "referral.direction = 'out'; no table."),
     "sites": _entry("Sites", "The clinician's top five practice locations by visits, named from the location's DBA or registered name, else its address.", "UI heading over practices[]; no table."),
     "panel": _entry("Panel", "Age and sex of the clinician's patients, and the payers behind their visits.", "UI heading over the panel_* and visits_percent_* payer fields; no table."),
     "payer_mix": _entry("Payer mix", "Share of claims by payer class: Medicare FFS, Medicare Advantage, Medicare Other, Medicaid, Commercial and HMO. Other is outside the denominator.", "UI heading over the six visits_percent_* payer-class fields; no table."),
@@ -529,9 +558,9 @@ GROUP_SECTION: dict[str, dict[str, str]] = {
     "top_procedures": _entry("Top procedures", "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound.", "UI heading on the group page; no table."),
     "top_primary_procedures": _entry("Top primary procedures", "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out.", "UI heading on the group page; no table."),
     "group_practices": _entry("Group practices", "Hidden on a group page.", "Hidden on the group page; no table."),
-    "referrals": _entry("Referrals", "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.", "UI heading on the group page; no table."),
-    "referrals_in": _entry("Referrals in", "Clinicians whose patients went on to see a member of the group.", "referral.direction = 'in' on the group page; no table."),
-    "referrals_out": _entry("Referrals out", "Clinicians the members' patients went on to see.", "referral.direction = 'out' on the group page; no table."),
+    "referrals": _entry("Referrals", f"{_REFERRAL_GROUP_LEAD} {_REFERRAL_BASIS} Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.", "UI heading on the group page; no table."),
+    "referrals_in": _entry("Referrals in", _REFERRAL_GROUP_IN_TEXT, "referral.direction = 'in' on the group page; no table."),
+    "referrals_out": _entry("Referrals out", _REFERRAL_GROUP_OUT_TEXT, "referral.direction = 'out' on the group page; no table."),
     "sites": _entry("Sites", "The five locations with the most member visits, with visits and work RVU summed across members at each.", "UI heading on the group page; no table."),
     "panel": _entry("Panel", "Age and sex of the members' patients, weighted by each member's visits, and the payers behind their visits.", "UI heading on the group page; no table."),
     "payer_mix": _entry("Payer mix", "Share of members' claims by payer class, weighted by each member's visits. Other is outside the denominator.", "UI heading on the group page; no table."),
@@ -607,13 +636,13 @@ HOSPITAL_AFFILIATION: dict[str, dict[str, str]] = {
 
 REFERRAL: dict[str, dict[str, str]] = {
     "npi": _entry("NPI", "The clinician this referral row belongs to.", "pd_provider_referral.npi."),
-    "direction": _entry("Direction", "in: clinicians whose patients went on to see this clinician. out: clinicians this clinician's patients went on to see.", "'in' = this NPI is rendering_physician_code; 'out' = this NPI is implied_all_referring_physician_code on az.dash_physician_referrals_to_rendering."),
+    "direction": _entry("Direction", f"in: {_REFERRAL_IN_TEXT[0].lower() + _REFERRAL_IN_TEXT[1:]} out: {_REFERRAL_OUT_TEXT[0].lower() + _REFERRAL_OUT_TEXT[1:]}", "'in' = this NPI is rendering_physician_code and the peer is referring_physician_code on the window claim lines (pd_stg_window_claim); 'out' = the reverse." if _CLAIM_REFERRALS else "'in' = this NPI is rendering_physician_code; 'out' = this NPI is implied_all_referring_physician_code on az.dash_physician_referrals_to_rendering."),
     "peer_rank": _entry("Rank", "Top 5 per direction by patients, after leaving out clinicians in the same group practice or billing organization and pathology, radiology, anesthesiology and lab clinicians.", "pd_stg_referral_edge joined to pd_provider for both NPIs; edges where peer.primary_organization_id = me.primary_organization_id, peer.billing_organization_id = me.billing_organization_id, or the peer specialty matches settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP are dropped, then ROW_NUMBER per npi and direction by patient_count desc, claim_count desc, peer_npi, into pd_provider_referral (Phase 5). On a group page, members of the group are also left out."),
     "peer_npi": _entry("Peer NPI", "NPI of the referring or receiving clinician.", "The other NPI on the az.dash_physician_referrals_to_rendering edge. Both must be distinct Type 1 NPIs, neither a dummy."),
     "peer_name": _entry("Peer", "Name of the referring or receiving clinician.", "pd_provider last_name, first_name of the peer."),
     "peer_specialty": _entry("Peer specialty", "Specialty of the other clinician. For physician assistants and similar, the role is shown with the generic description, for example Physician Assistant - Medical.", "pd_provider.primary_specialty_description of the peer; when that is a generic taxonomy word (Medical, Surgical, Professional) the specialty_classification is prefixed (complete.peer_specialty_sql)."),
-    "patient_count": _entry("Patients", "Patients who saw both clinicians in sequence in {window}, as inferred by the warehouse from visit order. Monthly counts are summed, so a patient counted in three months counts three times.", "SUM(patient_count) over window months on az.dash_physician_referrals_to_rendering, staged in pd_stg_referral_edge."),
-    "claim_count": _entry("Claims", "Claims behind the referral relationship in {window}.", "SUM(claim_count) over window months on az.dash_physician_referrals_to_rendering."),
+    "patient_count": _entry("Patients", "Distinct patients in {window} whose claims to the receiving clinician name the referring clinician." if _CLAIM_REFERRALS else "Patients who saw both clinicians in sequence in {window}, as inferred by the warehouse from visit order. Monthly counts are summed, so a patient counted in three months counts three times.", "COUNT(DISTINCT pat_id) over the window claim lines (pd_stg_window_claim) where rendering_physician_code and referring_physician_code are the pair, staged in pd_stg_referral_edge." if _CLAIM_REFERRALS else "SUM(patient_count) over window months on az.dash_physician_referrals_to_rendering, staged in pd_stg_referral_edge."),
+    "claim_count": _entry("Claims", "Encounters behind the referral relationship in {window}." if _CLAIM_REFERRALS else "Claims behind the referral relationship in {window}.", "COUNT(DISTINCT encounter_id) over the same claim lines." if _CLAIM_REFERRALS else "SUM(claim_count) over window months on az.dash_physician_referrals_to_rendering."),
 }
 
 UTILIZATION: dict[str, dict[str, str]] = {
@@ -699,8 +728,8 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("practice", "work_type"): ["From the place-of-service code on claims; null when neither the code nor the rollup text maps."],
     ("hospital_affiliation", "hospital_system_name"): ["Facilities of one parent organization are combined into one row."],
     ("hospital_affiliation", "visit_share_pct"): ["Null on a parent-fallback row, which has no site-level visits."],
-    ("referral", "patient_count"): ["Monthly counts summed: one patient referred in three months counts three times."],
-    ("referral", "claim_count"): ["Monthly counts summed over the window."],
+    ("referral", "patient_count"): ["The referring field is filled when a payer asks for it, so counts are a floor." if _CLAIM_REFERRALS else "Monthly counts summed: one patient referred in three months counts three times."],
+    ("referral", "claim_count"): ["Distinct encounters over the window." if _CLAIM_REFERRALS else "Monthly counts summed over the window."],
 }
 
 DERIVED_FROM: dict[tuple[str, str], list[str]] = {

@@ -24,7 +24,7 @@ from provider_directory.activity import PROVIDER_BUCKETS, VISIT_BUCKETS, iter_pe
 from provider_directory.activity import CLAIM_ID_BUCKETS
 from provider_directory.analytics import is_hcpcs_sql, period_in_sql, priced_line_filter_sql
 from provider_directory.db import quote_ident
-from provider_directory.locations import table_has_rows
+from provider_directory.locations import Phase2Required, table_has_rows
 from provider_directory.schema import create_schema, drop_phase5_cached, drop_phase5_staging
 from provider_directory.settings import (
     BENCHMARK_MIN_VISITS,
@@ -41,6 +41,7 @@ from provider_directory.settings import (
     REFERRAL_EXCLUDED_SPECIALTY_REGEXP,
     REFERRAL_IN,
     REFERRAL_OUT,
+    REFERRAL_SOURCE,
     WINDOW_END,
     WINDOW_START,
 )
@@ -152,6 +153,7 @@ def rebuild_complete(
     has_npi_sl = table_has_rows(conn, mart_db, "pd_stg_npi_sl")
     has_practice = table_has_rows(conn, mart_db, "pd_provider_practice")
     counts: dict[str, int | str] = {
+        "referral_source": REFERRAL_SOURCE,
         "referral_edges": 0,
         "referral_rows": 0,
         "visit_dates": 0,
@@ -239,13 +241,18 @@ def _fill_referral_edges(
     *,
     mart_db: str = MART_DB,
     reuse_cached: bool = True,
+    source: str = REFERRAL_SOURCE,
 ) -> int:
-    """Every (npi, direction, peer) edge in the window from the warehouse referral
-    table. Cached: reused on later runs so peers can be re-ranked without
-    re-reading the warehouse (phase5 --referrals-only); --rebuild-edges refills."""
+    """Every (npi, direction, peer) edge in the window. settings.REFERRAL_SOURCE
+    picks the source: "implied" reads the warehouse referral table, "claims"
+    reads the referring NPI recorded on each claim line (pd_stg_window_claim).
+    Cached: reused on later runs so peers can be re-ranked without re-reading
+    (phase5 --referrals-only); --rebuild-edges refills."""
     if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_referral_edge"):
-        print("phase5 referral edges reused", flush=True)
+        print(f"phase5 referral edges reused (source {source})", flush=True)
         return 0
+    if source == "claims":
+        return _fill_claim_referral_edges(cur, conn, mart, dummy, mart_db=mart_db)
     _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_referral_edge")
     total = 0
     in_sql = f"""
@@ -305,6 +312,69 @@ def _fill_referral_edges(
         n_out = _run(cur, conn, out_sql, (bucket,))
         total += n_in + n_out
         print(f"phase5 referral edges bucket {bucket}: in {n_in} out {n_out}", flush=True)
+    return total
+
+
+def claim_referral_edge_sql(mart: str, dummy: str, direction: str) -> str:
+    """One provider bucket of claim-named referral edges from pd_stg_window_claim.
+    'in': I rendered the line and the peer is its referring_physician_code (who
+    sent the patient to me). 'out': the peer rendered the line and I am its
+    referring_physician_code (who I sent the patient to). Both NPIs must be Type 1
+    clinicians in pd_provider, so organization NPIs written in the referring
+    field never become peers. patient_count is distinct patients over the whole
+    window and claim_count distinct encounters: the scan is split by pat_id
+    bucket, and a patient's lines all fall in one bucket, so the per-bucket
+    distinct counts add up exactly. One %s param: the pat_id bucket."""
+    if direction == REFERRAL_IN:
+        me, peer = "c.rendering_physician_code", "c.referring_physician_code"
+    elif direction == REFERRAL_OUT:
+        me, peer = "c.referring_physician_code", "c.rendering_physician_code"
+    else:
+        raise ValueError(f"direction must be {REFERRAL_IN!r} or {REFERRAL_OUT!r}, got {direction!r}")
+    return f"""
+        INSERT INTO {mart}.pd_stg_referral_edge (
+            npi, direction, peer_npi, patient_count, claim_count
+        )
+        SELECT
+            {me},
+            '{direction}',
+            {peer},
+            COUNT(DISTINCT c.pat_id),
+            COUNT(DISTINCT c.encounter_id)
+        FROM {mart}.pd_stg_window_claim c
+        INNER JOIN {mart}.pd_provider rend ON rend.npi = c.rendering_physician_code
+        INNER JOIN {mart}.pd_provider refr ON refr.npi = c.referring_physician_code
+        WHERE c.referring_physician_code IS NOT NULL
+          AND c.rendering_physician_code IS NOT NULL
+          AND c.rendering_physician_code NOT IN ({dummy})
+          AND c.referring_physician_code NOT IN ({dummy})
+          AND c.rendering_physician_code <> c.referring_physician_code
+          AND MOD(IFNULL(c.pat_id, 0), {CLAIM_ID_BUCKETS}) = %s
+        GROUP BY {me}, {peer}
+        ON DUPLICATE KEY UPDATE
+            patient_count = {mart}.pd_stg_referral_edge.patient_count + VALUES(patient_count),
+            claim_count = {mart}.pd_stg_referral_edge.claim_count + VALUES(claim_count)
+    """
+
+
+def _fill_claim_referral_edges(cur, conn, mart: str, dummy: str, *, mart_db: str = MART_DB) -> int:
+    """REFERRAL_SOURCE = "claims": edges from the referring NPI on each window
+    claim line. Reads only the mart (Phase 2's pd_stg_window_claim), so it needs
+    a Phase 2 that has run for this window."""
+    if not table_has_rows(conn, mart_db, "pd_stg_window_claim"):
+        raise Phase2Required(
+            "pd_stg_window_claim is empty. REFERRAL_SOURCE=claims builds referral edges "
+            "from the window claim lines; run phase2 first."
+        )
+    _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_referral_edge")
+    in_sql = claim_referral_edge_sql(mart, dummy, REFERRAL_IN)
+    out_sql = claim_referral_edge_sql(mart, dummy, REFERRAL_OUT)
+    total = 0
+    for bucket in range(CLAIM_ID_BUCKETS):
+        n_in = _run(cur, conn, in_sql, (bucket,))
+        n_out = _run(cur, conn, out_sql, (bucket,))
+        total += n_in + n_out
+        print(f"phase5 claim referral edges patient bucket {bucket}: in {n_in} out {n_out}", flush=True)
     return total
 
 
@@ -821,7 +891,12 @@ def rebuild_referrals(
     claims = quote_ident(claims_db)
     dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
     period_in = period_in_sql(window_start, window_end)
-    counts: dict[str, int | bool] = {"referrals_only": True, "referral_edges": 0, "referral_rows": 0}
+    counts: dict[str, int | bool | str] = {
+        "referrals_only": True,
+        "referral_source": REFERRAL_SOURCE,
+        "referral_edges": 0,
+        "referral_rows": 0,
+    }
     with conn.cursor() as cur:
         _session_timeouts(cur)
         conn.commit()

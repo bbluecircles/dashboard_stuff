@@ -108,6 +108,18 @@ MAX_REFERRAL_PEERS = 5
 # claims billing organization catches the in-practice NP / partner case; the specialty pattern drops imaging,
 # lab and anesthesia "referrals" that are orders rather than hand-offs.
 REFERRAL_EXCLUDE_SAME_ORGANIZATION = True
+# Where referral edges come from. The exclusions and the top-5 rank apply to either.
+#   "implied"  the warehouse's dash_physician_referrals_to_rendering: the pair is
+#              inferred from the order of a patient's visits (today's list).
+#   "claims"   the referring NPI recorded on each claim line
+#              (pat_dt.referring_physician_code, kept in pd_stg_window_claim by
+#              Phase 2): the clinician the billing office named as referring.
+# Switching needs `phase5 --referrals-only --rebuild-edges` so the cached edges
+# are refilled from the new source.
+REFERRAL_SOURCES = ("implied", "claims")
+REFERRAL_SOURCE = os.environ.get("PD_REFERRAL_SOURCE", "implied").strip().lower()
+if REFERRAL_SOURCE not in REFERRAL_SOURCES:
+    raise ValueError(f"PD_REFERRAL_SOURCE must be one of {REFERRAL_SOURCES}, got {REFERRAL_SOURCE!r}")
 REFERRAL_EXCLUDED_SPECIALTY_REGEXP = "PATHOLOG|DIAGNOSTIC RADIOLOGY|BODY IMAGING|NEURORADIOLOG|NUCLEAR MEDICINE|ANESTHE|CLINICAL LABORATORY|STUDENT"
 # Specialty benchmark peers: same specialty, a practice site in the market state,
 # and at least this many visits in the window, so out-of-state clinicians with a
