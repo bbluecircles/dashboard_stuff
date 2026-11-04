@@ -19,14 +19,19 @@ from provider_directory.settings import (
     MART_DB,
     MAX_PRACTICE_SITES,
     MAX_REFERRAL_PEERS,
+    MAX_TOP_PAYERS,
     PAYOR_COMMERCIAL,
+    TOP_N,
 )
+from provider_directory.schema import TOP_CODE_TABLES
 
 VISIT_WEIGHTED = (
     "visits_percent_third_party",
     "visits_percent_medicaid",
     "visits_percent_medicare_advantage",
     "visits_percent_medicare_traditional",
+    "visits_percent_hmo",
+    "visits_percent_medicare_other",
     "visits_percent_monday",
     "visits_percent_tuesday",
     "visits_percent_wednesday",
@@ -210,14 +215,14 @@ def fetch_group_top_codes(
     visits_total: int | None,
     mart_db: str = MART_DB,
 ) -> dict:
-    """Top 3 from members' stored top codes (pd_stg_top_*). Stay off visit staging on GET.
+    """Top TOP_N from members' stored top codes (pd_stg_top_*). Stay off visit staging on GET.
 
     visit_count on those rows is the NPI's true count for that code. Summing them
-    undercounts members who had the code outside their personal top 3. Percent is
+    undercounts members who had the code outside their personal top list. Percent is
     that sum / group visits_total (lower bound of the org-wide share).
     """
-    if table not in ("pd_stg_top_dx", "pd_stg_top_px"):
-        raise ValueError(f"table must be pd_stg_top_dx or pd_stg_top_px, not {table!r}")
+    if table not in TOP_CODE_TABLES:
+        raise ValueError(f"table must be one of {TOP_CODE_TABLES}, got {table!r}")
     mart = quote_ident(mart_db)
     denom = int(visits_total or 0)
     sql = f"""
@@ -236,7 +241,7 @@ def fetch_group_top_codes(
               AND NULLIF(TRIM(d.code), '') IS NOT NULL
             GROUP BY d.code
             ORDER BY visit_count DESC, d.code
-            LIMIT 3
+            LIMIT {int(TOP_N)}
         ) ranked
     """
     rows = _fetch(conn, sql, (denom, denom, organization_id))
@@ -262,11 +267,26 @@ def fetch_group_top_payers(conn, organization_id: int, *, mart_db: str = MART_DB
     rows = _fetch(conn, sql, (organization_id,))
     total = sum(int(row["claim_count"] or 0) for row in rows)
     out: dict = {}
-    for i, row in enumerate(rows[:3], start=1):
+    for i, row in enumerate(rows[:MAX_TOP_PAYERS], start=1):
         out[f"top_payer_name_{i}"] = row.get("payor_parent_name")
         count = int(row["claim_count"] or 0)
         out[f"top_payer_percent_{i}"] = round(100.0 * count / total, 2) if total else None
     return out
+
+
+def fetch_group_member_count_any(conn, organization_id: int, *, mart_db: str = MART_DB) -> int:
+    """Distinct NPIs with any in-window billing row for the org (pd_provider_group_practice),
+    primary or not. The profile's totals stay on primary members (provider_count);
+    the picker with membership=any returns this many."""
+    mart = quote_ident(mart_db)
+    sql = f"""
+        SELECT COUNT(DISTINCT g.npi) AS n
+        FROM {mart}.pd_provider_group_practice g
+        INNER JOIN {mart}.pd_provider p ON p.npi = g.npi
+        WHERE g.organization_id = %s
+    """
+    rows = _fetch(conn, sql, (organization_id,))
+    return int(rows[0]["n"] or 0) if rows else 0
 
 
 def fetch_group_sites(
@@ -412,14 +432,20 @@ def fetch_group_referrals(
                     SUM(r.claim_count) AS claim_count
                 FROM {mart}.pd_provider p
                 INNER JOIN {mart}.pd_provider_referral r ON r.npi = p.npi
+                INNER JOIN {mart}.pd_provider pp ON pp.npi = r.peer_npi
                 WHERE p.primary_organization_id = %s
+                  AND IFNULL(pp.primary_organization_id, 0) <> %s
+                  AND NOT EXISTS (
+                      SELECT 1 FROM {mart}.pd_provider_group_practice g
+                      WHERE g.npi = r.peer_npi AND g.organization_id = %s
+                  )
                 GROUP BY r.direction, r.peer_npi
             ) g
         ) ranked
         WHERE ranked.peer_rank <= %s
         ORDER BY ranked.direction, ranked.peer_rank
     """
-    rows = _fetch(conn, sql, (organization_id, int(max_peers)))
+    rows = _fetch(conn, sql, (organization_id, organization_id, organization_id, int(max_peers)))
     items = []
     for row in rows:
         row["npi"] = organization_id
@@ -473,7 +499,18 @@ def attach_group_profile(
             mart_db=mart_db,
         )
     )
+    extras.update(
+        fetch_group_top_codes(
+            conn,
+            organization_id,
+            table="pd_stg_top_primary_px",
+            prefix="visits_top_primary_procedure",
+            visits_total=row.visits_total,
+            mart_db=mart_db,
+        )
+    )
     extras.update(fetch_group_top_payers(conn, organization_id, mart_db=mart_db))
+    extras["member_count_any"] = fetch_group_member_count_any(conn, organization_id, mart_db=mart_db)
     extras["practices"] = fetch_group_sites(
         conn,
         organization_id,

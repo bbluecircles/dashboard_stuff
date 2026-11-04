@@ -1,6 +1,6 @@
-"""Phase 4 lists: every in-window group practice, top-in hospital systems.
+"""Phase 4 lists: every in-window group practice, plus the hidden per-organization visit list.
 
-Reads affiliation P/I and sl from the claims DB. Writes mart tables only.
+Reads the reference copies (pd_src_*) and sl from the claims DB. Writes mart tables only.
 Does not rescan pat_dt. Sites (street+ZIP) stay on pd_provider_practice.
 """
 
@@ -10,7 +10,6 @@ from provider_directory.db import quote_ident
 from provider_directory.locations import (
     hospital_facility_name_sql,
     hospital_system_name_sql,
-    is_person_practice_name_sql,
     table_has_rows,
 )
 from provider_directory.schema import table_options
@@ -59,18 +58,6 @@ def _truncate_if_exists(cur, conn, mart_db: str, table: str) -> None:
         conn.commit()
 
 
-def _affiliation_name_ok_sql(alias: str) -> str:
-    name = f"{alias}.dba_name"
-    return f"""
-        NULLIF(TRIM({name}), '') IS NOT NULL
-        AND UPPER(TRIM({name})) NOT IN ('UNKNOWN GROUP PRACTICE', 'UNKNOWN')
-        AND NOT (
-            {alias}.provider_billing_code = {alias}.rendering_physician_code
-            AND {is_person_practice_name_sql(name)}
-        )
-    """
-
-
 def rebuild_org_lists(
     conn,
     *,
@@ -82,17 +69,16 @@ def rebuild_org_lists(
 ) -> dict:
     """Fill nested group-practice and hospital-affiliation lists.
 
-    Group practices: physician_affiliation_p then _i in/after the frozen
-    window, plus the header primary org if it is missing. Rank primary first.
+    Group practices: the master-file group practice (primary_organization_*,
+    the CMS group PAC ID, billing_type 'R') plus every CMS reassignment row for
+    the NPI from pd_src_group_practice ('C'). Rank primary first.
 
-    Hospital affiliations: visit-weighted SL collapsed to distinct
-    sl_hospital_system_name (not campuses). Top `max_systems` with share
+    Hospital affiliations (hidden list): visit-weighted SL collapsed to one
+    row per sl_hospital_system_name. Top `max_systems` with share
     >= min_share_pct.
     """
     mart = quote_ident(mart_db)
     claims = quote_ident(claims_db)
-    dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
-    start = int(window_start)
     max_systems = int(max_systems)
     min_share = float(min_share_pct)
     has_npi_sl = table_has_rows(conn, mart_db, "pd_stg_npi_sl")
@@ -125,48 +111,27 @@ def rebuild_org_lists(
         )
         conn.commit()
 
-        name_ok = _affiliation_name_ok_sql("a")
-        p_sql = f"""
+        # Memberships: every CMS reassignment row for the NPI (pd_src_group_practice,
+        # keyed by the group PAC ID) plus the master-file group practice itself
+        # (pd_provider.primary_organization_*, same id space), which is the primary.
+        cms_sql = f"""
             INSERT INTO tmp_npi_org (
                 npi, organization_id, organization_name, billing_type,
                 rollup_priority, cases, max_period_code
             )
             SELECT
-                a.rendering_physician_code,
-                a.provider_billing_code,
-                LEFT(TRIM(a.dba_name), 180),
-                LEFT(TRIM(a.CLAIM_TYP_CD), 1),
-                a.rollup_priority,
-                a.count_of_cases,
-                a.max_period_code
-            FROM {claims}.physician_affiliation_p a
-            INNER JOIN {mart}.pd_provider p ON p.npi = a.rendering_physician_code
-            WHERE MOD(a.rendering_physician_code, {PROVIDER_BUCKETS}) = %s
-              AND a.provider_billing_code NOT IN ({dummy})
-              AND a.provider_billing_code IS NOT NULL
-              AND a.max_period_code >= {start}
-              AND {name_ok}
-        """
-        i_sql = f"""
-            INSERT INTO tmp_npi_org (
-                npi, organization_id, organization_name, billing_type,
-                rollup_priority, cases, max_period_code
-            )
-            SELECT
-                a.rendering_physician_code,
-                a.provider_billing_code,
-                LEFT(TRIM(a.dba_name), 180),
-                LEFT(TRIM(a.CLAIM_TYP_CD), 1),
-                a.rollup_priority,
-                a.count_of_cases,
-                a.max_period_code
-            FROM {claims}.physician_affiliation_i a
-            INNER JOIN {mart}.pd_provider p ON p.npi = a.rendering_physician_code
-            WHERE MOD(a.rendering_physician_code, {PROVIDER_BUCKETS}) = %s
-              AND a.provider_billing_code NOT IN ({dummy})
-              AND a.provider_billing_code IS NOT NULL
-              AND a.max_period_code >= {start}
-              AND {name_ok}
+                g.npi,
+                CAST(g.group_pac_id AS UNSIGNED),
+                LEFT(TRIM(g.group_name), 180),
+                'C',
+                1,
+                NULL,
+                NULL
+            FROM {mart}.pd_src_group_practice g
+            INNER JOIN {mart}.pd_provider p ON p.npi = g.npi
+            WHERE MOD(g.npi, {PROVIDER_BUCKETS}) = %s
+              AND g.group_pac_id REGEXP '^[0-9]+$'
+              AND NULLIF(TRIM(g.group_name), '') IS NOT NULL
         """
         header_sql = f"""
             INSERT INTO tmp_npi_org (
@@ -177,14 +142,13 @@ def rebuild_org_lists(
                 p.npi,
                 p.primary_organization_id,
                 LEFT(TRIM(p.primary_organization_name), 180),
-                NULL,
+                'R',
                 0,
                 NULL,
                 NULL
             FROM {mart}.pd_provider p
             WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
               AND p.primary_organization_id IS NOT NULL
-              AND p.primary_organization_id NOT IN ({dummy})
               AND NULLIF(TRIM(p.primary_organization_name), '') IS NOT NULL
         """
         rank_sql = f"""
@@ -196,7 +160,7 @@ def rebuild_org_lists(
                 ranked.npi,
                 ranked.org_rank,
                 ranked.organization_id,
-                ranked.organization_id,
+                NULL,
                 ranked.organization_name,
                 ranked.billing_type,
                 ranked.is_primary,
@@ -238,8 +202,7 @@ def rebuild_org_lists(
                         ROW_NUMBER() OVER (
                             PARTITION BY t.npi, t.organization_id
                             ORDER BY
-                                CASE WHEN t.billing_type IS NULL THEN 1 ELSE 0 END,
-                                CASE t.billing_type WHEN 'P' THEN 0 ELSE 1 END,
+                                CASE t.billing_type WHEN 'R' THEN 0 WHEN 'C' THEN 1 ELSE 2 END,
                                 IFNULL(t.rollup_priority, 99),
                                 IFNULL(t.cases, 0) DESC,
                                 IFNULL(t.max_period_code, 0) DESC
@@ -251,10 +214,13 @@ def rebuild_org_lists(
                 WHERE picked.dedupe_rk = 1
             ) ranked
         """
+        has_cms_groups = table_has_rows(conn, mart_db, "pd_src_group_practice")
+        if not has_cms_groups:
+            print("phase4 group practices: pd_src_group_practice is empty (run sync --ref); listing the master-file group only", flush=True)
         for bucket in range(PROVIDER_BUCKETS):
             _run(cur, conn, "TRUNCATE TABLE tmp_npi_org")
-            _run(cur, conn, p_sql, (bucket,))
-            _run(cur, conn, i_sql, (bucket,))
+            if has_cms_groups:
+                _run(cur, conn, cms_sql, (bucket,))
             _run(cur, conn, header_sql, (bucket,))
             n = _run(cur, conn, rank_sql, (bucket,))
             counts["group_practice_rows"] += n
@@ -319,8 +285,6 @@ def rebuild_org_lists(
                                 {facility_sql} AS facility_name
                             FROM {mart}.pd_stg_npi_sl s
                             INNER JOIN {claims}.sl sl ON sl.sl_code = s.sl_code
-                            LEFT JOIN {claims}.provider_facility_npi fac
-                                ON fac.PROVIDER_FACILITY_NPI_code = sl.sl_code
                             WHERE MOD(s.npi, {PROVIDER_BUCKETS}) = %s
                         ) x
                         WHERE x.hospital_system_name IS NOT NULL

@@ -348,7 +348,7 @@ def summarize_panel(patients: list[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def top_n_codes(counts: Mapping[str, int], n: int = 3) -> list[str]:
+def top_n_codes(counts: Mapping[str, int], n: int = 5) -> list[str]:
     ranked = sorted(
         ((code, cnt) for code, cnt in counts.items() if nonempty(code) is not None),
         key=lambda item: (-item[1], item[0]),
@@ -421,8 +421,102 @@ ORG_NAME_REGEXP = (
     "SYSTEM|[[:space:]]PC"
 )
 PERSON_NAME_REGEXP = "^[^,]+,[[:space:]]*[^,]+$"
+# Warehouse sentinels that mean "no value". Mirrors _EMPTY for SQL.
+EMPTY_NAME_SQL_LIST = "('', 'NA', 'N/A', 'NONE', 'NULL', 'UNKNOWN', 'UNKNOWN GROUP PRACTICE', '.', '-')"
+
+
+def clean_name_sql(expr: str) -> str:
+    """NULL for blank or sentinel text (Unknown, NA, ...), else the trimmed value
+    with a trailing TYPE-2-ENTITY marker removed."""
+    cleaned = f"TRIM(REGEXP_REPLACE(IFNULL({expr}, ''), '[[:space:]]*TYPE-2-ENTITY[[:space:]]*$', ''))"
+    return f"""
+        CASE
+            WHEN UPPER({cleaned}) IN {EMPTY_NAME_SQL_LIST} THEN NULL
+            ELSE {cleaned}
+        END
+    """
+
+
+def org_name_sql(expr: str) -> str:
+    """clean_name_sql plus the person-name rule: LAST, FIRST without an
+    organization word is NULL, so a clinician's own name never names a site."""
+    cleaned = clean_name_sql(expr)
+    return f"""
+        CASE
+            WHEN {cleaned} IS NULL THEN NULL
+            WHEN UPPER({cleaned}) REGEXP '{ORG_NAME_REGEXP}' THEN {cleaned}
+            WHEN {cleaned} REGEXP '{PERSON_NAME_REGEXP}' THEN NULL
+            ELSE {cleaned}
+        END
+    """
 MIN_PLAUSIBLE_WORK_RVU = 0.05
-MIN_PLAUSIBLE_TOTAL_RVU = 0.5
+
+
+def strict_work_rvu_sql(alias: str = "pr") -> str:
+    """Physician work RVU only: WORK_RVU when plausible, else total minus practice
+    expense minus malpractice (non-facility, then facility). No nf_total_rvu
+    fallback, so practice expense never masquerades as work."""
+    a = alias
+    min_w = MIN_PLAUSIBLE_WORK_RVU
+    return f"""
+        COALESCE(
+            CASE WHEN {a}.WORK_RVU >= {min_w} THEN {a}.WORK_RVU END,
+            CASE
+                WHEN {a}.NON_FACILITY_TOTAL IS NOT NULL
+                 AND {a}.NON_FAC_PE_RVU IS NOT NULL
+                 AND {a}.MP_RVU IS NOT NULL
+                 AND ({a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU) >= {min_w}
+                THEN {a}.NON_FACILITY_TOTAL - {a}.NON_FAC_PE_RVU - {a}.MP_RVU
+            END,
+            CASE
+                WHEN {a}.FACILITY_TOTAL IS NOT NULL
+                 AND {a}.FACILITY_PE_RVU IS NOT NULL
+                 AND {a}.MP_RVU IS NOT NULL
+                 AND ({a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU) >= {min_w}
+                THEN {a}.FACILITY_TOTAL - {a}.FACILITY_PE_RVU - {a}.MP_RVU
+            END
+        )
+    """
+
+
+def is_unpriced_code_sql(expr: str) -> str:
+    """TRUE for codes that never carry physician work (settings.RVU_EXCLUDED_CODE_PATTERNS)."""
+    from provider_directory.settings import RVU_EXCLUDED_CODE_PATTERNS
+
+    return "(" + " OR ".join(f"TRIM({expr}) REGEXP '{pat}'" for pat in RVU_EXCLUDED_CODE_PATTERNS) + ")"
+
+
+def is_visit_code_sql(expr: str) -> str:
+    """True for every code family that is a visit, exam or evaluation rather than a
+    procedure, plus tracking and lab-panel codes: settings.PRIMARY_PROCEDURE_EXCLUDED_*."""
+    from provider_directory.settings import (
+        PRIMARY_PROCEDURE_EXCLUDED_CODES,
+        PRIMARY_PROCEDURE_EXCLUDED_PATTERNS,
+        PRIMARY_PROCEDURE_EXCLUDED_RANGES,
+    )
+
+    code = f"TRIM({expr})"
+    parts = [
+        f"({code} REGEXP '^[0-9]{{5}}$' AND {code} BETWEEN '{lo}' AND '{hi}')"
+        for lo, hi, _why in PRIMARY_PROCEDURE_EXCLUDED_RANGES
+    ]
+    if PRIMARY_PROCEDURE_EXCLUDED_CODES:
+        listed = ", ".join(f"'{c}'" for c in PRIMARY_PROCEDURE_EXCLUDED_CODES)
+        parts.append(f"UPPER({code}) IN ({listed})")
+    for pattern in PRIMARY_PROCEDURE_EXCLUDED_PATTERNS:
+        parts.append(f"{code} REGEXP '{pattern}'")
+    return "(" + "\n                   OR ".join(parts) + ")"
+
+
+def primary_procedure_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:
+    """WHERE fragment for Top Primary Procedures: strict work RVU above the floor
+    and not a visit-type, tracking or lab-panel code."""
+    from provider_directory.settings import PRIMARY_PROCEDURE_MIN_WORK_RVU
+
+    return (
+        f"{strict_work_rvu_sql(procd_alias)} > {PRIMARY_PROCEDURE_MIN_WORK_RVU} "
+        f"AND NOT {is_visit_code_sql(code_expr)}"
+    )
 
 
 def is_po_box(street: Any) -> bool:
@@ -522,29 +616,16 @@ def street_city_label(*, street: Any = None, city: Any = None) -> str | None:
 
 def pick_practice_name(
     *,
-    npi_type: Any = None,
-    hospital_system: Any = None,
     dba_name: Any = None,
-    common_name: Any = None,
     sl_name: Any = None,
-    facility_dba: Any = None,
-    facility_hospital_system: Any = None,
+    common_name: Any = None,
     street: Any = None,
     city: Any = None,
 ) -> str | None:
-    """Prefer system / Type 2 DBA over a Type 1 clone of a person's name."""
-    ntype = nonempty(npi_type)
-    candidates = [
-        hospital_system,
-        facility_hospital_system,
-        dba_name if ntype == "2" else None,
-        sl_name if ntype == "2" else None,
-        facility_dba,
-        common_name,
-        dba_name,
-        sl_name,
-    ]
-    for value in candidates:
+    """Python twin of practice_name_sql: DBA, then name, then common name, each
+    cleaned of sentinels and of LAST, FIRST clones; else street and city. Never
+    returns Unknown."""
+    for value in (dba_name, sl_name, common_name):
         found = strip_entity_suffix(value)
         if found is None or looks_like_person_name(found):
             continue
@@ -562,13 +643,10 @@ def physician_work_rvu(
     facility_pe_rvu: Any = None,
     nf_total_rvu: Any = None,
 ) -> float | None:
-    """Physician work RVU from azal.procd PFS columns.
-
-    azal.procd.WORK_RVU is trustworthy on many ICD-10-PCS rows and wrong or
-    near-zero on some CPT/HCPCS rows (Sean Smith 93306/99204 summed to 0.01).
-    Prefer a plausible WORK_RVU; else reconstruct work as total − PE − MP;
-    else nf_total_rvu (includes practice expense — last resort).
-    """
+    """Strict physician work RVU from azal.procd PFS columns (Python twin of
+    strict_work_rvu_sql). WORK_RVU when plausible (>= 0.05, so 0.001 placeholders
+    fall through); else total minus practice expense minus malpractice, non-facility
+    then facility. Never nf_total_rvu, which includes practice expense."""
 
     def as_float(value: Any) -> float | None:
         if value is None or value == "":
@@ -581,26 +659,13 @@ def physician_work_rvu(
     work = as_float(work_rvu)
     if work is not None and work >= MIN_PLAUSIBLE_WORK_RVU:
         return work
-    nf_total = as_float(non_facility_total)
-    nf_pe = as_float(non_fac_pe_rvu)
     mp = as_float(mp_rvu)
-    if nf_total is not None and nf_pe is not None and mp is not None:
-        reconstructed = nf_total - nf_pe - mp
-        if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
-            return reconstructed
-    fac_total = as_float(facility_total)
-    fac_pe = as_float(facility_pe_rvu)
-    if fac_total is not None and fac_pe is not None and mp is not None:
-        reconstructed = fac_total - fac_pe - mp
-        if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
-            return reconstructed
-    nf = as_float(nf_total_rvu)
-    if nf is not None and nf >= MIN_PLAUSIBLE_TOTAL_RVU and (
-        work is None or work < MIN_PLAUSIBLE_WORK_RVU
-    ):
-        return nf
-    if work is not None and work > 0:
-        return work
+    for total, pe in ((as_float(non_facility_total), as_float(non_fac_pe_rvu)),
+                      (as_float(facility_total), as_float(facility_pe_rvu))):
+        if total is not None and pe is not None and mp is not None:
+            reconstructed = total - pe - mp
+            if reconstructed >= MIN_PLAUSIBLE_WORK_RVU:
+                return reconstructed
     return None
 
 
@@ -625,66 +690,64 @@ POS_WORK_TYPE = {
 }
 
 
-def polish_work_type(
-    *,
-    pos_type_code: Any = None,
-    pos_type_name: Any = None,
-    im_specialty_rollup: Any = None,
-    hospital_system: Any = None,
-) -> str | None:
-    """Site-of-care label from CMS POS, then warehouse rollup."""
-    pos = parse_int(pos_type_code)
-    if pos in POS_WORK_TYPE:
-        return POS_WORK_TYPE[pos]
-    roll = (nonempty(im_specialty_rollup) or "").lower()
-    if "urgent" in roll:
-        return "Urgent Care"
-    if "emergency" in roll:
-        return "Emergency Department"
-    if "ambulatory surg" in roll:
-        return "Ambulatory Surgery Center"
-    if "skilled nursing" in roll:
-        return "Skilled Nursing Facility"
-    if "hospice" in roll:
-        return "Hospice"
-    if "dialysis" in roll or "end-stage" in roll:
-        return "End-Stage Renal Disease Facility"
-    if "acute care hospital" in roll or "general acute" in roll:
-        return "Short Term Acute Care Hospital"
-    if "outpatient hospital" in roll:
-        return "Hospital Outpatient"
-    if "office specialty" in roll:
-        return "Single Specialty Group"
-    if "office" in roll:
-        return "Office"
-    if nonempty(hospital_system) and "hospital" in roll:
-        return "Short Term Acute Care Hospital"
-    return nonempty(pos_type_name) or nonempty(im_specialty_rollup)
+def work_type_case_sql(sl: str = "sl") -> str:
+    """Site-of-care label: CMS POS code first, then rollup keywords, then the
+    warehouse's own pos_type_name / im_specialty_rollup text. Sentinels such as
+    Unknown fall through to NULL instead of becoming a work type."""
+    pos_whens = "\n".join(
+        f"WHEN {int(code)} THEN '{label}'" for code, label in sorted(POS_WORK_TYPE.items())
+    )
+    roll = f"LOWER(IFNULL({sl}.im_specialty_rollup, ''))"
+    # CONCAT('%%', ...) so pymysql %s formatting leaves a SQL LIKE wildcard.
+    return f"""
+        COALESCE(
+            CASE {sl}.pos_type_code
+                {pos_whens}
+                ELSE NULL
+            END,
+            CASE
+                WHEN {roll} LIKE CONCAT('%%', 'urgent', '%%') THEN 'Urgent Care'
+                WHEN {roll} LIKE CONCAT('%%', 'emergency', '%%') THEN 'Emergency Department'
+                WHEN {roll} LIKE CONCAT('%%', 'ambulatory surg', '%%') THEN 'Ambulatory Surgery Center'
+                WHEN {roll} LIKE CONCAT('%%', 'skilled nursing', '%%') THEN 'Skilled Nursing Facility'
+                WHEN {roll} LIKE CONCAT('%%', 'hospice', '%%') THEN 'Hospice'
+                WHEN {roll} LIKE CONCAT('%%', 'dialysis', '%%')
+                  OR {roll} LIKE CONCAT('%%', 'end-stage', '%%') THEN 'End-Stage Renal Disease Facility'
+                WHEN {roll} LIKE CONCAT('%%', 'acute care hospital', '%%')
+                  OR {roll} LIKE CONCAT('%%', 'general acute', '%%') THEN 'Short Term Acute Care Hospital'
+                WHEN {roll} LIKE CONCAT('%%', 'outpatient hospital', '%%') THEN 'Hospital Outpatient'
+                WHEN {roll} LIKE CONCAT('%%', 'office specialty', '%%') THEN 'Single Specialty Group'
+                WHEN {roll} LIKE CONCAT('%%', 'office', '%%') THEN 'Office'
+                ELSE NULL
+            END,
+            CASE UPPER({clean_name_sql(f"{sl}.pos_type_name")})
+                WHEN 'ED' THEN 'Emergency Department'
+                WHEN 'ER' THEN 'Emergency Department'
+                WHEN 'EMERGENCY ROOM' THEN 'Emergency Department'
+                WHEN 'EMERGENCY' THEN 'Emergency Department'
+                WHEN 'URGENT CARE CENTER' THEN 'Urgent Care'
+                ELSE {clean_name_sql(f"{sl}.pos_type_name")}
+            END,
+            {clean_name_sql(f"{sl}.im_specialty_rollup")}
+        )
+    """
 
 
 def payer_mix_percents(counts: Mapping[int, int]) -> dict[str, float | None]:
-    """Percents over is_payor 1–4. Code 5 Other is excluded from the denominator."""
-    from provider_directory.settings import (
-        PAYOR_COMMERCIAL,
-        PAYOR_HMO_MA,
-        PAYOR_MEDICAID,
-        PAYOR_MEDICARE_FFS,
-        PAYOR_MIX_CODES,
-    )
+    """Percents over the payer-mix classes (1-4, 6, 7). Class 5 Other is excluded from the denominator."""
+    from provider_directory.settings import PAYOR_MIX_COLUMNS
 
-    four = sum(int(counts.get(code, 0) or 0) for code in PAYOR_MIX_CODES)
+    denom = sum(int(counts.get(code, 0) or 0) for code, _column in PAYOR_MIX_COLUMNS)
     return {
-        "visits_percent_medicare_traditional": round_pct(int(counts.get(PAYOR_MEDICARE_FFS, 0) or 0), four),
-        "visits_percent_medicaid": round_pct(int(counts.get(PAYOR_MEDICAID, 0) or 0), four),
-        "visits_percent_third_party": round_pct(int(counts.get(PAYOR_COMMERCIAL, 0) or 0), four),
-        "visits_percent_medicare_advantage": round_pct(int(counts.get(PAYOR_HMO_MA, 0) or 0), four),
+        column: round_pct(int(counts.get(code, 0) or 0), denom)
+        for code, column in PAYOR_MIX_COLUMNS
     }
 
 
 def top_commercial_payers(
     volumes: Mapping[str, int],
     *,
-    n: int = 3,
+    n: int = 5,
 ) -> list[tuple[str, float]]:
     """Top commercial parent names. Percents are of commercial volume only."""
     ranked = sorted(
@@ -698,17 +761,6 @@ def top_commercial_payers(
         if name is not None and pct is not None:
             out.append((name, pct))
     return out
-
-
-def pick_work_type(
-    pos_type_name: Any = None,
-    im_specialty_rollup: Any = None,
-    hospital_system: Any = None,
-) -> str | None:
-    """Raw Phase 3 label. Phase 4 polishes with polish_work_type."""
-    if nonempty(hospital_system):
-        return nonempty(im_specialty_rollup) or "Hospital"
-    return pick_value(pos_type_name, im_specialty_rollup)
 
 
 def rank_clusters(

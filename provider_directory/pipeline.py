@@ -1,4 +1,4 @@
-"""Phase 1 orchestration. CLI and (later) a FastAPI admin route can call this."""
+"""Orchestration of phases 1–6 and extras. The CLI and the FastAPI job routes call these."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from urllib.parse import unquote, urlparse
 import requests
 
 from provider_directory.affiliations import rebuild_org_lists
-from provider_directory.activity import rebuild_activity
-from provider_directory.analytics import rebuild_analytics
-from provider_directory.complete import rebuild_complete
+from provider_directory.activity import rebuild_activity, rebuild_top_codes
+from provider_directory.analytics import rebuild_analytics, rebuild_payer_columns, rebuild_rvu_only
+from provider_directory.complete import rebuild_complete, rebuild_referrals
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -141,10 +141,17 @@ def run_phase2(
     claims_db: str = CLAIMS_DB,
     lookup_db: str = LOOKUP_DB,
     market_state: str = MARKET_STATE,
+    top_codes_only: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
+    if top_codes_only:
+        summary = rebuild_top_codes(conn, mart_db=mart_db, lookup_db=lookup_db)
+        summary["window_start"] = window_start
+        summary["window_end"] = window_end
+        summary["state"] = market_state
+        return summary
     summary = rebuild_activity(
         conn,
         mart_db=mart_db,
@@ -190,11 +197,43 @@ def run_phase4(
     lookup_db: str = LOOKUP_DB,
     market_state: str = MARKET_STATE,
     org_lists_only: bool = False,
+    payers_only: bool = False,
+    rvu_only: bool = False,
+    rescan_lines: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, _prior_start, _prior_end = resolve_window(conn, mart_db)
+    if sum(1 for flag in (org_lists_only, payers_only, rvu_only) if flag) > 1:
+        raise ValueError("org_lists_only, payers_only and rvu_only are mutually exclusive")
+    if rvu_only:
+        summary = rebuild_rvu_only(
+            conn,
+            mart_db=mart_db,
+            claims_db=claims_db,
+            lookup_db=lookup_db,
+            window_start=window_start,
+            window_end=window_end,
+            rescan_lines=rescan_lines,
+        )
+        summary["state"] = market_state
+        return summary
+    if payers_only:
+        summary = rebuild_payer_columns(conn, mart_db=mart_db)
+        summary["window_start"] = window_start
+        summary["window_end"] = window_end
+        summary["state"] = market_state
+        return summary
     if org_lists_only:
+        from provider_directory.analytics import overlay_billing_organization
+        from provider_directory.locations import table_has_rows
+
+        billing = overlay_billing_organization(conn, mart_db=mart_db, claims_db=claims_db)
+        reference = None
+        if table_has_rows(conn, mart_db, "pd_src_physician"):
+            from provider_directory.reference import overlay_reference
+
+            reference = overlay_reference(conn, mart_db=mart_db)
         summary = rebuild_org_lists(
             conn,
             mart_db=mart_db,
@@ -204,6 +243,8 @@ def run_phase4(
         summary["window_start"] = window_start
         summary["window_end"] = window_end
         summary["org_lists_only"] = True
+        summary["providers_org"] = billing
+        summary["reference_overlay"] = reference
         summary["state"] = market_state
         return summary
     summary = rebuild_analytics(
@@ -225,10 +266,23 @@ def run_phase5(
     claims_db: str = CLAIMS_DB,
     lookup_db: str = LOOKUP_DB,
     market_state: str = MARKET_STATE,
+    referrals_only: bool = False,
+    rebuild_edges: bool = False,
 ) -> dict:
     ensure_mart_database(conn, mart_db)
     create_schema(conn, mart_db)
     window_start, window_end, prior_start, prior_end = resolve_window(conn, mart_db)
+    if referrals_only:
+        summary = rebuild_referrals(
+            conn,
+            mart_db=mart_db,
+            claims_db=claims_db,
+            window_start=window_start,
+            window_end=window_end,
+            rebuild_edges=rebuild_edges,
+        )
+        summary["state"] = market_state
+        return summary
     summary = rebuild_complete(
         conn,
         mart_db=mart_db,
@@ -238,6 +292,7 @@ def run_phase5(
         window_end=window_end,
         prior_start=prior_start,
         prior_end=prior_end,
+        market_state=market_state,
     )
     summary["state"] = market_state
     return summary

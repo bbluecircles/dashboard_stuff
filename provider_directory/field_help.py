@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 from provider_directory.settings import (
+    REF_DB,
     NPPES_INDEX_URL,
     OPEN_PAYMENTS_SITE,
     PDC_CLINICIAN_DATASET,
@@ -31,7 +32,8 @@ from provider_directory.settings import (
 
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
-SCOPES = ("provider", "group", "practice", "group_practice", "hospital_affiliation", "referral", "utilization")
+SCOPES = ("provider", "group", "practice", "group_practice", "hospital_affiliation", "referral", "utilization",
+          "provider_filter", "group_filter", "section", "group_section")
 
 
 def format_period(yyyymm: int | None) -> str:
@@ -62,47 +64,52 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
     # warehouse: claims database
     "claims.physician": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Provider master: every NPI that has billed, with names and specialty group."},
     "claims.pat_dt": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer."},
-    "claims.sl": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system."},
+    "claims.sl": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string."},
     "claims.payor": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Payer master: payer code to name, parent name and payer class 1 to 5."},
     "claims.dash_physician_payor_all": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Monthly claim counts by rendering NPI and payer (summary table)."},
-    "claims.dash_physician_referrals_to_rendering": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Monthly implied referral edges: referring NPI to rendering NPI with patient and claim counts."},
-    "claims.physician_primary_affiliation": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "One row per NPI: primary professional and institutional billing org and hospital system."},
-    "claims.physician_affiliation_p": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Every professional billing org an NPI billed under, with cases and last month."},
-    "claims.physician_affiliation_i": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Every institutional billing org an NPI billed under, with cases and last month."},
-    "claims.provider_facility_npi": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Facility NPIs with DBA and hospital system names."},
+    "claims.dash_physician_referrals_to_rendering": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Monthly implied referral pairs: rendering NPI, implied referring NPI, patient and claim counts. The warehouse infers the pair from the order of a patient's visits."},
+    "claims.physician_primary_affiliation": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "One row per NPI: the claims billing organizations and their parent organization."},
     "claims.period": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Loaded months; its max drives the refresh window."},
     # warehouse: lookup database
+    "ref.111_physician": {"kind": "warehouse", "phase": "reference server, outside this pipeline", "description": "Physician master on the reference server: one row per NPI with name, specialty, address, group practice and a single affiliation. Copied into pd_src_physician by sync --ref."},
+    "ref.cms_group_practice": {"kind": "warehouse", "phase": "reference server, outside this pipeline", "description": "CMS group practice reassignment file on the reference server: one row per clinician per group (PAC ID). Copied into pd_src_group_practice by sync --ref."},
+    "pd_src_physician": {"kind": "mart", "phase": "sync --ref", "built_from": ['ref.111_physician'], "description": "Mart copy of 111_physician for the market state plus every spine NPI, swapped in atomically after each copy."},
+    "pd_src_group_practice": {"kind": "mart", "phase": "sync --ref", "built_from": ['ref.cms_group_practice'], "description": "Mart copy of the CMS group membership rows that touch the market state."},
     "lookup.npi_spec_grp": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Specialty group code to name and taxonomy category."},
     "lookup.diagnosis": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "ICD-10 diagnosis code to description."},
     "lookup.procd": {"kind": "warehouse", "phase": "warehouse load, outside this pipeline", "description": "Procedure code to description and fee-schedule RVU columns."},
     # mart: built by this pipeline
-    "pd_provider": {"kind": "mart", "phase": "Phase 1, overlaid by every later phase", "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns."},
-    "pd_provider_practice": {"kind": "mart", "phase": "Phase 3", "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5."},
-    "pd_provider_group_practice": {"kind": "mart", "phase": "Phase 4", "description": "Billing organizations per NPI in the window (Phase 4)."},
-    "pd_provider_hospital_affiliation": {"kind": "mart", "phase": "Phase 4", "description": "Top 5 distinct health systems per NPI by visits (Phase 4)."},
-    "pd_provider_referral": {"kind": "mart", "phase": "Phase 5", "description": "Top 3 referral peers per NPI per direction (Phase 5)."},
-    "pd_provider_utilization": {"kind": "mart", "phase": "extras", "description": "Care Compare categories per NPI (extras)."},
-    "pd_group_practice": {"kind": "mart", "phase": "Phase 2, 4, 6 and overlay-cms", "description": "Precomputed group-practice dump, one row per org per member scope."},
-    "pd_network_npi": {"kind": "mart", "phase": "Phase 1", "description": "NPI to hospital CCN from PDC facility affiliations (Phase 1)."},
-    "pd_refresh_state": {"kind": "mart", "phase": "Phase 6", "description": "Current window and refresh watermark (Phase 6)."},
-    "pd_stg_window_claim": {"kind": "mart", "phase": "Phase 2", "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2)."},
-    "pd_stg_visit": {"kind": "mart", "phase": "Phase 2", "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2)."},
-    "pd_stg_panel_patient": {"kind": "mart", "phase": "Phase 2", "description": "Distinct patients per NPI with age and gender (Phase 2)."},
-    "pd_stg_top_dx": {"kind": "mart", "phase": "Phase 2", "description": "Top 3 diagnoses per NPI with visit counts (Phase 2)."},
-    "pd_stg_top_px": {"kind": "mart", "phase": "Phase 2", "description": "Top 3 procedures per NPI with visit counts (Phase 2)."},
-    "pd_stg_visit_site": {"kind": "mart", "phase": "Phase 3", "description": "One service location per encounter, the modal one (Phase 3)."},
-    "pd_stg_npi_sl": {"kind": "mart", "phase": "Phase 3", "description": "Visits per NPI per location with the site cluster key (Phase 3)."},
-    "pd_stg_npi_wrvu": {"kind": "mart", "phase": "Phase 4", "description": "RVU total and contributing visits per NPI (Phase 4)."},
-    "pd_stg_site_wrvu": {"kind": "mart", "phase": "Phase 4", "description": "RVU per NPI per site (Phase 4)."},
-    "pd_stg_npi_payor": {"kind": "mart", "phase": "Phase 4", "description": "Claim counts per NPI per payer class and parent (Phase 4)."},
-    "pd_stg_visit_date": {"kind": "mart", "phase": "Phase 5", "description": "Service date per encounter, cached (Phase 5)."},
-    "pd_stg_npi_dow": {"kind": "mart", "phase": "Phase 5", "description": "Visits per NPI per weekday (Phase 5)."},
-    "pd_stg_site_dow": {"kind": "mart", "phase": "Phase 5", "description": "Visits per NPI per site per weekday (Phase 5)."},
-    "pd_stg_referral_edge": {"kind": "mart", "phase": "Phase 5", "description": "Referral edges summed over the window (Phase 5)."},
-    "pd_stg_npi_wrvu_prior": {"kind": "mart", "phase": "Phase 5", "description": "Prior-year RVU per NPI, cached (Phase 5)."},
-    "pd_stg_specialty_wrvu": {"kind": "mart", "phase": "Phase 5", "description": "Specialty RVU average, p25, median, p75 and count (Phase 5)."},
-    "pd_stg_npi_percentile": {"kind": "mart", "phase": "Phase 5", "description": "RVU percentile per NPI within specialty (Phase 5)."},
-    "pd_stg_npi_visits_percentile": {"kind": "mart", "phase": "Phase 5", "description": "Visits percentile per NPI within specialty (Phase 5)."},
+    "pd_provider": {"kind": "mart", "phase": "Phase 1, overlaid by every later phase", "built_from": ['claims.physician', 'lookup.npi_spec_grp', 'cms_pdc_clinician', 'cms_nppes_type1', 'cms_pdc_facility_affil', 'claims.physician_primary_affiliation', 'pd_stg_visit', 'pd_stg_panel_patient', 'pd_stg_top_dx', 'pd_stg_top_px', 'pd_stg_npi_wrvu', 'pd_stg_npi_payor', 'pd_stg_npi_dow', 'pd_stg_npi_wrvu_prior', 'pd_stg_specialty_wrvu', 'pd_stg_npi_percentile', 'pd_stg_npi_visits_percentile', 'pd_stg_visit_site', 'cms_pdc_mips', 'pd_src_physician', 'pd_src_group_practice', 'pd_stg_top_primary_px', 'pd_stg_npi_px_line', 'pd_stg_npi_avg_percentile', 'pd_group_practice'], "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns."},
+    "pd_provider_practice": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_npi_sl', 'claims.sl', 'cms_pdc_clinician', 'pd_stg_site_wrvu', 'pd_stg_site_dow'], "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5."},
+    "pd_provider_group_practice": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_src_group_practice', 'pd_provider'], "description": "Group memberships per NPI: the master-file group practice plus CMS reassignment groups (Phase 4)."},
+    "pd_provider_hospital_affiliation": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_npi_sl', 'claims.sl', 'pd_provider'], "description": "Top 5 parent organizations (claims.sl.sl_hospital_system_name) per NPI by visits; hidden list (Phase 4)."},
+    "pd_provider_referral": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_referral_edge', 'pd_provider'], "description": "Top 5 referral peers per NPI per direction after the exclusions (Phase 5)."},
+    "pd_provider_utilization": {"kind": "mart", "phase": "extras", "built_from": ['cms_pdc_utilization'], "description": "Care Compare categories per NPI (extras)."},
+    "pd_group_practice": {"kind": "mart", "phase": "Phase 2, 4, 6 and overlay-cms", "built_from": ['pd_provider', 'pd_src_physician', 'pd_src_group_practice'], "description": "Precomputed group-practice dump, one row per group practice (CMS group PAC ID) per member scope. Each member's parent organization is then set to the group's modal parent."},
+    "pd_network_npi": {"kind": "mart", "phase": "Phase 1", "built_from": ['cms_pdc_facility_affil', 'pd_provider'], "description": "NPI to hospital CCN from PDC facility affiliations (Phase 1)."},
+    "pd_refresh_state": {"kind": "mart", "phase": "Phase 6", "built_from": ['claims.period'], "description": "Current window and refresh watermark (Phase 6)."},
+    "pd_stg_window_claim": {"kind": "mart", "phase": "Phase 2", "built_from": ['claims.pat_dt'], "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2)."},
+    "pd_stg_visit": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_window_claim'], "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2)."},
+    "pd_stg_panel_patient": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_window_claim', 'pd_provider'], "description": "Distinct patients per NPI with age and gender (Phase 2)."},
+    "pd_stg_top_dx": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.diagnosis'], "description": "Top 5 diagnoses per NPI with visit counts (Phase 2)."},
+    "pd_stg_top_px": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "Top 5 procedures per NPI with visit counts (Phase 2)."},
+    "pd_stg_top_primary_px": {"kind": "mart", "phase": "Phase 2", "built_from": ['pd_stg_visit', 'lookup.procd'], "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2)."},
+    "pd_stg_visit_site": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_visit', 'pd_stg_window_claim'], "description": "One service location per encounter, the modal one (Phase 3)."},
+    "pd_stg_npi_sl": {"kind": "mart", "phase": "Phase 3", "built_from": ['pd_stg_visit_site', 'claims.sl'], "description": "Visits per NPI per location with the site cluster key (Phase 3)."},
+    "pd_stg_npi_px_line": {"kind": "mart", "phase": "Phase 4", "built_from": ['claims.pat_dt', 'pd_provider'], "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4)."},
+    "pd_stg_npi_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_npi_px_line', 'lookup.procd'], "description": "Work RVU total and priced procedure count per NPI (Phase 4)."},
+    "pd_stg_site_wrvu": {"kind": "mart", "phase": "Phase 4", "built_from": ['pd_stg_npi_px_line', 'lookup.procd'], "description": "Work RVU per NPI per location (Phase 4)."},
+    "pd_stg_npi_payor": {"kind": "mart", "phase": "Phase 4", "built_from": ['claims.dash_physician_payor_all', 'claims.payor', 'claims.pat_dt'], "description": "Claim counts per NPI per payer class and parent (Phase 4)."},
+    "pd_stg_visit_date": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'pd_stg_visit'], "description": "Service date per encounter, cached (Phase 5)."},
+    "pd_stg_npi_dow": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_visit_date', 'pd_stg_visit'], "description": "Visits per NPI per weekday (Phase 5)."},
+    "pd_stg_site_dow": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_visit_date', 'pd_stg_visit_site'], "description": "Visits per NPI per site per weekday (Phase 5)."},
+    "pd_stg_referral_edge": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.dash_physician_referrals_to_rendering'], "description": "Every referral edge (npi, direction, peer) in the window with patient and claim counts; cached across Phase 5 runs (Phase 5)."},
+    "pd_stg_npi_px_line_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['claims.pat_dt', 'pd_provider'], "description": "Prior-year billed procedure lines per NPI and code, cached (Phase 5)."},
+    "pd_stg_npi_wrvu_prior": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_stg_npi_px_line_prior', 'lookup.procd'], "description": "Prior-year work RVU per NPI, priced each run (Phase 5)."},
+    "pd_stg_specialty_wrvu": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Work RVU benchmarks per specialty among in-state peers with 50 or more visits: cohort average work RVU per procedure, p25, median and p75 of the clinicians' averages, the same statistics on totals, and the peer count (Phase 5)."},
+    "pd_stg_npi_percentile": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Work RVU total percentile per NPI within the in-state specialty peer set (Phase 5)."},
+    "pd_stg_npi_avg_percentile": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Average work RVU per procedure percentile per NPI within the in-state specialty peer set (Phase 5)."},
+    "pd_stg_npi_visits_percentile": {"kind": "mart", "phase": "Phase 5", "built_from": ['pd_provider'], "description": "Visits percentile per NPI within the in-state specialty peer set (Phase 5)."},
     # cms: external public files loaded into the mart
     "cms_pdc_clinician": {"kind": "cms", "phase": "Phase 1", "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)", "url": _pdc(PDC_CLINICIAN_DATASET),
                           "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs."},
@@ -114,11 +121,11 @@ TABLE_REGISTRY: dict[str, dict[str, str]] = {
                             "description": "Procedure categories with volume labels and percentiles. Loaded by extras."},
     "cms_nppes_type1": {"kind": "cms", "phase": "Phase 1", "source": "CMS NPPES monthly data dissemination file", "url": NPPES_INDEX_URL,
                         "description": "National NPI registry, Type 1 rows only: names, credential, sex, taxonomy, deactivation. Loaded by Phase 1."},
-    "cms_open_payments": {"kind": "cms", "phase": "retired", "source": "CMS Open Payments", "url": OPEN_PAYMENTS_SITE,
-                          "description": "Retired. No longer loaded; stays empty."},
+    "cms_open_payments": {"kind": "cms", "phase": "extras", "source": "CMS Open Payments", "url": OPEN_PAYMENTS_SITE,
+                          "description": "Industry payments to clinicians, totals per NPI and program year. Loaded by extras or sync --open-payments; the open_payments_* columns are omitted from the HTTP payload."},
 }
 
-_QUALIFIED_RE = re.compile(r"\b(az_cms|az|azal)\.([a-z_]+[a-z])")
+_QUALIFIED_RE = re.compile(r"\b(az_cms|az|azal|master_ref)\.([a-z0-9_]+[a-z])")
 _MART_RE = re.compile(r"\bpd_[a-z_]*[a-z_]")
 _CMS_RE = re.compile(r"\bcms_[a-z0-9_]*[a-z0-9]")
 
@@ -134,7 +141,7 @@ def tables_in(text: str) -> list[str]:
             found.append(key)
 
     for db, table in _QUALIFIED_RE.findall(text):
-        add(("lookup." if db == "azal" else "claims.") + table)
+        add(("lookup." if db == "azal" else "ref." if db == "master_ref" else "claims.") + table)
     for match in _MART_RE.findall(text) + _CMS_RE.findall(text):
         if match.endswith("_"):
             for key in TABLE_REGISTRY:
@@ -155,6 +162,8 @@ def describe_table(key: str, *, claims_db: str = "az", lookup_db: str = "azal") 
         name = f"{claims_db}.{key[len('claims.'):]}"
     elif key.startswith("lookup."):
         name = f"{lookup_db}.{key[len('lookup.'):]}"
+    elif key.startswith("ref."):
+        name = f"{REF_DB}.{key[len('ref.'):]}"
     else:
         name = key
     out: dict[str, Any] = {
@@ -168,6 +177,39 @@ def describe_table(key: str, *, claims_db: str = "az", lookup_db: str = "azal") 
     if meta["kind"] == "cms":
         out["source"] = meta["source"]
         out["url"] = meta["url"]
+    if meta["kind"] == "mart":
+        out["built_from"] = [_qualify(k, claims_db=claims_db, lookup_db=lookup_db) for k in meta.get("built_from", [])]
+    return out
+
+
+def _qualify(key: str, *, claims_db: str = "az", lookup_db: str = "azal") -> str:
+    if key.startswith("claims."):
+        return f"{claims_db}.{key[len('claims.'):]}"
+    if key.startswith("lookup."):
+        return f"{lookup_db}.{key[len('lookup.'):]}"
+    if key.startswith("ref."):
+        return f"{REF_DB}.{key[len('ref.'):]}"
+    return key
+
+
+# Profile hubs aggregate every staging table; following their built_from from a
+# field would list the whole mart under every field, so field lineage stops here.
+_HUB_TABLES = frozenset({"pd_provider", "pd_group_practice"})
+
+
+def table_closure(key: str, seen: set[str] | None = None) -> list[str]:
+    """A table plus everything it is built from, through staging but not through the profile hubs."""
+    seen = set() if seen is None else seen
+    if key in seen:
+        return []
+    seen.add(key)
+    out = [key]
+    if key in _HUB_TABLES:
+        return out
+    for dep in TABLE_REGISTRY[key].get("built_from", []):
+        for k in table_closure(dep, seen):
+            if k not in out:
+                out.append(k)
     return out
 
 
@@ -179,13 +221,15 @@ _VISIT = "A visit is one distinct encounter in the claims window {window}, credi
 _PANEL = "Panel patients are distinct patients on any claim line in {window} where this clinician is the rendering or the referring physician."
 _PANEL_DEV = "Grain: pd_stg_panel_patient (npi, pat_id) built from pd_stg_window_claim. A patient's age is the greatest age_code across their lines; gender is the first non-null gender_code."
 _RVU_DEV = (
-    "Per visit: azal.procd row for the visit's 5-character CPT/HCPCS px (procd_code = px). "
-    "WORK_RVU when >= 0.05; else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; "
-    "else the FACILITY equivalent; else nf_total_rvu when >= 0.5. Visits with no RVU are excluded. "
-    "Source: pd_stg_visit joined to azal.procd, summed into pd_stg_npi_wrvu (Phase 4)."
+    "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, "
+    "counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 "
+    "(0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. "
+    "5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. "
+    "Summed into pd_stg_npi_wrvu (Phase 4)."
 )
 _PAYER_DEV = (
-    "Share of claims in payer classes 1 to 4 (az.payor.is_payor_code). Class 5 Other and unmapped codes are outside the denominator. "
+    "Share of claims in payer classes 1, 2, 3, 4, 6 and 7 (az.payor.is_payor_code: 1 Medicare FFS, 2 Medicaid, 3 Commercial, 4 HMO, 6 Medicare Advantage, 7 Medicare Other). "
+    "Class 5 Other and unmapped codes are outside the denominator. "
     "Native markets: az.dash_physician_payor_all claim_count by rendering_physician_code in {window}. "
     "AZ_CMS: az_cms.pat_dt lines joined to az_cms.payor on encounter_payor_code (else payor_code), counted per distinct encounter and payer, "
     "because the blend's summary table only carries native claims. Staged in pd_stg_npi_payor."
@@ -199,14 +243,42 @@ _POS_DEV = (
     "else by the site's work_type label; else other. Share = bucket / visits with a site. Built by extras."
 )
 _TOP_DX_DEV = (
-    "pd_stg_visit grouped by the visit's dx (MAX encounter_diagnosis_code over the encounter's lines), ranked by visit count desc then code, top 3, "
+    "pd_stg_visit grouped by the visit's dx (MAX encounter_diagnosis_code over the encounter's lines), ranked by visit count desc then code, top 5, "
     "in pd_stg_top_dx. Name from azal.diagnosis on diagnosis_code, cut to 80 characters."
 )
 _TOP_PX_DEV = (
-    "pd_stg_visit grouped by the visit's px (MAX encounter_work_procd_code), ranked by visit count desc then code, top 3, in pd_stg_top_px. "
+    "pd_stg_visit grouped by the visit's px (MAX encounter_work_procd_code), ranked by visit count desc then code, top 5, in pd_stg_top_px. "
     "Name from azal.procd on procd_code, cut to 80 characters."
 )
-_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px visit_count / pd_provider.visits_total x100, 2 decimals. Not stored; shares of all visits, so the three do not add to 100."
+_ORDINAL = {1: "Most common", 2: "Second most common", 3: "Third most common", 4: "Fourth most common", 5: "Fifth most common"}
+_TOP_PRIMARY_PX_DEV = (
+    "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU "
+    "(WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) "
+    "is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, "
+    "psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), "
+    "Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. "
+    "Ranked by visit count desc then code, top 5, in pd_stg_top_primary_px (Phase 2)."
+)
+
+
+def _top_code_entries() -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    kinds = (
+        ("visits_top_diagnosis", "Top diagnosis", "diagnosis code across the clinician's visits in {window}", "diagnosis", "that carried this diagnosis", _TOP_DX_DEV),
+        ("visits_top_procedure", "Top procedure", "procedure (CPT/HCPCS) across the clinician's visits in {window}", "procedure", "with this procedure", _TOP_PX_DEV),
+        ("visits_top_primary_procedure", "Top primary procedure", "procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in {window}", "primary procedure", "with this procedure", _TOP_PRIMARY_PX_DEV),
+    )
+    for prefix, label, first_help, noun, share_help, dev in kinds:
+        for i in range(1, 6):
+            ordinal = _ORDINAL[i]
+            help_code = f"{ordinal} {first_help}." if i == 1 else f"{ordinal} {noun} code."
+            out[f"{prefix}_{i}"] = _entry(f"{label} {i}", help_code, dev)
+            out[f"{prefix}_{i}_name"] = _entry(f"{label} {i}", f"Description of the {ordinal.lower()} {noun}.", dev)
+            out[f"{prefix}_{i}_percent"] = _entry("Share of visits", f"Share of the clinician's visits {share_help}.", _TOP_PCT_DEV)
+    return out
+
+
+_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the five do not add to 100."
 
 
 def _weekday_entries(scope_note: str, dev_note: str) -> dict[str, dict[str, str]]:
@@ -231,13 +303,13 @@ PROVIDER: dict[str, dict[str, str]] = {
     "suffix": _entry("Suffix", "Name suffix such as Jr or III, from claims, else CMS.", "Same merge order as first_name: az.physician, then cms_pdc_clinician, then cms_nppes_type1."),
     "credential": _entry("Credential", "Degree or credential such as MD, DO, NP, from claims, else CMS.",
                          "az.physician.degree_abbr, else cms_pdc_clinician.cred, else cms_nppes_type1 credential text."),
-    "gender": _entry("Provider gender", "The clinician's gender from CMS public files. Not the patient panel.",
+    "gender": _entry("Provider gender", "The clinician's gender from CMS public files.",
                      "cms_pdc_clinician.gndr first, else cms_nppes_type1 sex code, normalized to M or F. The warehouse carries no gender."),
     "medical_school_name": _entry("Medical school", "Medical school as reported to CMS.",
                                   "cms_pdc_clinician.med_sch on the preferred PDC row (in-state, with school, grad year, gender, phone), else NPPES. 'OTHER' is treated as blank."),
     "medical_school_graduation_year": _entry("Graduation year", "Medical school graduation year as reported to CMS.",
                                              "cms_pdc_clinician.grd_yr, else cms_nppes_type1."),
-    "estimated_age": _entry("Estimated age", "Approximate age, estimated from medical school graduation year. Not a date of birth.",
+    "estimated_age": _entry("Estimated age", "Approximate age, estimated from medical school graduation year.",
                             "2024 - grd_yr + 26 (REPORT_YEAR, GRAD_AGE_OFFSET), grd_yr from cms_pdc_clinician else cms_nppes_type1. Null when grd_yr is missing, before 1950 or after 2024. Capped at 90. transforms.estimated_age."),
     "primary_specialty_code": _entry("Specialty code", "Taxonomy code of the clinician's primary specialty.",
                                      "az.physician.npi_spec_grp_code. Also the peer group for the specialty percentiles."),
@@ -246,31 +318,19 @@ PROVIDER: dict[str, dict[str, str]] = {
     "specialty_classification": _entry("Specialty group", "Broader classification of the specialty, for example Internal Medicine.",
                                        "azal.npi_spec_grp.taxonomy_cat_name, else az.physician.taxonomy_cat_name."),
     "in_system_provider": _entry("In-system", "The clinician has a hospital affiliation on file with CMS.",
-                                 "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs. Not a contracted-network flag."),
+                                 "1 when any cms_pdc_facility_affil row exists for the NPI (PDC Facility Affiliation dataset 27ea-46a8). pd_network_npi holds the CCNs."),
+    "affiliation_name": _entry("Affiliation", "The organization the clinician is affiliated with in the master reference file. One per clinician; blank when none is on file.", "master_ref.111_physician.affiliation_dba_name, else affiliation_name, on the clinician's row (pd_src_physician). A solo clinician's own NPI and name as the affiliation, code 0, <Unavail> and Unknown are shown as blank. Written by sync --ref."),
+    "affiliation_code": _entry("Affiliation id", "Reference identifier of the affiliated organization.", "master_ref.111_physician.affiliation_code via pd_src_physician, null when it is the clinician's own NPI or 0 (no organization)."),
+    "affiliation_source": _entry("Affiliation source", "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise.", "'master_ref' when filled from pd_src_physician; 'claims' when the claims tie-break replaced a stale group and the affiliation followed; else null."),
+    "reference_group_id": _entry("Reference group id", "Group practice id for the clinician in the master reference file. The same value as the group practice id on this profile.", "master_ref.111_physician.group_prac_code via pd_src_physician: the CMS group PAC ID (the key of pd_src_group_practice), null when 0. Same value as primary_organization_id (the group key); ref-compare compares its name with billing_organization_name."),
+    "reference_group_name": _entry("Reference group", "Group practice name for the clinician in the master reference file.", "master_ref.111_physician.group_prac_name via pd_src_physician, cleaned like affiliation_name."),
     "name_source": _entry("Name source", "Which source supplied the name: claims, CMS PDC, or NPPES.", "transforms.merge_identity: 'claims' (az.physician) unless the claims last name is blank, then 'pdc' (cms_pdc_clinician), then 'nppes' (cms_nppes_type1)."),
     "gender_source": _entry("Gender source", "Which CMS file supplied the gender.", "'pdc' when cms_pdc_clinician has a gender, else 'nppes' from cms_nppes_type1, else null."),
     "school_source": _entry("School source", "Which CMS file supplied the medical school.", "'pdc' when cms_pdc_clinician has a school, else 'nppes' from cms_nppes_type1, else null."),
     "active_provider": _entry("Active", "The clinician had at least one visit or one panel patient in {window}.",
                               "pd_provider.active_provider = 1 when visits_total > 0 or panel_size > 0 (Phase 2 overlay)."),
     "visits_total": _entry("Visits", _VISIT, "COUNT(*) of pd_stg_visit rows where rendering_npi = this NPI. pd_stg_visit is one row per encounter_id from pd_stg_window_claim; rendering_npi = MAX(encounter_rendering_physician_code)."),
-    "visits_top_diagnosis_1": _entry("Top diagnosis 1", "Most common diagnosis code across the clinician's visits in {window}.", _TOP_DX_DEV),
-    "visits_top_diagnosis_1_name": _entry("Top diagnosis 1", "Description of the most common diagnosis.", _TOP_DX_DEV),
-    "visits_top_diagnosis_1_percent": _entry("Share of visits", "Share of the clinician's visits that carried this diagnosis.", _TOP_PCT_DEV),
-    "visits_top_diagnosis_2": _entry("Top diagnosis 2", "Second most common diagnosis code.", _TOP_DX_DEV),
-    "visits_top_diagnosis_2_name": _entry("Top diagnosis 2", "Description of the second most common diagnosis.", _TOP_DX_DEV),
-    "visits_top_diagnosis_2_percent": _entry("Share of visits", "Share of visits that carried this diagnosis.", _TOP_PCT_DEV),
-    "visits_top_diagnosis_3": _entry("Top diagnosis 3", "Third most common diagnosis code.", _TOP_DX_DEV),
-    "visits_top_diagnosis_3_name": _entry("Top diagnosis 3", "Description of the third most common diagnosis.", _TOP_DX_DEV),
-    "visits_top_diagnosis_3_percent": _entry("Share of visits", "Share of visits that carried this diagnosis.", _TOP_PCT_DEV),
-    "visits_top_procedure_1": _entry("Top procedure 1", "Most common procedure (CPT/HCPCS) across the clinician's visits in {window}.", _TOP_PX_DEV),
-    "visits_top_procedure_1_name": _entry("Top procedure 1", "Description of the most common procedure.", _TOP_PX_DEV),
-    "visits_top_procedure_1_percent": _entry("Share of visits", "Share of the clinician's visits with this procedure.", _TOP_PCT_DEV),
-    "visits_top_procedure_2": _entry("Top procedure 2", "Second most common procedure code.", _TOP_PX_DEV),
-    "visits_top_procedure_2_name": _entry("Top procedure 2", "Description of the second most common procedure.", _TOP_PX_DEV),
-    "visits_top_procedure_2_percent": _entry("Share of visits", "Share of visits with this procedure.", _TOP_PCT_DEV),
-    "visits_top_procedure_3": _entry("Top procedure 3", "Third most common procedure code.", _TOP_PX_DEV),
-    "visits_top_procedure_3_name": _entry("Top procedure 3", "Description of the third most common procedure.", _TOP_PX_DEV),
-    "visits_top_procedure_3_percent": _entry("Share of visits", "Share of visits with this procedure.", _TOP_PCT_DEV),
+    **_top_code_entries(),
     "panel_size": _entry("Panel size", _PANEL + " A clinician who only refers has a panel but no visits.", _PANEL_DEV + " panel_size = COUNT(*) per npi."),
     "panel_average_age": _entry("Average patient age", "Mean age of the clinician's panel patients.", _PANEL_DEV + " AVG(age_code) over ages 0 to 120, 1 decimal."),
     "panel_percent_age_0_19": _entry("Age 0 to 19", "Share of panel patients aged 0 to 19.", _PANEL_DEV + " Patients with age_code 0 to 19 / panel_size x100."),
@@ -281,38 +341,53 @@ PROVIDER: dict[str, dict[str, str]] = {
     "panel_percent_female": _entry("Female", "Share of panel patients recorded as female. Unknown gender stays in the denominator.", _PANEL_DEV + " gender_code in (F, FEMALE) / panel_size x100."),
     "panel_percent_male": _entry("Male", "Share of panel patients recorded as male.", _PANEL_DEV + " gender_code in (M, MALE) / panel_size x100."),
     "provider_practices_total": _entry("Sites", "Number of practice sites shown, at most 5.", "COUNT of pd_provider_practice rows for the NPI after ranking to MAX_PRACTICE_SITES = 5."),
-    "wrvu_total": _entry("RVU total", "Total relative value units across the clinician's visits in {window}, one work procedure per visit. A volume measure, not a quality score.", _RVU_DEV + " ROUND(SUM, 2)."),
-    "wrvu_average": _entry("RVU per visit", "Average RVU per visit that had a procedure with an RVU.", _RVU_DEV + " wrvu_total / wrvu_procedure_count, 3 decimals. The UI leads with median and percentile instead."),
-    "wrvu_procedure_count": _entry("RVU visits", "Visits that contributed to the RVU total.", _RVU_DEV + " COUNT(*) of contributing visits."),
+    "wrvu_total": _entry("Work RVU total", "Physician work RVU summed over every procedure the clinician billed in {window}, priced from the Medicare fee schedule.", _RVU_DEV + " ROUND(SUM(line_count x work RVU), 2)."),
+    "wrvu_average": _entry("Average work RVU per procedure", "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries.", _RVU_DEV + " wrvu_total / wrvu_procedure_count, 3 decimals."),
+    "wrvu_procedure_count": _entry("Priced procedures", "Billed procedure lines in {window} that had a work RVU and so count toward the total.", _RVU_DEV + " SUM(line_count) of priced lines."),
     "visits_percent_third_party": _entry("Commercial", "Share of claims paid by commercial insurers.", _PAYER_DEV + " Class 3."),
     "visits_percent_medicaid": _entry("Medicaid", "Share of claims paid by Medicaid, including managed care.", _PAYER_DEV + " Class 2."),
-    "visits_percent_medicare_advantage": _entry("Medicare Advantage", "Share of claims paid by Medicare Advantage plans.", _PAYER_DEV + " Class 4."),
+    "visits_percent_medicare_advantage": _entry("Medicare Advantage", "Share of claims paid by Medicare Advantage plans.", _PAYER_DEV + " Class 6. Before the class-7 rework this column held class 4 (HMO)."),
     "visits_percent_medicare_traditional": _entry("Medicare FFS", "Share of claims paid by traditional fee-for-service Medicare.", _PAYER_DEV + " Class 1."),
+    "visits_percent_hmo": _entry("HMO", "Share of claims paid by HMO plans.", _PAYER_DEV + " Class 4."),
+    "visits_percent_medicare_other": _entry("Medicare Other", "Share of claims paid by other Medicare programs.", _PAYER_DEV + " Class 7."),
     "top_payer_name_1": _entry("Top commercial payer 1", "Largest commercial payer parent by claims.", "Class 3 rows in pd_stg_npi_payor grouped by payor_parent_name (az.payor.payor_parent_name, else payor_name), ranked by claim count. Commercial only."),
-    "top_payer_percent_1": _entry("Share of commercial", "This payer's share of the clinician's commercial claims, not of all claims.", "pd_stg_npi_payor claim_count / SUM(claim_count) over the NPI's class 3 rows x100."),
+    "top_payer_percent_1": _entry("Share of commercial", "This payer's share of the clinician's commercial claims.", "pd_stg_npi_payor claim_count / SUM(claim_count) over the NPI's class 3 rows x100."),
     "top_payer_name_2": _entry("Top commercial payer 2", "Second largest commercial payer parent.", "Rank 2 of the same pd_stg_npi_payor ranking."),
     "top_payer_percent_2": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 2."),
     "top_payer_name_3": _entry("Top commercial payer 3", "Third largest commercial payer parent.", "Rank 3 of the same pd_stg_npi_payor ranking."),
     "top_payer_percent_3": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 3."),
-    "primary_organization_id": _entry("Organization id", "Billing identifier of the clinician's primary organization.",
-                                      "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code. Also the key for the group-practice profile."),
-    "primary_organization_name": _entry("Organization", "The organization the clinician primarily bills under.", "Group practice name on the same az.physician_primary_affiliation row."),
-    "primary_organization_npi": _entry("Organization NPI", "NPI of the primary billing organization.", "Same billing code as primary_organization_id, from az.physician_primary_affiliation."),
-    "primary_organization_parent_id": _entry("Parent id", "Identifier of the parent health system.", "IP_hospital_system_code, else OP_hospital_system_code on az.physician_primary_affiliation."),
-    "primary_organization_parent_name": _entry("Parent system", "Parent health system of the primary organization.", "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation."),
+    "top_payer_name_4": _entry("Top commercial payer 4", "Fourth largest commercial payer parent.", "Rank 4 of the same pd_stg_npi_payor ranking."),
+    "top_payer_percent_4": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 4."),
+    "top_payer_name_5": _entry("Top commercial payer 5", "Fifth largest commercial payer parent.", "Rank 5 of the same pd_stg_npi_payor ranking."),
+    "top_payer_percent_5": _entry("Share of commercial", "Share of the clinician's commercial claims.", "Same pd_stg_npi_payor formula, rank 5."),
+    "primary_organization_id": _entry("Group practice id", "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile.",
+                                      "master_ref.111_physician.group_prac_code via pd_src_physician (sync --ref / Phase 4 overlay); null when 0 or the clinician's own NPI. Same id as pd_src_group_practice.group_pac_id."),
+    "primary_organization_name": _entry("Group practice", "The clinician's group practice as recorded in the master reference file.", "master_ref.111_physician.group_prac_name via pd_src_physician, cleaned of placeholders."),
+    "primary_organization_npi": _entry("Billing NPI", "The organization NPI the clinician bills under in claims.", "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4)."),
+    "billing_organization_id": _entry("Bills under id", "Identifier of the organization the clinician bills under in claims, which can differ from the group practice.", "az.physician_primary_affiliation: p_provider_billing_code when not a dummy, else i_provider_billing_code (Phase 4). The group key before the reference file took over."),
+    "billing_organization_name": _entry("Bills under", "The organization the clinician bills under in claims.", "p_dba_name, else I_dba_name, else group_prac_name on the az.physician_primary_affiliation row (Phase 4)."),
+    "primary_organization_parent_id": _entry("Parent organization id", "Identifier of the parent organization most of the clinician's group members are recorded under.", "IP_hospital_system_code, else OP_hospital_system_code on claims.physician_primary_affiliation (Phase 4), then replaced by the group's modal parent from pd_group_practice when the clinician has a group."),
+    "primary_organization_parent_name": _entry("Parent organization", "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under.", "IP_hospital_system_name, else OP_hospital_system_name on az.physician_primary_affiliation (Phase 4), then replaced by the group's modal parent from pd_group_practice when the clinician has a group."),
     **_weekday_entries("the clinician's visits", _DOW_DEV),
-    "wrvu_prior_year_total": _entry("Prior-year RVU", "RVU total for the 12 months before the window, {prior_window}.", "Same RVU formula over az.pat_dt for {prior_window}, joined to azal.procd on procd_code, cached in pd_stg_npi_wrvu_prior (Phase 5)."),
-    "wrvu_prior_year_average": _entry("Prior-year RVU per visit", "Average RVU per contributing visit in {prior_window}.", "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals."),
-    "wrvu_prior_year_procedure_count": _entry("Prior-year RVU visits", "Visits that contributed to the prior-year RVU total.", "pd_stg_npi_wrvu_prior.procedure_count: contributing visits in {prior_window}."),
-    "wrvu_yoy_change_pct": _entry("RVU change", "Percent change in RVU total versus the prior year.", "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql."),
-    "wrvu_state_specialty_average": _entry("Specialty average RVU", "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median.", "AVG(wrvu_total) over pd_provider rows with the same primary_specialty_code and wrvu_total > 0, in pd_stg_specialty_wrvu."),
-    "wrvu_state_specialty_median": _entry("Specialty median RVU", "Median RVU total among clinicians in the same specialty statewide.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the specialty's pd_provider.wrvu_total sorted ascending, n = NPIs with wrvu_total > 0."),
-    "wrvu_state_specialty_p25": _entry("Specialty 25th percentile", "RVU total at the 25th percentile of the specialty.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking."),
-    "wrvu_state_specialty_p75": _entry("Specialty 75th percentile", "RVU total at the 75th percentile of the specialty.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking."),
-    "wrvu_state_specialty_npi_count": _entry("Specialty peers", "Number of clinicians in the specialty with an RVU total.", "pd_stg_specialty_wrvu.npi_count: COUNT(*) of the specialty's pd_provider NPIs with wrvu_total > 0."),
-    "wrvu_specialty_percentile": _entry("RVU percentile", "Where the clinician's RVU total ranks within their specialty. 100 is the highest.", "ROW_NUMBER over the specialty ordered by wrvu_total asc / specialty count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total."),
-    "visits_specialty_percentile": _entry("Visits percentile", "Where the clinician's visit count ranks within their specialty. 100 is the highest.", "Same rank on pd_provider.visits_total among specialty NPIs with visits_total > 0 (pd_stg_npi_visits_percentile)."),
-    "activity_specialty_percentile": _entry("Activity vs specialty peers", "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality.", "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists."),
+    "wrvu_prior_year_total": _entry("Prior-year work RVU total", "The same work RVU total for the 12 months before the window, {prior_window}.", "Same line-level rule over az.pat_dt for {prior_window}: lines cached in pd_stg_npi_px_line_prior, priced on azal.procd into pd_stg_npi_wrvu_prior each run (Phase 5)."),
+    "wrvu_prior_year_average": _entry("Prior-year average work RVU per procedure", "Prior-year work RVU total divided by prior-year priced procedures, {prior_window}.", "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals."),
+    "wrvu_prior_year_procedure_count": _entry("Prior-year priced procedures", "Billed procedure lines that count toward the prior-year total.", "pd_stg_npi_wrvu_prior.procedure_count: priced lines in {prior_window}."),
+    "wrvu_yoy_change_pct": _entry("Work RVU change vs prior year", "Percent change of the work RVU total against the prior-year total.", "(pd_provider.wrvu_total - pd_stg_npi_wrvu_prior total) / prior x100, 2 decimals. Null when prior < 1.0; clamped to +/-9999.99. complete.yoy_change_sql."),
+    "wrvu_state_specialty_average": _entry("Specialty mean work RVU total", "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits.", "AVG(wrvu_total) over the benchmark peer set (complete.benchmark_peer_where), in pd_stg_specialty_wrvu."),
+    "wrvu_state_specialty_average_per_procedure": _entry("Specialty average work RVU per procedure", "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure.", "SUM(wrvu_total) / SUM(wrvu_procedure_count) over the benchmark peer set, 3 decimals, in pd_stg_specialty_wrvu.avg_wrvu_per_procedure (Phase 5)."),
+    "wrvu_state_specialty_median_per_procedure": _entry("Specialty median average work RVU per procedure", "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits.", "pd_stg_specialty_wrvu.median_wrvu_per_procedure: value at row FLOOR(n x 0.50) of the peer set's pd_provider.wrvu_average sorted ascending (Phase 5)."),
+    "wrvu_state_specialty_p25_per_procedure": _entry("Specialty 25th percentile average work RVU per procedure", "The average work RVU per procedure at the 25th percentile of same-specialty peers.", "pd_stg_specialty_wrvu.p25_wrvu_per_procedure: row FLOOR(n x 0.25) of the same ranking."),
+    "wrvu_state_specialty_p75_per_procedure": _entry("Specialty 75th percentile average work RVU per procedure", "The average work RVU per procedure at the 75th percentile of same-specialty peers.", "pd_stg_specialty_wrvu.p75_wrvu_per_procedure: row FLOOR(n x 0.75) of the same ranking."),
+    "wrvu_average_specialty_percentile": _entry("Average work RVU per procedure percentile within specialty", "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest.", "ROW_NUMBER over the peer set ordered by pd_provider.wrvu_average asc / peer count x100, 1 decimal (pd_stg_npi_avg_percentile, Phase 5)."),
+    "wrvu_state_specialty_median": _entry("Specialty median work RVU total", "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the peer set's pd_provider.wrvu_total sorted ascending, n = peers (benchmark_peer_where: same specialty, practice site in the market state, visits_total >= 50) with wrvu_total > 0."),
+    "wrvu_state_specialty_p25": _entry("Specialty 25th percentile work RVU total", "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking."),
+    "wrvu_state_specialty_p75": _entry("Specialty 75th percentile work RVU total", "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set.", "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking."),
+    "wrvu_state_specialty_npi_count": _entry("Peers in specialty", "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window.", "pd_stg_specialty_wrvu.npi_count: COUNT(*) of pd_provider NPIs with the specialty, wrvu_total > 0, visits_total >= BENCHMARK_MIN_VISITS and a pd_provider_practice site in the market state (complete.benchmark_peer_where)."),
+    "wrvu_specialty_percentile": _entry("Work RVU percentile within specialty", "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest.", "ROW_NUMBER over the benchmark peer set (benchmark_peer_where, wrvu_total > 0) ordered by wrvu_total asc / peer count x100, 1 decimal (pd_stg_npi_percentile). 93.9 = 93.9% of peers have a lower or equal total."),
+    "visits_specialty_percentile": _entry("Visits percentile", "Where the clinician's visit count ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest.", "Same rank on pd_provider.visits_total over the benchmark peer set (pd_stg_npi_visits_percentile)."),
+    "is_primary_member": _entry("Primary member", "On a group member list, whether this group is the clinician's group practice in the master reference file. Blank outside a group list.", "Picker dump only: (pd_provider.primary_organization_id = requested organization_id) when organization_id is given, else NULL. With membership=any, false rows are CMS reassignment memberships and count toward another group's totals."),
+    "zip": _entry("Primary site ZIP", "ZIP code of the clinician's main practice site.", "pd_provider_practice.zip on the site_rank 1 row (picker dump only)."),
+    "activity_specialty_percentile": _entry("Activity vs specialty peers (visits and work RVU)", "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank.", "ROUND((pd_stg_npi_visits_percentile + pd_stg_npi_percentile) / 2, 1) when both exist, else whichever exists."),
     "group_size": _entry("Group size", "Number of clinicians in the group practice as reported to CMS.", "cms_pdc_clinician.num_org_mem on the preferred PDC row (extras)."),
     "telehealth_offered": _entry("Telehealth offered", "The clinician reports offering telehealth to CMS.", "cms_pdc_clinician.telehlth: Y/YES/TRUE/1 -> true, N/NO/FALSE/0 -> false, else null."),
     "secondary_specialty_1": _entry("Secondary specialty 1", "Additional specialty reported to CMS.", "cms_pdc_clinician.sec_spec_1, loaded by extras --reload-pdc."),
@@ -325,22 +400,22 @@ PROVIDER: dict[str, dict[str, str]] = {
     "visits_percent_office": _entry("Office", "Share of visits in a physician office.", _POS_DEV + " Bucket office."),
     "visits_percent_hopd": _entry("Hospital outpatient", "Share of visits in a hospital outpatient department.", _POS_DEV + " Bucket hopd."),
     "visits_percent_asc": _entry("Ambulatory surgery", "Share of visits in an ambulatory surgery center.", _POS_DEV + " Bucket asc."),
-    "visits_percent_ed": _entry("Emergency", "Share of visits in an emergency department.", _POS_DEV + " Bucket ed."),
+    "visits_percent_ed": _entry("Emergency or urgent care", "Share of visits in an emergency department or urgent care centre.", _POS_DEV + " Bucket ed: POS 23 or a site whose work type is Emergency Department or Urgent Care."),
     "visits_percent_telehealth": _entry("Telehealth", "Share of visits delivered by telehealth.", _POS_DEV + " Bucket telehealth."),
     "visits_percent_inpatient": _entry("Inpatient", "Share of visits in an inpatient hospital setting.", _POS_DEV + " Bucket inpatient."),
     "visits_percent_lab": _entry("Laboratory", "Share of visits at an independent laboratory.", _POS_DEV + " Bucket lab."),
     "visits_percent_other_pos": _entry("Other settings", "Share of visits in any other place of service.", _POS_DEV + " Bucket other."),
     "mips_final_score": _entry("MIPS final score", "CMS Merit-based Incentive Payment System final score, latest published year.", "cms_pdc_mips.final_score on npi, the individual row first, else the row for the NPI's org_pac_id (dataset a174-a962)."),
     "mips_quality_score": _entry("MIPS quality score", "CMS MIPS quality category score.", "cms_pdc_mips.quality_score, same row choice as the final score."),
-    "open_payments_year": _entry("Open Payments year", "Not shown. Open Payments was retired from the directory.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
-    "open_payments_general_total": _entry("Open Payments general", "Not shown; retired.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
-    "open_payments_research_total": _entry("Open Payments research", "Not shown; retired.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
-    "open_payments_ownership_total": _entry("Open Payments ownership", "Not shown; retired.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
-    "open_payments_count": _entry("Open Payments count", "Not shown; retired.", "cms_open_payments is no longer loaded; always null. Omitted from HTTP GET."),
+    "open_payments_year": _entry("Open Payments year", "Hidden in the UI. Program year of the clinician's Open Payments totals.", "cms_open_payments.program_year for the latest loaded year (extras / sync --open-payments). Omitted from HTTP GET."),
+    "open_payments_general_total": _entry("Open Payments general", "Hidden in the UI. General payments total for the program year.", "cms_open_payments.general_total for the latest loaded year. Omitted from HTTP GET."),
+    "open_payments_research_total": _entry("Open Payments research", "Hidden in the UI. Research payments total for the program year.", "cms_open_payments.research_total for the latest loaded year. Omitted from HTTP GET."),
+    "open_payments_ownership_total": _entry("Open Payments ownership", "Hidden in the UI. Ownership and investment interest total for the program year.", "cms_open_payments.ownership_total for the latest loaded year. Omitted from HTTP GET."),
+    "open_payments_count": _entry("Open Payments count", "Hidden in the UI. Number of payment records for the program year.", "cms_open_payments.payment_count for the latest loaded year. Omitted from HTTP GET."),
     "practices": _entry("Sites", "Up to 5 practice locations ranked by the clinician's visits there, from claims.", "pd_provider_practice rows, site_rank 1 to 5. See the practice scope."),
-    "group_practices": _entry("Group practices", "Every organization the clinician billed under in {window}, primary first.", "pd_provider_group_practice rows. See the group_practice scope."),
-    "hospital_affiliations": _entry("Hospital affiliations", "Up to 5 distinct health systems where the clinician's visits took place, by visit share.", "pd_provider_hospital_affiliation rows. See the hospital_affiliation scope."),
-    "referrals": _entry("Referrals", "Top 3 clinicians who refer to this clinician, and top 3 this clinician refers to.", "pd_provider_referral rows. See the referral scope."),
+    "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "pd_provider_group_practice rows. See the group_practice scope."),
+    "hospital_affiliations": _entry("Facility affiliations (hidden)", "Hidden in the UI: a visit-based grouping of facilities whose parent grouping data is not reliable enough to display.", "pd_provider_hospital_affiliation rows. See the hospital_affiliation scope."),
+    "referrals": _entry("Referrals", "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "pd_provider_referral rows. See the referral scope."),
     "utilization": _entry("Care Compare utilization", "Not on the HTTP profile.", "pd_provider_utilization from cms_pdc_utilization (n0yb-util), top 5 by percentile. CLI get only."),
     # Picker (dump) rows only
     "practice_name": _entry("Primary site", "Name of the clinician's primary practice site.", "pd_provider_practice.name where site_rank = 1."),
@@ -349,40 +424,128 @@ PROVIDER: dict[str, dict[str, str]] = {
 }
 
 GROUP_OVERRIDES: dict[str, dict[str, str]] = {
-    "organization_id": _entry("Organization id", "Billing identifier of the group. Members are the clinicians whose primary organization this is.", "pd_provider.primary_organization_id. One pd_group_practice row per org per member scope (all / active / inactive)."),
-    "organization_name": _entry("Organization", "Name of the group practice.", "MAX(pd_provider.primary_organization_name) over members, in pd_group_practice."),
-    "organization_npi": _entry("Organization NPI", "NPI of the billing organization.", "MAX(pd_provider.primary_organization_npi) over members, in pd_group_practice."),
-    "parent_id": _entry("Parent id", "Identifier of the parent health system.", "MAX(pd_provider.primary_organization_parent_id) over members, in pd_group_practice."),
-    "parent_name": _entry("Parent system", "Parent health system of the group.", "MAX(pd_provider.primary_organization_parent_name) over members, in pd_group_practice."),
-    "provider_count": _entry("Clinicians", "Number of individual clinicians whose primary organization is this group.", "COUNT(*) of pd_provider rows with this primary_organization_id, in the requested member scope."),
+    "organization_id": _entry("Group practice id", "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is.", "pd_provider.primary_organization_id. One pd_group_practice row per group per member scope (all / active / inactive)."),
+    "organization_name": _entry("Group practice", "Name of the group practice.", "MAX(pd_provider.primary_organization_name) over members, in pd_group_practice."),
+    "organization_npi": _entry("Organization NPI", "Blank: a group is keyed by its CMS group PAC ID, which is not an NPI.", "NULL in pd_group_practice since the group key moved to the master-file group practice; no table."),
+    "state": _entry("State", "The state where most of the group's member clinicians practise, from the master reference file. The group picker shows this state's groups unless asked for others.", "pd_src_physician.state_abbr carried by the most members of the group (ties: most visits), in pd_group_practice."),
+    "parent_id": _entry("Parent organization id", "Identifier of the group's parent organization.", "The pd_provider.primary_organization_parent_id carried by the most members (ties: most visits, then name), in pd_group_practice."),
+    "parent_name": _entry("Parent organization", "Parent organization of the group: the one most of its member clinicians are recorded under. Each member's own parent is then set to this value.", "The pd_provider.primary_organization_parent_name carried by the most members (ties: most visits, then name); blank and Unknown parents are ignored. In pd_group_practice; written back to every member's primary_organization_parent_* by rebuild_group_summary."),
+    "provider_count": _entry("Clinicians", "Number of individual clinicians whose group practice in the master reference file is this group.", "COUNT(*) of pd_provider rows with this primary_organization_id, in the requested member scope."),
     "active_provider_count": _entry("Active clinicians", "Members with at least one visit or panel patient in {window}.", "SUM(pd_provider.active_provider = 1) over members, in pd_group_practice."),
     "in_system_provider_count": _entry("In-system clinicians", "Members with a CMS hospital affiliation.", "SUM(pd_provider.in_system_provider = 1) over members, in pd_group_practice."),
     "visits_total": _entry("Visits", "Sum of member clinicians' visits in {window}. An encounter billed by two members counts twice.", "SUM(IFNULL(pd_provider.visits_total, 0)) over members, precomputed in pd_group_practice."),
     "panel_size": _entry("Panel size", "Sum of member clinicians' panel sizes. Patients seen by two members count twice.", "SUM(IFNULL(pd_provider.panel_size, 0)) over members, in pd_group_practice."),
-    "wrvu_total": _entry("RVU total", "Sum of member clinicians' RVU totals.", "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice."),
+    "wrvu_total": _entry("Work RVU total, members combined", "Sum of the member clinicians' work RVU totals.", "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice."),
     "visits_per_provider": _entry("Visits per clinician", "Group visits divided by number of member clinicians.", "pd_group_practice.visits_total / provider_count, 1 decimal."),
-    "visits_percentile": _entry("Visits percentile", "Where this group's visit total ranks among all groups. 100 is the highest.", "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Among groups, not specialty peers."),
+    "visits_percentile": _entry("Visits percentile", "Where this group's visit total ranks among all groups. 100 is the highest.", "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Ranked among all groups."),
     "activity_percentile": _entry("Activity percentile", "Where this group's visits per clinician ranks among all groups. 100 is the highest.", "pd_group_practice: same rank on visits_total / provider_count."),
     "visits_are_summed_across_npis": _entry("Summed across clinicians", "Volume on this page is summed across member clinicians.", "Always true on the group payload; no table."),
+    "member_count_any": _entry("Clinicians listing this group", "Number of clinicians whose group list includes this group, from the master reference file or the CMS reassignment file, primary or not. The totals on this page use only primary members.", "Group profile only: COUNT(DISTINCT npi) of pd_provider_group_practice rows for the organization_id that exist in pd_provider. The picker with membership=any returns this many."),
     "primary_specialty_code": _entry("Specialty code", "Taxonomy code of the group's most common member specialty.", "pd_provider.primary_specialty_code of members, the code with the most summed visits."),
     "primary_specialty_description": _entry("Specialty", "The group's most common member specialty, by visits.", "pd_provider.primary_specialty_description for the member specialty code with the highest summed visits."),
     "in_system_provider": _entry("In-system", "At least one member has a CMS hospital affiliation.", "pd_group_practice.in_system_provider_count >= 1."),
     "active_provider": _entry("Active", "At least one member was active in {window}.", "pd_group_practice.active_provider_count >= 1."),
-    "group_size": _entry("Group size", "Largest CMS-reported group size among members.", "MAX(pd_provider.group_size) over members, not provider_count."),
+    "group_size": _entry("Group size", "Largest CMS-reported group size among members.", "MAX(pd_provider.group_size) over members."),
     "telehealth_offered": _entry("Telehealth offered", "At least one member reports offering telehealth to CMS.", "MAX(pd_provider.telehealth_offered) over members."),
-    "wrvu_average": _entry("RVU per visit", "Group RVU total divided by contributing visits across members.", "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members."),
-    "wrvu_procedure_count": _entry("RVU visits", "Sum of member visits that contributed an RVU.", "SUM(pd_provider.wrvu_procedure_count) over members."),
+    "wrvu_average": _entry("Average work RVU per procedure, members combined", "Members' work RVU total divided by members' priced procedures.", "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members."),
+    "wrvu_procedure_count": _entry("Priced procedures, members combined", "Sum of members' priced procedure lines.", "SUM(pd_provider.wrvu_procedure_count) over members."),
 }
 
 _GROUP_PCT_NOTE = " On the group page this is weighted across members by their visits."
 
 
+# Search and picker controls. Keys are the query parameters of GET /v1/providers
+# (provider_filter) and GET /v1/group-practices (group_filter); the UI binds a
+# checkbox or input tooltip by scope + parameter name.
+PROVIDER_FILTER: dict[str, dict[str, str]] = {
+    "last_name": _entry("Last name", "Clinicians whose last name starts with the text.", "pd_provider.last_name LIKE 'text%'."),
+    "npi": _entry("NPI", "One clinician by exact 10-digit NPI.", "pd_provider.npi = value."),
+    "specialty": _entry("Specialty", "Clinicians whose specialty code matches, or whose specialty description contains the text.", "pd_provider.primary_specialty_code = text OR primary_specialty_description LIKE '%text%'."),
+    "organization": _entry("Group practice contains", "Clinicians whose group practice name (master reference file) contains the text.", "pd_provider.primary_organization_name LIKE '%text%'."),
+    "organization_id": _entry("Group practice id", "Clinicians whose group practice (master reference file) has this id.", "pd_provider.primary_organization_id = value. The group profile's member list uses this."),
+    "city": _entry("City contains", "Clinicians whose main practice site is in a city containing the text.", "pd_provider_practice.city LIKE '%text%' on the site_rank 1 row."),
+    "zip": _entry("ZIP code", "Clinicians with any of their top five practice sites in this 5-digit ZIP code, or in a 3-digit ZIP prefix.", "EXISTS pd_provider_practice row for the NPI with zip = value, or zip LIKE 'ddd%' for a 3-digit prefix."),
+    "active": _entry("Active only", "Show only clinicians with at least one visit or panel patient in {window}. Unchecked, the list includes clinicians with no claims activity in the window.", "On: pd_provider.active_provider = 1. Off: no clause. Explicit false: active_provider = 0 or NULL."),
+    "in_system": _entry("In-system only", "Show only clinicians with a facility affiliation on file with CMS.", "On: pd_provider.in_system_provider = 1, set in Phase 1 when a cms_pdc_facility_affil row exists for the NPI. Off: no clause."),
+    "min_visits": _entry("Minimum visits", "Lower bound on the clinician's visits in {window}. The default of 1 leaves out clinicians who only appear as referring physicians.", "IFNULL(pd_provider.visits_total, 0) >= value."),
+    "max_visits": _entry("Maximum visits", "Upper bound on the clinician's visits in {window}. Set it equal to the minimum for an exact count.", "IFNULL(pd_provider.visits_total, 0) <= value."),
+    "membership": _entry("Membership", "With a group practice id: primary lists clinicians whose master-file group practice is this group; any lists every clinician whose group list, from the master reference file or CMS reassignment, includes it.", "primary: pd_provider.primary_organization_id = id. any: EXISTS a pd_provider_group_practice row for the NPI and organization_id."),
+}
+
+GROUP_FILTER: dict[str, dict[str, str]] = {
+    "organization": _entry("Organization contains", "Groups whose name contains the text.", "pd_group_practice.organization_name LIKE '%text%'."),
+    "organization_id": _entry("Group practice id", "One group by its exact group practice id (CMS group PAC ID).", "pd_group_practice.organization_id = value."),
+    "parent": _entry("Parent organization contains", "Groups whose parent organization name contains the text.", "pd_group_practice.parent_name LIKE '%text%'."),
+    "active": _entry("Roll up active providers only", "Count and sum only member clinicians with activity in {window}. Unchecked, every member counts, active or not, so visits and clinician counts can be higher.", "On: the member_scope = 'active' rows of pd_group_practice (members with pd_provider.active_provider = 1). Off: member_scope = 'all'."),
+    "in_system": _entry("Has in-system providers", "Show only groups with at least one member who has a facility affiliation on file with CMS.", "pd_group_practice.in_system_provider_count >= 1 (members with pd_provider.in_system_provider = 1). Explicit false: in_system_provider_count = 0."),
+    "min_visits": _entry("Minimum visits", "Lower bound on the group's visits in {window}, summed across member clinicians.", "pd_group_practice.visits_total >= value."),
+    "max_visits": _entry("Maximum visits", "Upper bound on the group's summed visits in {window}.", "pd_group_practice.visits_total <= value."),
+    "min_providers": _entry("Minimum clinicians", "Show only groups with at least this many member clinicians in the chosen roll-up.", "pd_group_practice.provider_count >= value, in the selected member_scope."),
+    "group_state": _entry("Include out-of-state groups", "Unchecked, the list shows groups whose members mostly practise in this state. Checked, national groups with a few local claims appear too.", "API group_state: 'market' (default) = pd_group_practice.state equals the market state; 'any' = no state clause; or a USPS code."),
+}
+
+
+# Page sections and enumerated values the UI shows but no single field carries:
+# headings, their captions and the group-source codes. The UI binds these by
+# key like any field; `label` is the heading, `help` the caption or tooltip.
+SECTION: dict[str, dict[str, str]] = {
+    "volume": _entry("Volume", "Visits, panel size and work RVU for the clinician in {window}.", "UI heading over visits_total, panel_size, wrvu_total, wrvu_average and wrvu_procedure_count; no table."),
+    "work_rvu_vs_specialty": _entry("Work RVU vs specialty", "How the clinician's average work RVU per procedure, and their total, compare with same-specialty peers who practise in the state with at least 50 visits.", "UI heading over the wrvu_state_specialty_*_per_procedure fields, wrvu_average_specialty_percentile, and the total-based wrvu_state_specialty_* fields; no table."),
+    "standing": _entry("Standing", "Where the clinician ranks among specialty peers on visits and on activity.", "UI heading over visits_specialty_percentile and activity_specialty_percentile; no table."),
+    "office_em_visits": _entry("Office visits", "New and established patient office visits, from the office evaluation and management codes.", "UI heading over visits_new_patient, visits_established and visits_percent_new_patient; no table."),
+    "place_of_service": _entry("Place of service", "Share of the clinician's visits by care setting.", "UI heading over the visits_percent_office / hopd / asc / ed / telehealth / inpatient / lab / other_pos fields; no table."),
+    "visits_by_day": _entry("Visits by day of week", "Share of the clinician's visits on each weekday.", "UI heading over visits_percent_monday through visits_percent_sunday; no table."),
+    "top_diagnoses": _entry("Top diagnoses", "The five diagnoses most often on the clinician's visits, with each one's share of visits.", "UI heading over visits_top_diagnosis_1..5; no table."),
+    "top_procedures": _entry("Top billed codes", "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export.", "UI heading over visits_top_procedure_1..5; no table."),
+    "clinical_summary": _entry("Clinical summary", "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure.", "UI box over practices[0].zip, visits_top_diagnosis_1_name and visits_top_primary_procedure_1_name; no table."),
+    "top_primary_procedures": _entry("Top primary procedures", "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services.", "UI heading over visits_top_primary_procedure_1..5; no table."),
+    "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "UI heading over group_practices[]; no table."),
+    "group_source_R": _entry("Master reference file", "Group practice recorded for the clinician in the master reference file.", "group_practice.billing_type = 'R'; no table."),
+    "group_source_C": _entry("CMS reassignment", "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file.", "group_practice.billing_type = 'C'; no table."),
+    "referrals": _entry("Referrals", "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "UI heading over referrals[] in and out; no table."),
+    "referrals_in": _entry("Referrals in", "Clinicians whose patients went on to see this clinician.", "referral.direction = 'in'; no table."),
+    "referrals_out": _entry("Referrals out", "Clinicians this clinician's patients went on to see.", "referral.direction = 'out'; no table."),
+    "sites": _entry("Sites", "The clinician's top five practice locations by visits, named from the location's DBA or registered name, else its address.", "UI heading over practices[]; no table."),
+    "panel": _entry("Panel", "Age and sex of the clinician's patients, and the payers behind their visits.", "UI heading over the panel_* and visits_percent_* payer fields; no table."),
+    "payer_mix": _entry("Payer mix", "Share of claims by payer class: Medicare FFS, Medicare Advantage, Medicare Other, Medicaid, Commercial and HMO. Other is outside the denominator.", "UI heading over the six visits_percent_* payer-class fields; no table."),
+    "top_commercial_payers": _entry("Top commercial payers", "The five commercial payers with the most of the clinician's commercial claims, each as a share of commercial claims.", "UI heading over top_payer_name_1..5; no table."),
+    "cms": _entry("CMS", "Group size, telehealth, secondary specialties and MIPS scores as published by CMS.", "UI heading over group_size, telehealth_offered, secondary_specialty_* and mips_*; no table."),
+    "group_page_note": _entry("Summed across clinicians", "Figures on a group page are summed across member clinicians and can count an encounter twice when two members billed it.", "Caption for every group page; no table."),
+}
+
+
+# The same headings on a group page, worded for member-summed figures. The UI
+# uses group_section.<key> on a group page and section.<key> on a provider page;
+# keys missing here fall back to section.
+GROUP_SECTION: dict[str, dict[str, str]] = {
+    "clinicians": _entry("Clinicians", "How many clinicians belong to the group, how many were active in {window}, how many have a CMS facility affiliation, and visits per clinician.", "UI heading over provider_count, active_provider_count, in_system_provider_count and visits_per_provider; no table."),
+    "volume": _entry("Volume", "Visits, panel size and work RVU summed across the group's member clinicians in {window}. An encounter billed by two members counts twice.", "UI heading on the group page; no table."),
+    "work_rvu_vs_specialty": _entry("Work RVU vs specialty", "Hidden on a group page; specialty benchmarks are per clinician.", "Group pages have no specialty benchmark fields; no table."),
+    "standing": _entry("Standing", "Where the group ranks among all groups in the state on total visits and on visits per clinician.", "UI heading over visits_percentile and activity_percentile (group grain); no table."),
+    "office_em_visits": _entry("Office visits", "New and established patient office visits summed across member clinicians.", "UI heading on the group page; no table."),
+    "place_of_service": _entry("Place of service", "Share of the members' visits by care setting, weighted by each member's visits.", "UI heading on the group page; no table."),
+    "visits_by_day": _entry("Visits by day of week", "Share of the members' visits on each weekday, weighted by each member's visits.", "UI heading on the group page; no table."),
+    "top_diagnoses": _entry("Top diagnoses", "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share.", "UI heading on the group page; no table."),
+    "top_procedures": _entry("Top procedures", "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound.", "UI heading on the group page; no table."),
+    "top_primary_procedures": _entry("Top primary procedures", "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out.", "UI heading on the group page; no table."),
+    "group_practices": _entry("Group practices", "Hidden on a group page.", "Hidden on the group page; no table."),
+    "referrals": _entry("Referrals", "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out.", "UI heading on the group page; no table."),
+    "referrals_in": _entry("Referrals in", "Clinicians whose patients went on to see a member of the group.", "referral.direction = 'in' on the group page; no table."),
+    "referrals_out": _entry("Referrals out", "Clinicians the members' patients went on to see.", "referral.direction = 'out' on the group page; no table."),
+    "sites": _entry("Sites", "The five locations with the most member visits, with visits and work RVU summed across members at each.", "UI heading on the group page; no table."),
+    "panel": _entry("Panel", "Age and sex of the members' patients, weighted by each member's visits, and the payers behind their visits.", "UI heading on the group page; no table."),
+    "payer_mix": _entry("Payer mix", "Share of members' claims by payer class, weighted by each member's visits. Other is outside the denominator.", "UI heading on the group page; no table."),
+    "top_commercial_payers": _entry("Top commercial payers", "The five commercial payers with the most of the members' commercial claims, each as a share of the group's commercial claims.", "UI heading on the group page; no table."),
+    "cms": _entry("CMS", "Group size as published by CMS, and whether any member offers telehealth.", "UI heading on the group page; no table."),
+    "modal_specialty": _entry("Most common specialty", "The specialty with the most member visits. A multispecialty group shows its busiest specialty here.", "Group header caption for primary_specialty_description; no table."),
+}
+
+
 def _group_scope() -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for key, entry in PROVIDER.items():
-        if key in ("visits_top_diagnosis_1_percent", "visits_top_diagnosis_2_percent", "visits_top_diagnosis_3_percent",
-                   "visits_top_procedure_1_percent", "visits_top_procedure_2_percent", "visits_top_procedure_3_percent"):
-            out[key] = _entry(entry["label"], entry["help"] + " On the group page this is a lower bound: only members' stored top 3 codes are summed.",
+        if key.startswith("visits_top_") and key.endswith("_percent"):
+            out[key] = _entry(entry["label"], entry["help"] + " On the group page this is a lower bound: only members' stored top 5 codes are summed.",
                               entry["dev"] + " Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.")
         elif key.startswith("panel_percent_") or key.startswith("visits_percent_") or key == "panel_average_age":
             out[key] = _entry(entry["label"], entry["help"] + _GROUP_PCT_NOTE, entry["dev"] + " Group: member percent weighted by member visits_total (group_profile.weighted_pct_sql).")
@@ -397,14 +560,14 @@ PRACTICE: dict[str, dict[str, str]] = {
     "site_rank": _entry("Rank", "Site order by the clinician's visits there. 1 is the primary site.", "pd_stg_npi_sl: ROW_NUMBER per npi over street+ZIP clusters by visits desc, then lowest sl_code; ranks past 5 dropped into pd_provider_practice (Phase 3)."),
     "sl_code": _entry("Location code", "Warehouse code of the busiest location in this site.", "az.sl.sl_code of the cluster's canonical location (most visits)."),
     "cluster_key": _entry("Site key", "Key that groups suite variants of one address into a single site.", "From az.sl street, zip_code, latitude, longitude: 'a:' normalized street|ZIP5 when both exist; else 'g:' lat,lon rounded to 4 decimals; else 's:' sl_code. transforms.cluster_key."),
-    "name": _entry("Site name", "Name of the practice site.", "az.sl.sl_dba_name, then az.sl.sl_name for Type 2 locations. A Type 1 site named LAST, FIRST is rewritten to street and city in Phase 4."),
+    "name": _entry("Site name", "Name of the practice site: its DBA name, else its registered name, else street and city.", "az.sl.sl_dba_name, else sl_name, else sl_common_name, else street and city (Phase 3). Blank, Unknown and LAST, FIRST values fall through, so a site is never named Unknown. Phase 4 rewrites any remaining blank, Unknown or LAST, FIRST name to street and city."),
     "street": _entry("Street", "Street address of the site.", "az.sl.street on the canonical location."),
     "city": _entry("City", "City of the site.", "az.sl.city, text before the first comma."),
     "county": _entry("County", "County of the site.", "az.sl.county_name, text before the first comma."),
     "state": _entry("State", "State of the site.", "az.sl.state_abbr on the canonical location."),
     "zip": _entry("ZIP", "5-digit ZIP code of the site.", "LEFT(az.sl.zip_code, 5)."),
-    "latitude": _entry("Latitude", "Latitude of the site. Not used by the UI in v1.", "az.sl.latitude on the cluster's canonical location."),
-    "longitude": _entry("Longitude", "Longitude of the site. Not used by the UI in v1.", "az.sl.longitude on the cluster's canonical location."),
+    "latitude": _entry("Latitude", "Latitude of the site, unused by the UI in v1.", "az.sl.latitude on the cluster's canonical location."),
+    "longitude": _entry("Longitude", "Longitude of the site, unused by the UI in v1.", "az.sl.longitude on the cluster's canonical location."),
     "phone": _entry("Phone", "Phone number from CMS for this clinician at this address, when one matches. Blank means no match; never invented.", "cms_pdc_clinician phone where the PDC row shares the site's ZIP5 and either the normalized street or the city."),
     "work_type": _entry("Work type", "Type of care setting, from the place-of-service code on claims.", "az.sl.pos_type_code mapped via POS_WORK_TYPE (11 Office, 22 Hospital Outpatient, 23 Emergency Department, 24 Ambulatory Surgery Center, ...); else keyword match on az.sl.im_specialty_rollup; else null."),
     "visits_at_site": _entry("Visits at site", "The clinician's visits at this site in {window}.", "SUM of pd_stg_npi_sl.visits over the cluster's locations. Each visit's location is the modal sl_code across its claim lines (pd_stg_visit_site)."),
@@ -414,42 +577,42 @@ PRACTICE: dict[str, dict[str, str]] = {
     "location_flag": _entry("Location status", "Confidence flag for the address. Always claims-confirmed today.", "Constant 'claims_confirmed' on pd_provider_practice."),
     "phone_source": _entry("Phone source", "Where the phone came from: CMS PDC, or blank.", "'pdc' when the cms_pdc_clinician match found a phone, else null."),
     "needs_geocode": _entry("Needs geocode", "The warehouse has no coordinates for this location.", "az.sl.latitude or longitude is null."),
-    "wrvu_at_site": _entry("RVU at site", "The clinician's RVU total at this site.", "SUM of visit-grain RVU over visits at the site (pd_stg_site_wrvu, Phase 4)."),
-    "wrvu_share_pct": _entry("RVU share", "Share of the clinician's RVU total earned at this site.", "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals."),
+    "wrvu_at_site": _entry("Work RVU at site", "The clinician's work RVU total over procedures billed at this site.", "SUM of line-level work RVU for lines at the site's locations (pd_stg_site_wrvu, Phase 4)."),
+    "wrvu_share_pct": _entry("Share of work RVU at site", "This site's part of the clinician's work RVU total.", "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals."),
     **_weekday_entries("the clinician's visits at this site", "pd_stg_site_dow: visits at the site by DAYOFWEEK of the visit date / visits at the site with a date x100 (Phase 5)."),
 }
 
 GROUP_PRACTICE: dict[str, dict[str, str]] = {
-    "npi": _entry("NPI", "The clinician this organization row belongs to.", "pd_provider_group_practice.npi."),
-    "org_rank": _entry("Rank", "Order of the clinician's organizations: primary first.", "pd_provider_group_practice: ROW_NUMBER per npi: is_primary first, then more cases, then later max_period_code (Phase 4)."),
-    "organization_id": _entry("Organization id", "Billing identifier of the organization.", "provider_billing_code on az.physician_affiliation_p / _i, or pd_provider.primary_organization_id for the primary row."),
-    "organization_npi": _entry("Organization NPI", "NPI of the billing organization.", "Same billing code as organization_id, from az.physician_affiliation_p / _i."),
-    "organization_name": _entry("Organization", "Name of the organization the clinician billed under.", "dba_name on the az.physician_affiliation_p / _i row, or pd_provider.primary_organization_name."),
-    "billing_type": _entry("Billing type", "P for professional claims, I for institutional claims. Blank when the row came only from the primary affiliation.", "'P' from az.physician_affiliation_p, 'I' from az.physician_affiliation_i. P beats I when both exist for one org."),
-    "is_primary": _entry("Primary", "This is the clinician's primary billing organization.", "pd_provider_group_practice.organization_id = pd_provider.primary_organization_id."),
-    "cases": _entry("Cases", "Case count the warehouse attributes to the clinician at this organization.", "count_of_cases on the az.physician_affiliation_p / _i row; null for the primary-only row."),
-    "max_period_code": _entry("Last month billed", "Latest month (YYYYMM) the clinician billed under this organization.", "max_period_code on the az.physician_affiliation_p / _i row; must be >= window_start to be listed."),
+    "npi": _entry("NPI", "The clinician this group row belongs to.", "pd_provider_group_practice.npi."),
+    "org_rank": _entry("Rank", "Order of the clinician's groups: the master-file group practice first, then CMS reassignment groups.", "pd_provider_group_practice: ROW_NUMBER per npi: is_primary first, then group id (Phase 4)."),
+    "organization_id": _entry("Group practice id", "Identifier of the group (the CMS group PAC ID).", "pd_src_group_practice.group_pac_id for CMS rows, pd_provider.primary_organization_id for the primary row."),
+    "organization_npi": _entry("Organization NPI", "Blank: the group id is a CMS PAC ID, which is not an NPI.", "Always null since the reference sources took over."),
+    "organization_name": _entry("Group", "Name of the group practice.", "pd_src_group_practice.group_name (CMS legal business name) or pd_provider.primary_organization_name for the primary row."),
+    "billing_type": _entry("Source", "R: the master reference file's group practice. C: a CMS reassignment group.", "'R' from pd_provider.primary_organization_* (pd_src_physician), 'C' from pd_src_group_practice. R wins when both list the same group."),
+    "is_primary": _entry("Primary", "This is the clinician's group practice in the master reference file.", "pd_provider_group_practice.organization_id = pd_provider.primary_organization_id."),
+    "cases": _entry("Cases", "Blank: case counts are not available from the reference sources.", "Always null since the reference sources took over."),
+    "max_period_code": _entry("Last month billed", "Blank: billing months are not available from the reference sources.", "Always null since the reference sources took over."),
 }
 
 HOSPITAL_AFFILIATION: dict[str, dict[str, str]] = {
     "npi": _entry("NPI", "The clinician this affiliation belongs to.", "pd_provider_hospital_affiliation.npi."),
-    "affiliation_rank": _entry("Rank", "Health systems ordered by the clinician's visits there. At most 5 distinct systems.", "pd_provider_hospital_affiliation: ROW_NUMBER per npi by visits_at_system desc, then system name (Phase 4)."),
-    "hospital_system_name": _entry("Health system", "Parent health system where the clinician's visits took place. Campuses of one system are combined.", "az.sl.sl_hospital_system_name, else hospital system name on az.provider_facility_npi joined on sl_code; blank and Unknown dropped; grouped case-insensitively across pd_stg_npi_sl sites."),
-    "facility_name": _entry("Campus", "The busiest campus or facility within the system, when it has its own name.", "az.sl DBA or name (or az.provider_facility_npi DBA) of the site with the most visits in the system; null when it equals the system name."),
-    "sl_code": _entry("Location code", "Warehouse code of the busiest campus.", "pd_stg_npi_sl.sl_code of the site with the most visits in the system."),
-    "visits_at_system": _entry("Visits at system", "The clinician's visits across all sites of this system in {window}.", "SUM(pd_stg_npi_sl.visits) over the system's sites. Parent fallback rows carry visits_total."),
-    "visit_share_pct": _entry("Visit share", "Share of the clinician's visits that took place at this system.", "pd_provider_hospital_affiliation.visits_at_system / pd_provider.visits_total x100. Null on the parent-fallback row."),
-    "provider_count": _entry("Clinicians", "On a group page, number of member clinicians affiliated with this system.", "Group profile only: COUNT(DISTINCT npi) of pd_provider_hospital_affiliation members with the system. Null on a provider."),
+    "affiliation_rank": _entry("Rank", "Not shown in the UI. Affiliated organizations ordered by the clinician's visits there, at most 5.", "pd_provider_hospital_affiliation: ROW_NUMBER per npi by visits_at_system desc, then system name (Phase 4)."),
+    "hospital_system_name": _entry("Affiliated organization (hidden)", "Hidden in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined.", "claims.sl.sl_hospital_system_name; blank and Unknown dropped; grouped case-insensitively across pd_stg_npi_sl sites. Hidden: the parent groupings on claims.sl are not reliable enough to show."),
+    "facility_name": _entry("Facility", "The busiest facility within the organization, when it has its own name.", "az.sl.sl_dba_name, else sl_name, else sl_common_name of the site with the most visits in the organization; null when it equals the organization name."),
+    "sl_code": _entry("Location code", "Warehouse code of the busiest campus.", "pd_stg_npi_sl.sl_code of the site with the most visits in the organization."),
+    "visits_at_system": _entry("Visits at organization", "The clinician's visits across all sites of this organization in {window}.", "SUM(pd_stg_npi_sl.visits) over the system's sites. Parent fallback rows carry visits_total."),
+    "visit_share_pct": _entry("Visit share", "Share of the clinician's visits that took place at this organization.", "pd_provider_hospital_affiliation.visits_at_system / pd_provider.visits_total x100. Null on the parent-fallback row."),
+    "provider_count": _entry("Clinicians", "On a group page, number of member clinicians affiliated with this organization.", "Group profile only: COUNT(DISTINCT npi) of pd_provider_hospital_affiliation members with the organization. Null on a provider."),
 }
 
 REFERRAL: dict[str, dict[str, str]] = {
     "npi": _entry("NPI", "The clinician this referral row belongs to.", "pd_provider_referral.npi."),
-    "direction": _entry("Direction", "in: clinicians who send patients to this clinician. out: clinicians this clinician sends patients to.", "'in' = this NPI is rendering_physician_code; 'out' = this NPI is implied_all_referring_physician_code on az.dash_physician_referrals_to_rendering."),
-    "peer_rank": _entry("Rank", "Top 3 per direction by patients.", "pd_stg_referral_edge: ROW_NUMBER per npi and direction by patient_count desc, claim_count desc, peer_npi, into pd_provider_referral (Phase 5)."),
-    "peer_npi": _entry("Peer NPI", "NPI of the referring or receiving clinician.", "The other NPI on the az.dash_physician_referrals_to_rendering edge. Both must be Type 1, neither a dummy, not the same NPI."),
+    "direction": _entry("Direction", "in: clinicians whose patients went on to see this clinician. out: clinicians this clinician's patients went on to see.", "'in' = this NPI is rendering_physician_code; 'out' = this NPI is implied_all_referring_physician_code on az.dash_physician_referrals_to_rendering."),
+    "peer_rank": _entry("Rank", "Top 5 per direction by patients, after leaving out clinicians in the same group practice or billing organization and pathology, radiology, anesthesiology and lab clinicians.", "pd_stg_referral_edge joined to pd_provider for both NPIs; edges where peer.primary_organization_id = me.primary_organization_id, peer.billing_organization_id = me.billing_organization_id, or the peer specialty matches settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP are dropped, then ROW_NUMBER per npi and direction by patient_count desc, claim_count desc, peer_npi, into pd_provider_referral (Phase 5). On a group page, members of the group are also left out."),
+    "peer_npi": _entry("Peer NPI", "NPI of the referring or receiving clinician.", "The other NPI on the az.dash_physician_referrals_to_rendering edge. Both must be distinct Type 1 NPIs, neither a dummy."),
     "peer_name": _entry("Peer", "Name of the referring or receiving clinician.", "pd_provider last_name, first_name of the peer."),
-    "peer_specialty": _entry("Peer specialty", "Specialty of the referring or receiving clinician.", "pd_provider.primary_specialty_description of the peer."),
-    "patient_count": _entry("Patients", "Patients referred between the two clinicians in {window}. Monthly counts are summed, so a patient referred in three months counts three times.", "SUM(patient_count) over window months on az.dash_physician_referrals_to_rendering, staged in pd_stg_referral_edge."),
+    "peer_specialty": _entry("Peer specialty", "Specialty of the other clinician. For physician assistants and similar, the role is shown with the generic description, for example Physician Assistant - Medical.", "pd_provider.primary_specialty_description of the peer; when that is a generic taxonomy word (Medical, Surgical, Professional) the specialty_classification is prefixed (complete.peer_specialty_sql)."),
+    "patient_count": _entry("Patients", "Patients who saw both clinicians in sequence in {window}, as inferred by the warehouse from visit order. Monthly counts are summed, so a patient counted in three months counts three times.", "SUM(patient_count) over window months on az.dash_physician_referrals_to_rendering, staged in pd_stg_referral_edge."),
     "claim_count": _entry("Claims", "Claims behind the referral relationship in {window}.", "SUM(claim_count) over window months on az.dash_physician_referrals_to_rendering."),
 }
 
@@ -468,10 +631,10 @@ UTILIZATION: dict[str, dict[str, str]] = {
 # Keys are (scope, field). Family rules below fill repeated patterns.
 # ---------------------------------------------------------------------------
 
-_RVU_SCALE = "Total-RVU scale, one work procedure per visit. Not a CMS physician work RVU report."
-_RVU_EXCL = "Visits whose procedure has no fee-schedule RVU are excluded."
+_RVU_SCALE = "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+_RVU_EXCL = "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
 _DOUBLE = "An encounter billed by two members of the group counts twice."
-_VOLUME = "A volume rank, not a quality measure."
+_VOLUME = "A volume rank."
 _WEIGHTED = "Weighted by each member's visits."
 
 CAVEATS: dict[tuple[str, str], list[str]] = {
@@ -480,29 +643,39 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("provider", "panel_percent_female"): ["Unknown gender stays in the denominator, so female and male may not sum to 100."],
     ("provider", "panel_percent_male"): ["Unknown gender stays in the denominator, so female and male may not sum to 100."],
     ("provider", "wrvu_total"): [_RVU_SCALE, _RVU_EXCL],
-    ("provider", "wrvu_average"): [_RVU_SCALE, "The UI leads with the specialty median and percentile instead."],
+    ("provider", "wrvu_average"): [_RVU_SCALE, "An average per billed procedure, so a long office visit and a short one each count once."],
     ("provider", "wrvu_procedure_count"): [_RVU_EXCL],
     ("provider", "wrvu_prior_year_total"): [_RVU_SCALE, _RVU_EXCL],
     ("provider", "wrvu_prior_year_average"): [_RVU_SCALE],
     ("provider", "wrvu_yoy_change_pct"): ["Null when the prior-year total is under 1.0; clamped to plus or minus 9999.99."],
+    ("provider", "wrvu_state_specialty_average_per_procedure"): [_RVU_SCALE, "Procedure-weighted: a cohort average per billed procedure, so high-volume clinicians weigh more."],
+    ("provider", "wrvu_state_specialty_median_per_procedure"): [_RVU_SCALE, "Clinician-weighted: each peer's own average counts once."],
+    ("provider", "wrvu_average_specialty_percentile"): [_VOLUME.replace("volume", "work intensity"), "A rank of the clinician's average per procedure; a surgeon who also runs clinic will sit below a surgeon who only operates."],
     ("provider", "wrvu_state_specialty_average"): ["Skewed by a few very high totals; the median is the better centre.", _RVU_SCALE],
-    ("provider", "wrvu_state_specialty_median"): [_RVU_SCALE, "Peers are same-specialty clinicians with a positive RVU total."],
+    ("provider", "wrvu_state_specialty_median"): [_RVU_SCALE, "Peers are same-specialty clinicians with a practice site in the state and at least 50 visits in the window."],
     ("provider", "wrvu_state_specialty_p25"): [_RVU_SCALE],
     ("provider", "wrvu_state_specialty_p75"): [_RVU_SCALE],
-    ("provider", "wrvu_specialty_percentile"): [_VOLUME, "Peers are same-specialty clinicians with a positive RVU total."],
-    ("provider", "visits_specialty_percentile"): [_VOLUME, "Peers are same-specialty clinicians with at least one visit."],
+    ("provider", "wrvu_specialty_percentile"): [_VOLUME, "Peers are same-specialty clinicians with a practice site in the state, at least 50 visits and a work RVU total. Blank for a clinician outside that peer set."],
+    ("provider", "visits_specialty_percentile"): [_VOLUME, "Peers are same-specialty clinicians with a practice site in the state and at least 50 visits. Blank for a clinician outside that peer set."],
     ("provider", "activity_specialty_percentile"): [_VOLUME, "Null when the clinician has no specialty, or no visits and no RVU."],
     ("provider", "visits_percent_third_party"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
     ("provider", "visits_percent_medicaid"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
-    ("provider", "visits_percent_medicare_advantage"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "visits_percent_medicare_advantage"): ["Class 5 Other and unmapped payer classes are outside the denominator.", "Payer class 6. HMO (class 4) is a separate column."],
     ("provider", "visits_percent_medicare_traditional"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
-    ("provider", "top_payer_percent_1"): ["A share of commercial claims, not of all claims."],
-    ("provider", "top_payer_percent_2"): ["A share of commercial claims, not of all claims."],
-    ("provider", "top_payer_percent_3"): ["A share of commercial claims, not of all claims."],
-    ("provider", "estimated_age"): ["An estimate from medical school graduation year, not a date of birth."],
-    ("provider", "gender"): ["The clinician's gender from CMS, not the patient panel."],
-    ("provider", "in_system_provider"): ["A hospital affiliation on file with CMS, not a contracted-network flag."],
-    ("provider", "group_size"): ["CMS-reported group size, not the number of members in this directory."],
+    ("provider", "visits_percent_hmo"): ["Class 5 Other and unmapped payer classes are outside the denominator.", "Payer class 4 (HMO)."],
+    ("provider", "visits_percent_medicare_other"): ["Class 5 Other and unmapped payer classes are outside the denominator."],
+    ("provider", "top_payer_percent_1"): ["A share of the clinician's commercial claims."],
+    ("provider", "top_payer_percent_2"): ["A share of the clinician's commercial claims."],
+    ("provider", "top_payer_percent_3"): ["A share of the clinician's commercial claims."],
+    ("provider", "top_payer_percent_4"): ["A share of the clinician's commercial claims."],
+    ("provider", "top_payer_percent_5"): ["A share of the clinician's commercial claims."],
+    ("group", "member_count_any"): ["Counts every clinician with a billing row for the group; totals on the page count only primary members."],
+    ("provider", "estimated_age"): ["An estimate from medical school graduation year."],
+    ("provider", "gender"): ["The clinician's gender as recorded by CMS."],
+    ("provider", "affiliation_name"): ["One affiliation per clinician from the reference file; blank means none on file."],
+    ("provider", "reference_group_name"): ["The same group as the group practice on this profile; kept for the ref-compare report against Bills under."],
+    ("provider", "in_system_provider"): ["A hospital affiliation on file with CMS."],
+    ("provider", "group_size"): ["Group size as reported by CMS."],
     ("provider", "mips_final_score"): ["Latest published CMS program year, which lags the claims window."],
     ("provider", "mips_quality_score"): ["Latest published CMS program year, which lags the claims window."],
     ("provider", "visits_percent_new_patient"): ["Office evaluation and management codes only; procedure-only visits fall in neither bucket."],
@@ -513,17 +686,18 @@ CAVEATS: dict[tuple[str, str], list[str]] = {
     ("group", "wrvu_total"): [_DOUBLE, _RVU_SCALE, _RVU_EXCL],
     ("group", "wrvu_average"): [_RVU_SCALE],
     ("group", "visits_per_provider"): [_DOUBLE],
-    ("group", "visits_percentile"): [_VOLUME, "Among all groups, not specialty peers."],
-    ("group", "activity_percentile"): [_VOLUME, "Among all groups, not specialty peers."],
-    ("group", "group_size"): ["Largest CMS-reported group size among members, not the member count."],
-    ("group", "provider_count"): ["Members are clinicians whose primary billing organization is this group."],
+    ("group", "visits_percentile"): [_VOLUME, "Ranked among all groups."],
+    ("group", "activity_percentile"): [_VOLUME, "Ranked among all groups."],
+    ("group", "group_size"): ["Largest CMS-reported group size among members."],
+    ("group", "provider_count"): ["Members are clinicians whose group practice in the master reference file is this group."],
     ("practice", "visit_share_pct"): ["Sites past the top 5 and visits with no location keep the shares from summing to 100."],
     ("practice", "wrvu_share_pct"): [_RVU_SCALE],
     ("practice", "wrvu_at_site"): [_RVU_SCALE, _RVU_EXCL],
     ("practice", "phone"): ["Blank when CMS has no matching phone; never inferred."],
-    ("practice", "name"): ["A Type 1 location named after a clinician is shown as street and city instead."],
+    ("practice", "name"): ["A location named after a clinician, or with no usable name, is shown as street and city instead."],
+    ("group", "parent_name"): ["The parent most members carry; a minority of members may be recorded under a different parent."],
     ("practice", "work_type"): ["From the place-of-service code on claims; null when neither the code nor the rollup text maps."],
-    ("hospital_affiliation", "hospital_system_name"): ["Campuses of one system are combined into one row."],
+    ("hospital_affiliation", "hospital_system_name"): ["Facilities of one parent organization are combined into one row."],
     ("hospital_affiliation", "visit_share_pct"): ["Null on a parent-fallback row, which has no site-level visits."],
     ("referral", "patient_count"): ["Monthly counts summed: one patient referred in three months counts three times."],
     ("referral", "claim_count"): ["Monthly counts summed over the window."],
@@ -537,11 +711,16 @@ DERIVED_FROM: dict[tuple[str, str], list[str]] = {
     ("provider", "wrvu_yoy_change_pct"): ["provider.wrvu_total", "provider.wrvu_prior_year_total"],
     ("provider", "wrvu_state_specialty_average"): ["provider.wrvu_total"],
     ("provider", "wrvu_state_specialty_median"): ["provider.wrvu_total"],
+    ("provider", "wrvu_state_specialty_median_per_procedure"): ["provider.wrvu_average"],
+    ("provider", "wrvu_state_specialty_p25_per_procedure"): ["provider.wrvu_average"],
+    ("provider", "wrvu_state_specialty_p75_per_procedure"): ["provider.wrvu_average"],
+    ("provider", "wrvu_average_specialty_percentile"): ["provider.wrvu_average"],
+    ("provider", "wrvu_state_specialty_average_per_procedure"): ["provider.wrvu_total", "provider.wrvu_procedure_count"],
     ("provider", "wrvu_state_specialty_p25"): ["provider.wrvu_total"],
     ("provider", "wrvu_state_specialty_p75"): ["provider.wrvu_total"],
-    ("provider", "wrvu_state_specialty_npi_count"): ["provider.wrvu_total"],
-    ("provider", "wrvu_specialty_percentile"): ["provider.wrvu_total"],
-    ("provider", "visits_specialty_percentile"): ["provider.visits_total"],
+    ("provider", "wrvu_state_specialty_npi_count"): ["provider.wrvu_total", "provider.visits_total", "practice.state"],
+    ("provider", "wrvu_specialty_percentile"): ["provider.wrvu_total", "provider.visits_total", "practice.state"],
+    ("provider", "visits_specialty_percentile"): ["provider.visits_total", "practice.state"],
     ("provider", "activity_specialty_percentile"): ["provider.visits_specialty_percentile", "provider.wrvu_specialty_percentile"],
     ("provider", "visits_percent_new_patient"): ["provider.visits_new_patient", "provider.visits_established"],
     ("provider", "provider_practices_total"): ["practice.site_rank"],
@@ -563,15 +742,18 @@ DERIVED_FROM: dict[tuple[str, str], list[str]] = {
 _GROUP_PASSTHROUGH = {"organization_id", "organization_name", "organization_npi", "parent_id", "parent_name",
                       "provider_count", "visits_are_summed_across_npis", "visits_per_provider", "visits_percentile",
                       "activity_percentile", "in_system_provider", "active_provider", "primary_specialty_code",
-                      "primary_specialty_description", "active_provider_count", "in_system_provider_count"}
+                      "primary_specialty_description", "active_provider_count", "in_system_provider_count",
+                      "member_count_any"}
 
 
 def _caveats_for(scope: str, key: str) -> list[str]:
     out = list(CAVEATS.get((scope, key), []))
     if key.startswith("visits_top_") and key.endswith("_percent"):
-        out.append("A share of all visits; the three shares do not add to 100.")
+        out.append("A share of all visits; the shares do not add to 100.")
+    if key.startswith("visits_top_primary_procedure_"):
+        out.append("Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.")
         if scope == "group":
-            out.append("A lower bound on the group page: only members' stored top 3 codes are summed.")
+            out.append("A lower bound on the group page: only members' stored top 5 codes are summed.")
     if key.startswith("panel_percent_age_"):
         out.append("Ages outside 0 to 120 are ignored.")
     if key.startswith("visits_percent_") and key[len("visits_percent_"):] in ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"):
@@ -620,6 +802,10 @@ def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
         "hospital_affiliation": HOSPITAL_AFFILIATION,
         "referral": REFERRAL,
         "utilization": UTILIZATION,
+        "provider_filter": PROVIDER_FILTER,
+        "group_filter": GROUP_FILTER,
+        "section": SECTION,
+        "group_section": GROUP_SECTION,
     }
     out: dict[str, dict[str, dict[str, Any]]] = {}
     for scope, fields in scopes.items():
@@ -640,7 +826,12 @@ def catalog(*, dev: bool = False) -> dict[str, dict[str, dict[str, Any]]]:
                     if pkey not in out.get(pscope, {}):
                         raise KeyError(f"{scope}.{key} derives from unknown entry {ref!r}")
                 own = list(item["tables"])
-                upstream = [t for t in _upstream_tables(out, f"{scope}.{key}", set()) if t not in own]
+                chain = _upstream_tables(out, f"{scope}.{key}", set())
+                upstream: list[str] = []
+                for t in own + chain:
+                    for k in table_closure(t):
+                        if k not in own and k not in upstream:
+                            upstream.append(k)
                 item["upstream_tables"] = upstream
     return out
 
@@ -731,12 +922,13 @@ def catalog_markdown(rendered: dict[str, Any]) -> str:
     if dev:
         lines.append("## Tables")
         lines.append("")
-        lines.append("| Table | Kind | Refreshed by | Description |")
-        lines.append("| --- | --- | --- | --- |")
+        lines.append("| Table | Kind | Refreshed by | Built from | Description |")
+        lines.append("| --- | --- | --- | --- | --- |")
         for table in rendered.get("tables", []):
             desc = table["description"]
             if table.get("external"):
                 desc = f"{table['source']}. {desc}"
-            lines.append(f"| {_table_md(table)} | {table['kind']} | {table.get('phase', '')} | {desc} |")
+            built = ", ".join(f"`{n}`" for n in table.get("built_from", []))
+            lines.append(f"| {_table_md(table)} | {table['kind']} | {table.get('phase', '')} | {built} | {desc} |")
         lines.append("")
     return "\n".join(lines)

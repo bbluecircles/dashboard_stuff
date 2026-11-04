@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from provider_directory import __version__
 from provider_directory.db import ConfigError, get_connection
-from provider_directory.field_help import render_catalog
+from provider_directory.field_help import format_period_range, render_catalog
 from provider_directory.jobs import PHASES, JobConflict, JobRunner
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
 from provider_directory.models import (
@@ -103,6 +103,8 @@ class MartStatus(BaseModel):
     window_end: int
     prior_window_start: int
     prior_window_end: int
+    window_label: str = ""
+    prior_window_label: str = ""
     warehouse_max_period: int | None = None
     warehouse_source: str | None = None
     slide_available: bool | None = None
@@ -222,6 +224,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
             window_end=window_end,
             prior_window_start=prior_start,
             prior_window_end=prior_end,
+            window_label=format_period_range(window_start, window_end),
+            prior_window_label=format_period_range(prior_start, prior_end),
             warehouse_max_period=warehouse_max
             if warehouse_max is not None
             else refresh.get("warehouse_max_period"),
@@ -299,6 +303,8 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         offset: int = Query(default=0, ge=0),
         in_system: bool | None = None,
         organization_id: int | None = Query(default=None, ge=1),
+        membership: str = Query(default="primary", pattern="^(primary|any)$"),
+        zip: str | None = Query(default=None, pattern="^[0-9]{3}([0-9]{2})?$"),
     ) -> ProviderDumpList:
         market = _market_or_422(state)
         if min_visits is not None and max_visits is not None and min_visits > max_visits:
@@ -314,7 +320,9 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
                 specialty=specialty,
                 organization=organization,
                 organization_id=organization_id,
+                membership=membership,
                 city=city,
+                zip_code=zip,
                 active=active,
                 min_visits=min_visits,
                 max_visits=max_visits,
@@ -363,10 +371,13 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         max_visits: int | None = Query(default=None, ge=0),
         min_providers: int | None = Query(default=None, ge=1),
         in_system: bool | None = None,
+        group_state: str = Query(default="market", pattern="^(?i:market|any|[A-Za-z]{2})$"),
         limit: int = Query(default=DUMP_PAGE_DEFAULT, ge=1, le=SEARCH_LIMIT_MAX),
         offset: int = Query(default=0, ge=0),
     ) -> GroupPracticeDumpList:
         market = _market_or_422(state)
+        key = group_state.strip().lower()
+        resolved_group_state = None if key == "any" else (market.state if key == "market" else key.upper())
         if min_visits is not None and max_visits is not None and min_visits > max_visits:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -383,6 +394,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
                 max_visits=max_visits,
                 min_providers=min_providers,
                 in_system=in_system,
+                group_state=resolved_group_state,
                 limit=_clamp_limit(limit),
                 offset=offset,
                 mart_db=market.mart_db,

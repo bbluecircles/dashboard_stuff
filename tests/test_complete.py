@@ -88,3 +88,97 @@ def test_pipeline_exports_phase5():
     assert callable(run_phase4)
     assert callable(run_phase5)
     assert callable(run_phase6)
+
+
+def test_referral_rank_applies_exclusions_and_edges_are_cached():
+    import inspect
+
+    from provider_directory.cli import build_parser
+    from provider_directory.complete import (
+        _fill_referral_edges,
+        _rank_referrals,
+        rebuild_referrals,
+        referral_exclusion_sql,
+    )
+    from provider_directory.pipeline import run_phase5
+    from provider_directory.schema import PHASE5_CACHED_STAGING_TABLES, PHASE5_STAGING_TABLES
+    from provider_directory.settings import MAX_REFERRAL_PEERS
+
+    assert MAX_REFERRAL_PEERS == 5
+    excluded = referral_exclusion_sql("me", "peer")
+    assert "peer.primary_organization_id = me.primary_organization_id" in excluded
+    assert "DIAGNOSTIC RADIOLOGY" in excluded and "PATHOLOG" in excluded and "ANESTHE" in excluded
+    assert "NURSE PRACTITIONER" not in excluded
+    rank = inspect.getsource(_rank_referrals)
+    assert "INNER JOIN {mart}.pd_provider me ON me.npi = e.npi" in rank
+    assert "AND NOT {excluded}" in rank
+    assert "pd_stg_referral_edge" in PHASE5_CACHED_STAGING_TABLES
+    assert "pd_stg_referral_edge" not in PHASE5_STAGING_TABLES
+    fill = inspect.getsource(_fill_referral_edges)
+    assert "referral edges reused" in fill and "TRUNCATE TABLE {mart}.pd_stg_referral_edge" in fill
+    only = inspect.getsource(rebuild_referrals)
+    assert "TRUNCATE TABLE {mart}.pd_provider_referral" in only and "reuse_cached=not rebuild_edges" in only
+    assert "referrals_only" in inspect.getsource(run_phase5)
+    args = build_parser().parse_args(["phase5", "--referrals-only", "--rebuild-edges"])
+    assert args.referrals_only and args.rebuild_edges
+
+
+def test_benchmark_peers_are_in_state_with_volume_and_referrals_use_either_org_key():
+    import inspect
+
+    import pytest
+
+    from provider_directory.complete import _fill_specialty_stats, _overlay_benchmarks, benchmark_peer_where, referral_exclusion_sql
+    from provider_directory.settings import BENCHMARK_MIN_VISITS
+
+    where = benchmark_peer_where("`az_pd`", "AZ")
+    assert f">= {BENCHMARK_MIN_VISITS}" in where and "pr.state = 'AZ'" in where and "pd_provider_practice pr" in where
+    with pytest.raises(ValueError):
+        benchmark_peer_where("`az_pd`", "az_cms")
+    for fn in (_fill_specialty_stats, _overlay_benchmarks):
+        src = inspect.getsource(fn)
+        assert "benchmark_peer_where" in src and "AND {peers}" in src
+    excluded = referral_exclusion_sql("me", "peer")
+    assert "peer.billing_organization_id = me.billing_organization_id" in excluded
+    assert "ANESTHE" in excluded
+
+
+def test_peer_specialty_prefixes_role_for_generic_descriptions():
+    import inspect
+
+    from provider_directory.complete import _rank_referrals, peer_specialty_sql
+
+    sql = peer_specialty_sql("peer")
+    assert "'MEDICAL', 'SURGICAL'" in sql and "CONCAT(" in sql and "specialty_classification" in sql
+    assert "peer_specialty_sql" in inspect.getsource(_rank_referrals)
+
+
+def test_specialty_stats_include_cohort_average_per_procedure():
+    import inspect
+
+    from provider_directory.complete import _fill_specialty_stats, _overlay_benchmarks
+    from provider_directory.schema import PD_PROVIDER_PHASE5_COLUMNS, ddl_statements
+
+    fill = inspect.getsource(_fill_specialty_stats)
+    assert "ROUND(SUM(wrvu_total) / NULLIF(SUM(wrvu_procedure_count), 0), 3)" in fill
+    assert "avg_wrvu_per_procedure" in fill
+    assert "wrvu_state_specialty_average_per_procedure" in inspect.getsource(_overlay_benchmarks)
+    assert "wrvu_state_specialty_average_per_procedure" in dict(PD_PROVIDER_PHASE5_COLUMNS)
+    assert "avg_wrvu_per_procedure DECIMAL(10,3)" in "\n".join(ddl_statements("az_pd"))
+
+
+def test_specialty_benchmarks_of_averages_per_procedure():
+    import inspect
+
+    from provider_directory.complete import _fill_specialty_stats, _overlay_benchmarks
+    from provider_directory.schema import PD_PROVIDER_PHASE5_COLUMNS, PHASE5_STAGING_TABLES, ddl_statements
+
+    fill = inspect.getsource(_fill_specialty_stats)
+    assert "ORDER BY wrvu_average, npi" in fill and "median_wrvu_per_procedure" in fill
+    over = inspect.getsource(_overlay_benchmarks)
+    assert "pd_stg_npi_avg_percentile" in over and "p.wrvu_average_specialty_percentile = avgp.pct" in over
+    cols = dict(PD_PROVIDER_PHASE5_COLUMNS)
+    for c in ("wrvu_state_specialty_median_per_procedure", "wrvu_state_specialty_p25_per_procedure", "wrvu_state_specialty_p75_per_procedure", "wrvu_average_specialty_percentile"):
+        assert c in cols, c
+    assert "pd_stg_npi_avg_percentile" in PHASE5_STAGING_TABLES
+    assert "median_wrvu_per_procedure DECIMAL(10,3)" in "\n".join(ddl_statements("az_pd"))

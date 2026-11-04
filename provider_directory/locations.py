@@ -19,7 +19,13 @@ from provider_directory.settings import (
     MART_DB,
     MAX_PRACTICE_SITES,
 )
-from provider_directory.transforms import ORG_NAME_REGEXP, PERSON_NAME_REGEXP
+from provider_directory.transforms import (
+    ORG_NAME_REGEXP,
+    PERSON_NAME_REGEXP,
+    clean_name_sql,
+    org_name_sql,
+    work_type_case_sql,
+)
 
 VISIT_BUCKETS = 16
 PROVIDER_BUCKETS = 16
@@ -85,18 +91,6 @@ def po_box_sql(street_expr: str) -> str:
     )
 
 
-def org_or_null_sql(expr: str) -> str:
-    """Keep clinic/system names; drop LAST, FIRST Type 1 clones."""
-    return f"""
-        CASE
-            WHEN NULLIF(TRIM({expr}), '') IS NULL THEN NULL
-            WHEN UPPER(TRIM({expr})) REGEXP '{ORG_NAME_REGEXP}' THEN TRIM({expr})
-            WHEN TRIM({expr}) REGEXP '{PERSON_NAME_REGEXP}' THEN NULL
-            ELSE TRIM({expr})
-        END
-    """
-
-
 def is_person_practice_name_sql(expr: str) -> str:
     return (
         f"UPPER(TRIM({expr})) NOT REGEXP '{ORG_NAME_REGEXP}' "
@@ -104,64 +98,44 @@ def is_person_practice_name_sql(expr: str) -> str:
     )
 
 
-def practice_name_sql(sl: str = "sl", fac: str = "fac") -> str:
+def practice_name_sql(sl: str = "sl") -> str:
+    """Site name from az.sl only: DBA, then name, then common name, then
+    street and city. Every candidate goes through org_name_sql, so blank,
+    Unknown and LAST, FIRST values fall through; a site is never named Unknown."""
     street = f"NULLIF(TRIM({sl}.street), '')"
     city = f"NULLIF(TRIM(SUBSTRING_INDEX(IFNULL({sl}.city, ''), ',', 1)), '')"
     return f"""
-        TRIM(REGEXP_REPLACE(COALESCE(
-            NULLIF(TRIM({sl}.sl_hospital_system_name), ''),
-            NULLIF(TRIM({fac}.provider_facility_npi_hospital_system_name), ''),
-            CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_dba_name), '') END,
-            CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_name), '') END,
-            NULLIF(TRIM({fac}.PROVIDER_FACILITY_NPI_dba_name), ''),
-            {org_or_null_sql(f"{sl}.sl_common_name")},
-            {org_or_null_sql(f"{sl}.sl_dba_name")},
-            {org_or_null_sql(f"{sl}.sl_name")},
-            {street},
-            {city}
-        ), '[[:space:]]*TYPE-2-ENTITY[[:space:]]*$', ''))
+        COALESCE(
+            {org_name_sql(f"{sl}.sl_dba_name")},
+            {org_name_sql(f"{sl}.sl_name")},
+            {org_name_sql(f"{sl}.sl_common_name")},
+            NULLIF(TRIM(BOTH ' ,' FROM CONCAT_WS(', ', {street}, {city})), '')
+        )
     """
 
 
-def hospital_system_name_sql(sl: str = "sl", fac: str = "fac") -> str:
-    """Parent health system. Drops blank / Unknown — those are not entities."""
-    raw = (
-        f"COALESCE("
-        f"NULLIF(TRIM({sl}.sl_hospital_system_name COLLATE {MART_COLLATION}), ''), "
-        f"NULLIF(TRIM({fac}.provider_facility_npi_hospital_system_name COLLATE {MART_COLLATION}), '')"
-        f")"
-    )
+def hospital_system_name_sql(sl: str = "sl") -> str:
+    """Organization grouping for the hidden affiliation list
+    (pd_provider_hospital_affiliation): claims sl.sl_hospital_system_name with
+    blank and sentinel values dropped."""
+    return f"LEFT({clean_name_sql(f'{sl}.sl_hospital_system_name COLLATE {MART_COLLATION}')}, 180)"
+
+
+def hospital_facility_name_sql(sl: str = "sl") -> str:
+    """Facility under that grouping: the same DBA / name / common-name rule as sites."""
     return f"""
-        CASE
-            WHEN {raw} IS NULL THEN NULL
-            WHEN UPPER({raw}) IN ('UNKNOWN', 'UNKNOWN GROUP PRACTICE') THEN NULL
-            ELSE LEFT(TRIM({raw}), 180)
-        END
+        COALESCE(
+            {org_name_sql(f"{sl}.sl_dba_name")},
+            {org_name_sql(f"{sl}.sl_name")},
+            {org_name_sql(f"{sl}.sl_common_name")}
+        )
     """
 
 
-def hospital_facility_name_sql(sl: str = "sl", fac: str = "fac") -> str:
-    """Campus / facility under a system. Not the parent system name, not Type 1 clones."""
-    return f"""
-        NULLIF(TRIM(COALESCE(
-            CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_dba_name), '') END,
-            CASE WHEN {sl}.npi_type = '2' THEN NULLIF(TRIM({sl}.sl_name), '') END,
-            NULLIF(TRIM({fac}.PROVIDER_FACILITY_NPI_dba_name), ''),
-            {org_or_null_sql(f"{sl}.sl_common_name")},
-            {org_or_null_sql(f"{sl}.sl_dba_name")},
-            {org_or_null_sql(f"{sl}.sl_name")}
-        )), '')
-    """
-
-
-def work_type_sql(sl: str = "sl", fac: str = "fac") -> str:
-    return f"""
-        CASE
-            WHEN NULLIF(TRIM(COALESCE({sl}.sl_hospital_system_name, {fac}.provider_facility_npi_hospital_system_name)), '') IS NOT NULL
-                THEN COALESCE(NULLIF(TRIM({sl}.im_specialty_rollup), ''), 'Hospital')
-            ELSE COALESCE(NULLIF(TRIM({sl}.pos_type_name), ''), NULLIF(TRIM({sl}.im_specialty_rollup), ''))
-        END
-    """
+def work_type_sql(sl: str = "sl") -> str:
+    """Phase 3 work type. The same rule Phase 4 and extras use (transforms.work_type_case_sql),
+    so the label does not change between phases."""
+    return work_type_case_sql(sl)
 
 
 def require_phase2_staging(conn, mart_db: str = MART_DB) -> None:
@@ -342,8 +316,6 @@ def rebuild_locations(
                 GROUP BY rendering_npi, sl_code
             ) agg
             INNER JOIN {claims}.sl sl ON sl.sl_code = agg.sl_code
-            LEFT JOIN {claims}.provider_facility_npi fac
-                ON fac.PROVIDER_FACILITY_NPI_code = sl.sl_code
             WHERE IFNULL(sl.state_abbr, '') <> 'XX'
               AND NOT ({po_box_sql("sl.street")})
         """

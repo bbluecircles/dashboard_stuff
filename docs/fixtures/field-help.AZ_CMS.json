@@ -32,7 +32,7 @@
       },
       "gender": {
         "label": "Provider gender",
-        "help": "The clinician's gender from CMS public files. Not the patient panel."
+        "help": "The clinician's gender from CMS public files."
       },
       "medical_school_name": {
         "label": "Medical school",
@@ -44,7 +44,7 @@
       },
       "estimated_age": {
         "label": "Estimated age",
-        "help": "Approximate age, estimated from medical school graduation year. Not a date of birth."
+        "help": "Approximate age, estimated from medical school graduation year."
       },
       "primary_specialty_code": {
         "label": "Specialty code",
@@ -61,6 +61,26 @@
       "in_system_provider": {
         "label": "In-system",
         "help": "The clinician has a hospital affiliation on file with CMS."
+      },
+      "affiliation_name": {
+        "label": "Affiliation",
+        "help": "The organization the clinician is affiliated with in the master reference file. One per clinician; blank when none is on file."
+      },
+      "affiliation_code": {
+        "label": "Affiliation id",
+        "help": "Reference identifier of the affiliated organization."
+      },
+      "affiliation_source": {
+        "label": "Affiliation source",
+        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
+      },
+      "reference_group_id": {
+        "label": "Reference group id",
+        "help": "Group practice id for the clinician in the master reference file. The same value as the group practice id on this profile."
+      },
+      "reference_group_name": {
+        "label": "Reference group",
+        "help": "Group practice name for the clinician in the master reference file."
       },
       "name_source": {
         "label": "Name source",
@@ -104,7 +124,7 @@
       },
       "visits_top_diagnosis_2_percent": {
         "label": "Share of visits",
-        "help": "Share of visits that carried this diagnosis."
+        "help": "Share of the clinician's visits that carried this diagnosis."
       },
       "visits_top_diagnosis_3": {
         "label": "Top diagnosis 3",
@@ -116,7 +136,31 @@
       },
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
-        "help": "Share of visits that carried this diagnosis."
+        "help": "Share of the clinician's visits that carried this diagnosis."
+      },
+      "visits_top_diagnosis_4": {
+        "label": "Top diagnosis 4",
+        "help": "Fourth most common diagnosis code."
+      },
+      "visits_top_diagnosis_4_name": {
+        "label": "Top diagnosis 4",
+        "help": "Description of the fourth most common diagnosis."
+      },
+      "visits_top_diagnosis_4_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits that carried this diagnosis."
+      },
+      "visits_top_diagnosis_5": {
+        "label": "Top diagnosis 5",
+        "help": "Fifth most common diagnosis code."
+      },
+      "visits_top_diagnosis_5_name": {
+        "label": "Top diagnosis 5",
+        "help": "Description of the fifth most common diagnosis."
+      },
+      "visits_top_diagnosis_5_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits that carried this diagnosis."
       },
       "visits_top_procedure_1": {
         "label": "Top procedure 1",
@@ -140,7 +184,7 @@
       },
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
-        "help": "Share of visits with this procedure."
+        "help": "Share of the clinician's visits with this procedure."
       },
       "visits_top_procedure_3": {
         "label": "Top procedure 3",
@@ -152,7 +196,91 @@
       },
       "visits_top_procedure_3_percent": {
         "label": "Share of visits",
-        "help": "Share of visits with this procedure."
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_procedure_4": {
+        "label": "Top procedure 4",
+        "help": "Fourth most common procedure code."
+      },
+      "visits_top_procedure_4_name": {
+        "label": "Top procedure 4",
+        "help": "Description of the fourth most common procedure."
+      },
+      "visits_top_procedure_4_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_procedure_5": {
+        "label": "Top procedure 5",
+        "help": "Fifth most common procedure code."
+      },
+      "visits_top_procedure_5_name": {
+        "label": "Top procedure 5",
+        "help": "Description of the fifth most common procedure."
+      },
+      "visits_top_procedure_5_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_primary_procedure_1": {
+        "label": "Top primary procedure 1",
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
+      },
+      "visits_top_primary_procedure_1_name": {
+        "label": "Top primary procedure 1",
+        "help": "Description of the most common primary procedure."
+      },
+      "visits_top_primary_procedure_1_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_primary_procedure_2": {
+        "label": "Top primary procedure 2",
+        "help": "Second most common primary procedure code."
+      },
+      "visits_top_primary_procedure_2_name": {
+        "label": "Top primary procedure 2",
+        "help": "Description of the second most common primary procedure."
+      },
+      "visits_top_primary_procedure_2_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_primary_procedure_3": {
+        "label": "Top primary procedure 3",
+        "help": "Third most common primary procedure code."
+      },
+      "visits_top_primary_procedure_3_name": {
+        "label": "Top primary procedure 3",
+        "help": "Description of the third most common primary procedure."
+      },
+      "visits_top_primary_procedure_3_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_primary_procedure_4": {
+        "label": "Top primary procedure 4",
+        "help": "Fourth most common primary procedure code."
+      },
+      "visits_top_primary_procedure_4_name": {
+        "label": "Top primary procedure 4",
+        "help": "Description of the fourth most common primary procedure."
+      },
+      "visits_top_primary_procedure_4_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
+      },
+      "visits_top_primary_procedure_5": {
+        "label": "Top primary procedure 5",
+        "help": "Fifth most common primary procedure code."
+      },
+      "visits_top_primary_procedure_5_name": {
+        "label": "Top primary procedure 5",
+        "help": "Description of the fifth most common primary procedure."
+      },
+      "visits_top_primary_procedure_5_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure."
       },
       "panel_size": {
         "label": "Panel size",
@@ -195,16 +323,16 @@
         "help": "Number of practice sites shown, at most 5."
       },
       "wrvu_total": {
-        "label": "RVU total",
-        "help": "Total relative value units across the clinician's visits in Nov 2024 to Oct 2025, one work procedure per visit. A volume measure, not a quality score."
+        "label": "Work RVU total",
+        "help": "Physician work RVU summed over every procedure the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule."
       },
       "wrvu_average": {
-        "label": "RVU per visit",
-        "help": "Average RVU per visit that had a procedure with an RVU."
+        "label": "Average work RVU per procedure",
+        "help": "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries."
       },
       "wrvu_procedure_count": {
-        "label": "RVU visits",
-        "help": "Visits that contributed to the RVU total."
+        "label": "Priced procedures",
+        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that had a work RVU and so count toward the total."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -222,13 +350,21 @@
         "label": "Medicare FFS",
         "help": "Share of claims paid by traditional fee-for-service Medicare."
       },
+      "visits_percent_hmo": {
+        "label": "HMO",
+        "help": "Share of claims paid by HMO plans."
+      },
+      "visits_percent_medicare_other": {
+        "label": "Medicare Other",
+        "help": "Share of claims paid by other Medicare programs."
+      },
       "top_payer_name_1": {
         "label": "Top commercial payer 1",
         "help": "Largest commercial payer parent by claims."
       },
       "top_payer_percent_1": {
         "label": "Share of commercial",
-        "help": "This payer's share of the clinician's commercial claims, not of all claims."
+        "help": "This payer's share of the clinician's commercial claims."
       },
       "top_payer_name_2": {
         "label": "Top commercial payer 2",
@@ -246,25 +382,49 @@
         "label": "Share of commercial",
         "help": "Share of the clinician's commercial claims."
       },
+      "top_payer_name_4": {
+        "label": "Top commercial payer 4",
+        "help": "Fourth largest commercial payer parent."
+      },
+      "top_payer_percent_4": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
+      "top_payer_name_5": {
+        "label": "Top commercial payer 5",
+        "help": "Fifth largest commercial payer parent."
+      },
+      "top_payer_percent_5": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
       "primary_organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the clinician's primary organization."
+        "label": "Group practice id",
+        "help": "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile."
       },
       "primary_organization_name": {
-        "label": "Organization",
-        "help": "The organization the clinician primarily bills under."
+        "label": "Group practice",
+        "help": "The clinician's group practice as recorded in the master reference file."
       },
       "primary_organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the primary billing organization."
+        "label": "Billing NPI",
+        "help": "The organization NPI the clinician bills under in claims."
+      },
+      "billing_organization_id": {
+        "label": "Bills under id",
+        "help": "Identifier of the organization the clinician bills under in claims, which can differ from the group practice."
+      },
+      "billing_organization_name": {
+        "label": "Bills under",
+        "help": "The organization the clinician bills under in claims."
       },
       "primary_organization_parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system."
+        "label": "Parent organization id",
+        "help": "Identifier of the parent organization most of the clinician's group members are recorded under."
       },
       "primary_organization_parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the primary organization."
+        "label": "Parent organization",
+        "help": "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -295,52 +455,80 @@
         "help": "Share of the clinician's visits that fell on a Sunday, by service date. Saturday and Sunday together are the weekend share."
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU",
-        "help": "RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "label": "Prior-year work RVU total",
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per visit",
-        "help": "Average RVU per contributing visit in Nov 2023 to Oct 2024."
+        "label": "Prior-year average work RVU per procedure",
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year RVU visits",
-        "help": "Visits that contributed to the prior-year RVU total."
+        "label": "Prior-year priced procedures",
+        "help": "Billed procedure lines that count toward the prior-year total."
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU change",
-        "help": "Percent change in RVU total versus the prior year."
+        "label": "Work RVU change vs prior year",
+        "help": "Percent change of the work RVU total against the prior-year total."
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty average RVU",
-        "help": "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median."
+        "label": "Specialty mean work RVU total",
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_average_per_procedure": {
+        "label": "Specialty average work RVU per procedure",
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
+      },
+      "wrvu_state_specialty_median_per_procedure": {
+        "label": "Specialty median average work RVU per procedure",
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_p25_per_procedure": {
+        "label": "Specialty 25th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+      },
+      "wrvu_state_specialty_p75_per_procedure": {
+        "label": "Specialty 75th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+      },
+      "wrvu_average_specialty_percentile": {
+        "label": "Average work RVU per procedure percentile within specialty",
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median RVU",
-        "help": "Median RVU total among clinicians in the same specialty statewide."
+        "label": "Specialty median work RVU total",
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile",
-        "help": "RVU total at the 25th percentile of the specialty."
+        "label": "Specialty 25th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile",
-        "help": "RVU total at the 75th percentile of the specialty."
+        "label": "Specialty 75th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Specialty peers",
-        "help": "Number of clinicians in the specialty with an RVU total."
+        "label": "Peers in specialty",
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU percentile",
-        "help": "Where the clinician's RVU total ranks within their specialty. 100 is the highest."
+        "label": "Work RVU percentile within specialty",
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
-        "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
+        "help": "Where the clinician's visit count ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
+      },
+      "is_primary_member": {
+        "label": "Primary member",
+        "help": "On a group member list, whether this group is the clinician's group practice in the master reference file. Blank outside a group list."
+      },
+      "zip": {
+        "label": "Primary site ZIP",
+        "help": "ZIP code of the clinician's main practice site."
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers",
-        "help": "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality."
+        "label": "Activity vs specialty peers (visits and work RVU)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank."
       },
       "group_size": {
         "label": "Group size",
@@ -391,8 +579,8 @@
         "help": "Share of visits in an ambulatory surgery center."
       },
       "visits_percent_ed": {
-        "label": "Emergency",
-        "help": "Share of visits in an emergency department."
+        "label": "Emergency or urgent care",
+        "help": "Share of visits in an emergency department or urgent care centre."
       },
       "visits_percent_telehealth": {
         "label": "Telehealth",
@@ -420,23 +608,23 @@
       },
       "open_payments_year": {
         "label": "Open Payments year",
-        "help": "Not shown. Open Payments was retired from the directory."
+        "help": "Hidden in the UI. Program year of the clinician's Open Payments totals."
       },
       "open_payments_general_total": {
         "label": "Open Payments general",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. General payments total for the program year."
       },
       "open_payments_research_total": {
         "label": "Open Payments research",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Research payments total for the program year."
       },
       "open_payments_ownership_total": {
         "label": "Open Payments ownership",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Ownership and investment interest total for the program year."
       },
       "open_payments_count": {
         "label": "Open Payments count",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Number of payment records for the program year."
       },
       "practices": {
         "label": "Sites",
@@ -444,15 +632,15 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first."
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
       },
       "hospital_affiliations": {
-        "label": "Hospital affiliations",
-        "help": "Up to 5 distinct health systems where the clinician's visits took place, by visit share."
+        "label": "Facility affiliations (hidden)",
+        "help": "Hidden in the UI: a visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 3 clinicians who refer to this clinician, and top 3 this clinician refers to."
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -498,7 +686,7 @@
       },
       "gender": {
         "label": "Provider gender",
-        "help": "The clinician's gender from CMS public files. Not the patient panel."
+        "help": "The clinician's gender from CMS public files."
       },
       "medical_school_name": {
         "label": "Medical school",
@@ -510,7 +698,7 @@
       },
       "estimated_age": {
         "label": "Estimated age",
-        "help": "Approximate age, estimated from medical school graduation year. Not a date of birth."
+        "help": "Approximate age, estimated from medical school graduation year."
       },
       "primary_specialty_code": {
         "label": "Specialty code",
@@ -527,6 +715,26 @@
       "in_system_provider": {
         "label": "In-system",
         "help": "At least one member has a CMS hospital affiliation."
+      },
+      "affiliation_name": {
+        "label": "Affiliation",
+        "help": "The organization the clinician is affiliated with in the master reference file. One per clinician; blank when none is on file."
+      },
+      "affiliation_code": {
+        "label": "Affiliation id",
+        "help": "Reference identifier of the affiliated organization."
+      },
+      "affiliation_source": {
+        "label": "Affiliation source",
+        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
+      },
+      "reference_group_id": {
+        "label": "Reference group id",
+        "help": "Group practice id for the clinician in the master reference file. The same value as the group practice id on this profile."
+      },
+      "reference_group_name": {
+        "label": "Reference group",
+        "help": "Group practice name for the clinician in the master reference file."
       },
       "name_source": {
         "label": "Name source",
@@ -558,7 +766,7 @@
       },
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 3 codes are summed."
+        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_2": {
         "label": "Top diagnosis 2",
@@ -570,7 +778,7 @@
       },
       "visits_top_diagnosis_2_percent": {
         "label": "Share of visits",
-        "help": "Share of visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 3 codes are summed."
+        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_3": {
         "label": "Top diagnosis 3",
@@ -582,7 +790,31 @@
       },
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
-        "help": "Share of visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 3 codes are summed."
+        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_diagnosis_4": {
+        "label": "Top diagnosis 4",
+        "help": "Fourth most common diagnosis code."
+      },
+      "visits_top_diagnosis_4_name": {
+        "label": "Top diagnosis 4",
+        "help": "Description of the fourth most common diagnosis."
+      },
+      "visits_top_diagnosis_4_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_diagnosis_5": {
+        "label": "Top diagnosis 5",
+        "help": "Fifth most common diagnosis code."
+      },
+      "visits_top_diagnosis_5_name": {
+        "label": "Top diagnosis 5",
+        "help": "Description of the fifth most common diagnosis."
+      },
+      "visits_top_diagnosis_5_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_1": {
         "label": "Top procedure 1",
@@ -594,7 +826,7 @@
       },
       "visits_top_procedure_1_percent": {
         "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 3 codes are summed."
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_2": {
         "label": "Top procedure 2",
@@ -606,7 +838,7 @@
       },
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
-        "help": "Share of visits with this procedure. On the group page this is a lower bound: only members' stored top 3 codes are summed."
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_3": {
         "label": "Top procedure 3",
@@ -618,7 +850,91 @@
       },
       "visits_top_procedure_3_percent": {
         "label": "Share of visits",
-        "help": "Share of visits with this procedure. On the group page this is a lower bound: only members' stored top 3 codes are summed."
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_procedure_4": {
+        "label": "Top procedure 4",
+        "help": "Fourth most common procedure code."
+      },
+      "visits_top_procedure_4_name": {
+        "label": "Top procedure 4",
+        "help": "Description of the fourth most common procedure."
+      },
+      "visits_top_procedure_4_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_procedure_5": {
+        "label": "Top procedure 5",
+        "help": "Fifth most common procedure code."
+      },
+      "visits_top_procedure_5_name": {
+        "label": "Top procedure 5",
+        "help": "Description of the fifth most common procedure."
+      },
+      "visits_top_procedure_5_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_primary_procedure_1": {
+        "label": "Top primary procedure 1",
+        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
+      },
+      "visits_top_primary_procedure_1_name": {
+        "label": "Top primary procedure 1",
+        "help": "Description of the most common primary procedure."
+      },
+      "visits_top_primary_procedure_1_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_primary_procedure_2": {
+        "label": "Top primary procedure 2",
+        "help": "Second most common primary procedure code."
+      },
+      "visits_top_primary_procedure_2_name": {
+        "label": "Top primary procedure 2",
+        "help": "Description of the second most common primary procedure."
+      },
+      "visits_top_primary_procedure_2_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_primary_procedure_3": {
+        "label": "Top primary procedure 3",
+        "help": "Third most common primary procedure code."
+      },
+      "visits_top_primary_procedure_3_name": {
+        "label": "Top primary procedure 3",
+        "help": "Description of the third most common primary procedure."
+      },
+      "visits_top_primary_procedure_3_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_primary_procedure_4": {
+        "label": "Top primary procedure 4",
+        "help": "Fourth most common primary procedure code."
+      },
+      "visits_top_primary_procedure_4_name": {
+        "label": "Top primary procedure 4",
+        "help": "Description of the fourth most common primary procedure."
+      },
+      "visits_top_primary_procedure_4_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "visits_top_primary_procedure_5": {
+        "label": "Top primary procedure 5",
+        "help": "Fifth most common primary procedure code."
+      },
+      "visits_top_primary_procedure_5_name": {
+        "label": "Top primary procedure 5",
+        "help": "Description of the fifth most common primary procedure."
+      },
+      "visits_top_primary_procedure_5_percent": {
+        "label": "Share of visits",
+        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "panel_size": {
         "label": "Panel size",
@@ -661,16 +977,16 @@
         "help": "Number of practice sites shown, at most 5."
       },
       "wrvu_total": {
-        "label": "RVU total",
-        "help": "Sum of member clinicians' RVU totals."
+        "label": "Work RVU total, members combined",
+        "help": "Sum of the member clinicians' work RVU totals."
       },
       "wrvu_average": {
-        "label": "RVU per visit",
-        "help": "Group RVU total divided by contributing visits across members."
+        "label": "Average work RVU per procedure, members combined",
+        "help": "Members' work RVU total divided by members' priced procedures."
       },
       "wrvu_procedure_count": {
-        "label": "RVU visits",
-        "help": "Sum of member visits that contributed an RVU."
+        "label": "Priced procedures, members combined",
+        "help": "Sum of members' priced procedure lines."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -688,13 +1004,21 @@
         "label": "Medicare FFS",
         "help": "Share of claims paid by traditional fee-for-service Medicare. On the group page this is weighted across members by their visits."
       },
+      "visits_percent_hmo": {
+        "label": "HMO",
+        "help": "Share of claims paid by HMO plans. On the group page this is weighted across members by their visits."
+      },
+      "visits_percent_medicare_other": {
+        "label": "Medicare Other",
+        "help": "Share of claims paid by other Medicare programs. On the group page this is weighted across members by their visits."
+      },
       "top_payer_name_1": {
         "label": "Top commercial payer 1",
         "help": "Largest commercial payer parent by claims."
       },
       "top_payer_percent_1": {
         "label": "Share of commercial",
-        "help": "This payer's share of the clinician's commercial claims, not of all claims."
+        "help": "This payer's share of the clinician's commercial claims."
       },
       "top_payer_name_2": {
         "label": "Top commercial payer 2",
@@ -712,25 +1036,49 @@
         "label": "Share of commercial",
         "help": "Share of the clinician's commercial claims."
       },
+      "top_payer_name_4": {
+        "label": "Top commercial payer 4",
+        "help": "Fourth largest commercial payer parent."
+      },
+      "top_payer_percent_4": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
+      "top_payer_name_5": {
+        "label": "Top commercial payer 5",
+        "help": "Fifth largest commercial payer parent."
+      },
+      "top_payer_percent_5": {
+        "label": "Share of commercial",
+        "help": "Share of the clinician's commercial claims."
+      },
       "primary_organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the clinician's primary organization."
+        "label": "Group practice id",
+        "help": "Identifier of the clinician's group practice in the master reference file (the CMS group PAC ID). The key for the group-practice profile."
       },
       "primary_organization_name": {
-        "label": "Organization",
-        "help": "The organization the clinician primarily bills under."
+        "label": "Group practice",
+        "help": "The clinician's group practice as recorded in the master reference file."
       },
       "primary_organization_npi": {
-        "label": "Organization NPI",
-        "help": "NPI of the primary billing organization."
+        "label": "Billing NPI",
+        "help": "The organization NPI the clinician bills under in claims."
+      },
+      "billing_organization_id": {
+        "label": "Bills under id",
+        "help": "Identifier of the organization the clinician bills under in claims, which can differ from the group practice."
+      },
+      "billing_organization_name": {
+        "label": "Bills under",
+        "help": "The organization the clinician bills under in claims."
       },
       "primary_organization_parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system."
+        "label": "Parent organization id",
+        "help": "Identifier of the parent organization most of the clinician's group members are recorded under."
       },
       "primary_organization_parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the primary organization."
+        "label": "Parent organization",
+        "help": "Parent organization of the clinician's group practice: the parent most of the group's members are recorded under."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -761,52 +1109,80 @@
         "help": "Share of the clinician's visits that fell on a Sunday, by service date. Saturday and Sunday together are the weekend share. On the group page this is weighted across members by their visits."
       },
       "wrvu_prior_year_total": {
-        "label": "Prior-year RVU",
-        "help": "RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "label": "Prior-year work RVU total",
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_average": {
-        "label": "Prior-year RVU per visit",
-        "help": "Average RVU per contributing visit in Nov 2023 to Oct 2024."
+        "label": "Prior-year average work RVU per procedure",
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
       },
       "wrvu_prior_year_procedure_count": {
-        "label": "Prior-year RVU visits",
-        "help": "Visits that contributed to the prior-year RVU total."
+        "label": "Prior-year priced procedures",
+        "help": "Billed procedure lines that count toward the prior-year total."
       },
       "wrvu_yoy_change_pct": {
-        "label": "RVU change",
-        "help": "Percent change in RVU total versus the prior year."
+        "label": "Work RVU change vs prior year",
+        "help": "Percent change of the work RVU total against the prior-year total."
       },
       "wrvu_state_specialty_average": {
-        "label": "Specialty average RVU",
-        "help": "Mean RVU total among clinicians in the same specialty statewide. Heavily skewed by a few very high totals; prefer the median."
+        "label": "Specialty mean work RVU total",
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_average_per_procedure": {
+        "label": "Specialty average work RVU per procedure",
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
+      },
+      "wrvu_state_specialty_median_per_procedure": {
+        "label": "Specialty median average work RVU per procedure",
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+      },
+      "wrvu_state_specialty_p25_per_procedure": {
+        "label": "Specialty 25th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+      },
+      "wrvu_state_specialty_p75_per_procedure": {
+        "label": "Specialty 75th percentile average work RVU per procedure",
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+      },
+      "wrvu_average_specialty_percentile": {
+        "label": "Average work RVU per procedure percentile within specialty",
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
       },
       "wrvu_state_specialty_median": {
-        "label": "Specialty median RVU",
-        "help": "Median RVU total among clinicians in the same specialty statewide."
+        "label": "Specialty median work RVU total",
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
       },
       "wrvu_state_specialty_p25": {
-        "label": "Specialty 25th percentile",
-        "help": "RVU total at the 25th percentile of the specialty."
+        "label": "Specialty 25th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_p75": {
-        "label": "Specialty 75th percentile",
-        "help": "RVU total at the 75th percentile of the specialty."
+        "label": "Specialty 75th percentile work RVU total",
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
       },
       "wrvu_state_specialty_npi_count": {
-        "label": "Specialty peers",
-        "help": "Number of clinicians in the specialty with an RVU total."
+        "label": "Peers in specialty",
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
       },
       "wrvu_specialty_percentile": {
-        "label": "RVU percentile",
-        "help": "Where the clinician's RVU total ranks within their specialty. 100 is the highest."
+        "label": "Work RVU percentile within specialty",
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
-        "help": "Where the clinician's visit count ranks within their specialty. 100 is the highest."
+        "help": "Where the clinician's visit count ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
+      },
+      "is_primary_member": {
+        "label": "Primary member",
+        "help": "On a group member list, whether this group is the clinician's group practice in the master reference file. Blank outside a group list."
+      },
+      "zip": {
+        "label": "Primary site ZIP",
+        "help": "ZIP code of the clinician's main practice site."
       },
       "activity_specialty_percentile": {
-        "label": "Activity vs specialty peers",
-        "help": "Combined volume rank within the specialty: the average of the visits and RVU percentiles. Volume, not quality."
+        "label": "Activity vs specialty peers (visits and work RVU)",
+        "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank."
       },
       "group_size": {
         "label": "Group size",
@@ -857,8 +1233,8 @@
         "help": "Share of visits in an ambulatory surgery center. On the group page this is weighted across members by their visits."
       },
       "visits_percent_ed": {
-        "label": "Emergency",
-        "help": "Share of visits in an emergency department. On the group page this is weighted across members by their visits."
+        "label": "Emergency or urgent care",
+        "help": "Share of visits in an emergency department or urgent care centre. On the group page this is weighted across members by their visits."
       },
       "visits_percent_telehealth": {
         "label": "Telehealth",
@@ -886,23 +1262,23 @@
       },
       "open_payments_year": {
         "label": "Open Payments year",
-        "help": "Not shown. Open Payments was retired from the directory."
+        "help": "Hidden in the UI. Program year of the clinician's Open Payments totals."
       },
       "open_payments_general_total": {
         "label": "Open Payments general",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. General payments total for the program year."
       },
       "open_payments_research_total": {
         "label": "Open Payments research",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Research payments total for the program year."
       },
       "open_payments_ownership_total": {
         "label": "Open Payments ownership",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Ownership and investment interest total for the program year."
       },
       "open_payments_count": {
         "label": "Open Payments count",
-        "help": "Not shown; retired."
+        "help": "Hidden in the UI. Number of payment records for the program year."
       },
       "practices": {
         "label": "Sites",
@@ -910,15 +1286,15 @@
       },
       "group_practices": {
         "label": "Group practices",
-        "help": "Every organization the clinician billed under in Nov 2024 to Oct 2025, primary first."
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
       },
       "hospital_affiliations": {
-        "label": "Hospital affiliations",
-        "help": "Up to 5 distinct health systems where the clinician's visits took place, by visit share."
+        "label": "Facility affiliations (hidden)",
+        "help": "Hidden in the UI: a visit-based grouping of facilities whose parent grouping data is not reliable enough to display."
       },
       "referrals": {
         "label": "Referrals",
-        "help": "Top 3 clinicians who refer to this clinician, and top 3 this clinician refers to."
+        "help": "Top 5 clinicians whose patients went on to see this clinician, and top 5 this clinician's patients went on to see. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
       },
       "utilization": {
         "label": "Care Compare utilization",
@@ -934,31 +1310,31 @@
       },
       "state": {
         "label": "State",
-        "help": "State of the clinician's primary practice site."
+        "help": "The state where most of the group's member clinicians practise, from the master reference file. The group picker shows this state's groups unless asked for others."
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the group. Members are the clinicians whose primary organization this is."
+        "label": "Group practice id",
+        "help": "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is."
       },
       "organization_name": {
-        "label": "Organization",
+        "label": "Group practice",
         "help": "Name of the group practice."
       },
       "organization_npi": {
         "label": "Organization NPI",
-        "help": "NPI of the billing organization."
+        "help": "Blank: a group is keyed by its CMS group PAC ID, which is not an NPI."
       },
       "parent_id": {
-        "label": "Parent id",
-        "help": "Identifier of the parent health system."
+        "label": "Parent organization id",
+        "help": "Identifier of the group's parent organization."
       },
       "parent_name": {
-        "label": "Parent system",
-        "help": "Parent health system of the group."
+        "label": "Parent organization",
+        "help": "Parent organization of the group: the one most of its member clinicians are recorded under. Each member's own parent is then set to this value."
       },
       "provider_count": {
         "label": "Clinicians",
-        "help": "Number of individual clinicians whose primary organization is this group."
+        "help": "Number of individual clinicians whose group practice in the master reference file is this group."
       },
       "active_provider_count": {
         "label": "Active clinicians",
@@ -983,6 +1359,10 @@
       "visits_are_summed_across_npis": {
         "label": "Summed across clinicians",
         "help": "Volume on this page is summed across member clinicians."
+      },
+      "member_count_any": {
+        "label": "Clinicians listing this group",
+        "help": "Number of clinicians whose group list includes this group, from the master reference file or the CMS reassignment file, primary or not. The totals on this page use only primary members."
       }
     },
     "practice": {
@@ -1004,7 +1384,7 @@
       },
       "name": {
         "label": "Site name",
-        "help": "Name of the practice site."
+        "help": "Name of the practice site: its DBA name, else its registered name, else street and city."
       },
       "street": {
         "label": "Street",
@@ -1028,11 +1408,11 @@
       },
       "latitude": {
         "label": "Latitude",
-        "help": "Latitude of the site. Not used by the UI in v1."
+        "help": "Latitude of the site, unused by the UI in v1."
       },
       "longitude": {
         "label": "Longitude",
-        "help": "Longitude of the site. Not used by the UI in v1."
+        "help": "Longitude of the site, unused by the UI in v1."
       },
       "phone": {
         "label": "Phone",
@@ -1071,12 +1451,12 @@
         "help": "The warehouse has no coordinates for this location."
       },
       "wrvu_at_site": {
-        "label": "RVU at site",
-        "help": "The clinician's RVU total at this site."
+        "label": "Work RVU at site",
+        "help": "The clinician's work RVU total over procedures billed at this site."
       },
       "wrvu_share_pct": {
-        "label": "RVU share",
-        "help": "Share of the clinician's RVU total earned at this site."
+        "label": "Share of work RVU at site",
+        "help": "This site's part of the clinician's work RVU total."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -1110,39 +1490,39 @@
     "group_practice": {
       "npi": {
         "label": "NPI",
-        "help": "The clinician this organization row belongs to."
+        "help": "The clinician this group row belongs to."
       },
       "org_rank": {
         "label": "Rank",
-        "help": "Order of the clinician's organizations: primary first."
+        "help": "Order of the clinician's groups: the master-file group practice first, then CMS reassignment groups."
       },
       "organization_id": {
-        "label": "Organization id",
-        "help": "Billing identifier of the organization."
+        "label": "Group practice id",
+        "help": "Identifier of the group (the CMS group PAC ID)."
       },
       "organization_npi": {
         "label": "Organization NPI",
-        "help": "NPI of the billing organization."
+        "help": "Blank: the group id is a CMS PAC ID, which is not an NPI."
       },
       "organization_name": {
-        "label": "Organization",
-        "help": "Name of the organization the clinician billed under."
+        "label": "Group",
+        "help": "Name of the group practice."
       },
       "billing_type": {
-        "label": "Billing type",
-        "help": "P for professional claims, I for institutional claims. Blank when the row came only from the primary affiliation."
+        "label": "Source",
+        "help": "R: the master reference file's group practice. C: a CMS reassignment group."
       },
       "is_primary": {
         "label": "Primary",
-        "help": "This is the clinician's primary billing organization."
+        "help": "This is the clinician's group practice in the master reference file."
       },
       "cases": {
         "label": "Cases",
-        "help": "Case count the warehouse attributes to the clinician at this organization."
+        "help": "Blank: case counts are not available from the reference sources."
       },
       "max_period_code": {
         "label": "Last month billed",
-        "help": "Latest month (YYYYMM) the clinician billed under this organization."
+        "help": "Blank: billing months are not available from the reference sources."
       }
     },
     "hospital_affiliation": {
@@ -1152,31 +1532,31 @@
       },
       "affiliation_rank": {
         "label": "Rank",
-        "help": "Health systems ordered by the clinician's visits there. At most 5 distinct systems."
+        "help": "Not shown in the UI. Affiliated organizations ordered by the clinician's visits there, at most 5."
       },
       "hospital_system_name": {
-        "label": "Health system",
-        "help": "Parent health system where the clinician's visits took place. Campuses of one system are combined."
+        "label": "Affiliated organization (hidden)",
+        "help": "Hidden in the UI. Parent organization of the facilities where the clinician's visits took place; facilities of one parent are combined."
       },
       "facility_name": {
-        "label": "Campus",
-        "help": "The busiest campus or facility within the system, when it has its own name."
+        "label": "Facility",
+        "help": "The busiest facility within the organization, when it has its own name."
       },
       "sl_code": {
         "label": "Location code",
         "help": "Warehouse code of the busiest campus."
       },
       "visits_at_system": {
-        "label": "Visits at system",
-        "help": "The clinician's visits across all sites of this system in Nov 2024 to Oct 2025."
+        "label": "Visits at organization",
+        "help": "The clinician's visits across all sites of this organization in Nov 2024 to Oct 2025."
       },
       "visit_share_pct": {
         "label": "Visit share",
-        "help": "Share of the clinician's visits that took place at this system."
+        "help": "Share of the clinician's visits that took place at this organization."
       },
       "provider_count": {
         "label": "Clinicians",
-        "help": "On a group page, number of member clinicians affiliated with this system."
+        "help": "On a group page, number of member clinicians affiliated with this organization."
       }
     },
     "referral": {
@@ -1186,11 +1566,11 @@
       },
       "direction": {
         "label": "Direction",
-        "help": "in: clinicians who send patients to this clinician. out: clinicians this clinician sends patients to."
+        "help": "in: clinicians whose patients went on to see this clinician. out: clinicians this clinician's patients went on to see."
       },
       "peer_rank": {
         "label": "Rank",
-        "help": "Top 3 per direction by patients."
+        "help": "Top 5 per direction by patients, after leaving out clinicians in the same group practice or billing organization and pathology, radiology, anesthesiology and lab clinicians."
       },
       "peer_npi": {
         "label": "Peer NPI",
@@ -1202,11 +1582,11 @@
       },
       "peer_specialty": {
         "label": "Peer specialty",
-        "help": "Specialty of the referring or receiving clinician."
+        "help": "Specialty of the other clinician. For physician assistants and similar, the role is shown with the generic description, for example Physician Assistant - Medical."
       },
       "patient_count": {
         "label": "Patients",
-        "help": "Patients referred between the two clinicians in Nov 2024 to Oct 2025. Monthly counts are summed, so a patient referred in three months counts three times."
+        "help": "Patients who saw both clinicians in sequence in Nov 2024 to Oct 2025, as inferred by the warehouse from visit order. Monthly counts are summed, so a patient counted in three months counts three times."
       },
       "claim_count": {
         "label": "Claims",
@@ -1237,6 +1617,266 @@
       "profile_display": {
         "label": "Display flag",
         "help": "CMS profile display indicator."
+      }
+    },
+    "provider_filter": {
+      "last_name": {
+        "label": "Last name",
+        "help": "Clinicians whose last name starts with the text."
+      },
+      "npi": {
+        "label": "NPI",
+        "help": "One clinician by exact 10-digit NPI."
+      },
+      "specialty": {
+        "label": "Specialty",
+        "help": "Clinicians whose specialty code matches, or whose specialty description contains the text."
+      },
+      "organization": {
+        "label": "Group practice contains",
+        "help": "Clinicians whose group practice name (master reference file) contains the text."
+      },
+      "organization_id": {
+        "label": "Group practice id",
+        "help": "Clinicians whose group practice (master reference file) has this id."
+      },
+      "city": {
+        "label": "City contains",
+        "help": "Clinicians whose main practice site is in a city containing the text."
+      },
+      "zip": {
+        "label": "ZIP code",
+        "help": "Clinicians with any of their top five practice sites in this 5-digit ZIP code, or in a 3-digit ZIP prefix."
+      },
+      "active": {
+        "label": "Active only",
+        "help": "Show only clinicians with at least one visit or panel patient in Nov 2024 to Oct 2025. Unchecked, the list includes clinicians with no claims activity in the window."
+      },
+      "in_system": {
+        "label": "In-system only",
+        "help": "Show only clinicians with a facility affiliation on file with CMS."
+      },
+      "min_visits": {
+        "label": "Minimum visits",
+        "help": "Lower bound on the clinician's visits in Nov 2024 to Oct 2025. The default of 1 leaves out clinicians who only appear as referring physicians."
+      },
+      "max_visits": {
+        "label": "Maximum visits",
+        "help": "Upper bound on the clinician's visits in Nov 2024 to Oct 2025. Set it equal to the minimum for an exact count."
+      },
+      "membership": {
+        "label": "Membership",
+        "help": "With a group practice id: primary lists clinicians whose master-file group practice is this group; any lists every clinician whose group list, from the master reference file or CMS reassignment, includes it."
+      }
+    },
+    "group_filter": {
+      "organization": {
+        "label": "Organization contains",
+        "help": "Groups whose name contains the text."
+      },
+      "organization_id": {
+        "label": "Group practice id",
+        "help": "One group by its exact group practice id (CMS group PAC ID)."
+      },
+      "parent": {
+        "label": "Parent organization contains",
+        "help": "Groups whose parent organization name contains the text."
+      },
+      "active": {
+        "label": "Roll up active providers only",
+        "help": "Count and sum only member clinicians with activity in Nov 2024 to Oct 2025. Unchecked, every member counts, active or not, so visits and clinician counts can be higher."
+      },
+      "in_system": {
+        "label": "Has in-system providers",
+        "help": "Show only groups with at least one member who has a facility affiliation on file with CMS."
+      },
+      "min_visits": {
+        "label": "Minimum visits",
+        "help": "Lower bound on the group's visits in Nov 2024 to Oct 2025, summed across member clinicians."
+      },
+      "max_visits": {
+        "label": "Maximum visits",
+        "help": "Upper bound on the group's summed visits in Nov 2024 to Oct 2025."
+      },
+      "min_providers": {
+        "label": "Minimum clinicians",
+        "help": "Show only groups with at least this many member clinicians in the chosen roll-up."
+      },
+      "group_state": {
+        "label": "Include out-of-state groups",
+        "help": "Unchecked, the list shows groups whose members mostly practise in this state. Checked, national groups with a few local claims appear too."
+      }
+    },
+    "section": {
+      "volume": {
+        "label": "Volume",
+        "help": "Visits, panel size and work RVU for the clinician in Nov 2024 to Oct 2025."
+      },
+      "work_rvu_vs_specialty": {
+        "label": "Work RVU vs specialty",
+        "help": "How the clinician's average work RVU per procedure, and their total, compare with same-specialty peers who practise in the state with at least 50 visits."
+      },
+      "standing": {
+        "label": "Standing",
+        "help": "Where the clinician ranks among specialty peers on visits and on activity."
+      },
+      "office_em_visits": {
+        "label": "Office visits",
+        "help": "New and established patient office visits, from the office evaluation and management codes."
+      },
+      "place_of_service": {
+        "label": "Place of service",
+        "help": "Share of the clinician's visits by care setting."
+      },
+      "visits_by_day": {
+        "label": "Visits by day of week",
+        "help": "Share of the clinician's visits on each weekday."
+      },
+      "top_diagnoses": {
+        "label": "Top diagnoses",
+        "help": "The five diagnoses most often on the clinician's visits, with each one's share of visits."
+      },
+      "top_procedures": {
+        "label": "Top billed codes",
+        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export."
+      },
+      "clinical_summary": {
+        "label": "Clinical summary",
+        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure."
+      },
+      "top_primary_procedures": {
+        "label": "Top primary procedures",
+        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services."
+      },
+      "group_practices": {
+        "label": "Group practices",
+        "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
+      },
+      "group_source_R": {
+        "label": "Master reference file",
+        "help": "Group practice recorded for the clinician in the master reference file."
+      },
+      "group_source_C": {
+        "label": "CMS reassignment",
+        "help": "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file."
+      },
+      "referrals": {
+        "label": "Referrals",
+        "help": "Clinicians whose patients went on to see this clinician, and clinicians this clinician's patients went on to see, top 5 each. The warehouse infers these from the sequence of visits. Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out."
+      },
+      "referrals_in": {
+        "label": "Referrals in",
+        "help": "Clinicians whose patients went on to see this clinician."
+      },
+      "referrals_out": {
+        "label": "Referrals out",
+        "help": "Clinicians this clinician's patients went on to see."
+      },
+      "sites": {
+        "label": "Sites",
+        "help": "The clinician's top five practice locations by visits, named from the location's DBA or registered name, else its address."
+      },
+      "panel": {
+        "label": "Panel",
+        "help": "Age and sex of the clinician's patients, and the payers behind their visits."
+      },
+      "payer_mix": {
+        "label": "Payer mix",
+        "help": "Share of claims by payer class: Medicare FFS, Medicare Advantage, Medicare Other, Medicaid, Commercial and HMO. Other is outside the denominator."
+      },
+      "top_commercial_payers": {
+        "label": "Top commercial payers",
+        "help": "The five commercial payers with the most of the clinician's commercial claims, each as a share of commercial claims."
+      },
+      "cms": {
+        "label": "CMS",
+        "help": "Group size, telehealth, secondary specialties and MIPS scores as published by CMS."
+      },
+      "group_page_note": {
+        "label": "Summed across clinicians",
+        "help": "Figures on a group page are summed across member clinicians and can count an encounter twice when two members billed it."
+      }
+    },
+    "group_section": {
+      "clinicians": {
+        "label": "Clinicians",
+        "help": "How many clinicians belong to the group, how many were active in Nov 2024 to Oct 2025, how many have a CMS facility affiliation, and visits per clinician."
+      },
+      "volume": {
+        "label": "Volume",
+        "help": "Visits, panel size and work RVU summed across the group's member clinicians in Nov 2024 to Oct 2025. An encounter billed by two members counts twice."
+      },
+      "work_rvu_vs_specialty": {
+        "label": "Work RVU vs specialty",
+        "help": "Hidden on a group page; specialty benchmarks are per clinician."
+      },
+      "standing": {
+        "label": "Standing",
+        "help": "Where the group ranks among all groups in the state on total visits and on visits per clinician."
+      },
+      "office_em_visits": {
+        "label": "Office visits",
+        "help": "New and established patient office visits summed across member clinicians."
+      },
+      "place_of_service": {
+        "label": "Place of service",
+        "help": "Share of the members' visits by care setting, weighted by each member's visits."
+      },
+      "visits_by_day": {
+        "label": "Visits by day of week",
+        "help": "Share of the members' visits on each weekday, weighted by each member's visits."
+      },
+      "top_diagnoses": {
+        "label": "Top diagnoses",
+        "help": "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share."
+      },
+      "top_procedures": {
+        "label": "Top procedures",
+        "help": "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound."
+      },
+      "top_primary_procedures": {
+        "label": "Top primary procedures",
+        "help": "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out."
+      },
+      "group_practices": {
+        "label": "Group practices",
+        "help": "Hidden on a group page."
+      },
+      "referrals": {
+        "label": "Referrals",
+        "help": "Clinicians whose patients went on to see a member of the group, and clinicians the members' patients went on to see, top 5 each, summed across members. Inferred by the warehouse from the sequence of visits. Members of the group, same-organization peers, and pathology, radiology, anesthesia and lab clinicians are left out."
+      },
+      "referrals_in": {
+        "label": "Referrals in",
+        "help": "Clinicians whose patients went on to see a member of the group."
+      },
+      "referrals_out": {
+        "label": "Referrals out",
+        "help": "Clinicians the members' patients went on to see."
+      },
+      "sites": {
+        "label": "Sites",
+        "help": "The five locations with the most member visits, with visits and work RVU summed across members at each."
+      },
+      "panel": {
+        "label": "Panel",
+        "help": "Age and sex of the members' patients, weighted by each member's visits, and the payers behind their visits."
+      },
+      "payer_mix": {
+        "label": "Payer mix",
+        "help": "Share of members' claims by payer class, weighted by each member's visits. Other is outside the denominator."
+      },
+      "top_commercial_payers": {
+        "label": "Top commercial payers",
+        "help": "The five commercial payers with the most of the members' commercial claims, each as a share of the group's commercial claims."
+      },
+      "cms": {
+        "label": "CMS",
+        "help": "Group size as published by CMS, and whether any member offers telehealth."
+      },
+      "modal_specialty": {
+        "label": "Most common specialty",
+        "help": "The specialty with the most member visits. A multispecialty group shows its busiest specialty here."
       }
     }
   },

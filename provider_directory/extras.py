@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
-from provider_directory.analytics import work_type_case_sql
+from provider_directory.transforms import work_type_case_sql
 from provider_directory.cms import (
     cached_path,
     clinician_csv_url,
@@ -103,7 +103,7 @@ def pos_mix_bucket_sql(sl: str = "sl") -> str:
             WHEN ({wt}) IN ('Office', 'Single Specialty Group', 'Independent Clinic') THEN 'office'
             WHEN ({wt}) IN ('Hospital Outpatient', 'Off Campus Outpatient Hospital') THEN 'hopd'
             WHEN ({wt}) = 'Ambulatory Surgery Center' THEN 'asc'
-            WHEN ({wt}) = 'Emergency Department' THEN 'ed'
+            WHEN ({wt}) IN ('Emergency Department', 'Urgent Care') THEN 'ed'
             WHEN ({wt}) = 'Short Term Acute Care Hospital' THEN 'inpatient'
             WHEN ({wt}) = 'Independent Laboratory'
               OR LOWER(IFNULL({sl}.im_specialty_rollup, '')) LIKE CONCAT('%%', 'laborator', '%%')

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from provider_directory.db import quote_ident
-from provider_directory.settings import MART_CHARSET, MART_COLLATION, MART_DB, require_ident
+from provider_directory.settings import MART_CHARSET, MART_COLLATION, MART_DB, require_ident, TOP_CODE_KINDS, TOP_N
 
 TABLES = (
     "cms_pdc_clinician",
@@ -22,23 +22,29 @@ TABLES = (
     "pd_provider_referral",
     "pd_provider_utilization",
     "pd_group_practice",
+    "pd_src_physician",
+    "pd_src_group_practice",
     "pd_stg_window_claim",
     "pd_stg_visit",
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
     "pd_stg_top_px",
+    "pd_stg_top_primary_px",
     "pd_stg_visit_site",
     "pd_stg_npi_sl",
+    "pd_stg_npi_px_line",
     "pd_stg_npi_wrvu",
     "pd_stg_site_wrvu",
     "pd_stg_npi_payor",
     "pd_stg_visit_date",
+    "pd_stg_npi_px_line_prior",
     "pd_stg_npi_dow",
     "pd_stg_site_dow",
     "pd_stg_referral_edge",
     "pd_stg_npi_wrvu_prior",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
+    "pd_stg_npi_avg_percentile",
     "pd_stg_npi_visits_percentile",
 )
 
@@ -48,6 +54,7 @@ PHASE2_STAGING_TABLES = (
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
     "pd_stg_top_px",
+    "pd_stg_top_primary_px",
 )
 
 PHASE2_DERIVED_TABLES = (
@@ -55,7 +62,10 @@ PHASE2_DERIVED_TABLES = (
     "pd_stg_panel_patient",
     "pd_stg_top_dx",
     "pd_stg_top_px",
+    "pd_stg_top_primary_px",
 )
+
+TOP_CODE_TABLES = tuple(table for _prefix, table in TOP_CODE_KINDS)
 
 PHASE3_STAGING_TABLES = (
     "pd_stg_visit_site",
@@ -63,6 +73,7 @@ PHASE3_STAGING_TABLES = (
 )
 
 PHASE4_STAGING_TABLES = (
+    "pd_stg_npi_px_line",
     "pd_stg_npi_wrvu",
     "pd_stg_site_wrvu",
     "pd_stg_npi_payor",
@@ -71,15 +82,18 @@ PHASE4_STAGING_TABLES = (
 PHASE5_STAGING_TABLES = (
     "pd_stg_npi_dow",
     "pd_stg_site_dow",
-    "pd_stg_referral_edge",
+    "pd_stg_npi_wrvu_prior",
     "pd_stg_specialty_wrvu",
     "pd_stg_npi_percentile",
+    "pd_stg_npi_avg_percentile",
     "pd_stg_npi_visits_percentile",
 )
 
+# Kept across phase5 runs (reuse_cached); rebuilt only with --no-reuse / --rebuild-edges.
 PHASE5_CACHED_STAGING_TABLES = (
     "pd_stg_visit_date",
-    "pd_stg_npi_wrvu_prior",
+    "pd_stg_npi_px_line_prior",
+    "pd_stg_referral_edge",
 )
 
 STAGING_TABLES = (
@@ -100,21 +114,35 @@ def table_options() -> str:
     return f"ENGINE={MART_ENGINE} DEFAULT CHARSET={charset} COLLATE={collation}"
 
 
+def _top_code_columns() -> tuple[tuple[str, str], ...]:
+    cols: list[tuple[str, str]] = []
+    for prefix, _table in TOP_CODE_KINDS:
+        for i in range(1, TOP_N + 1):
+            cols.append((f"{prefix}_{i}", "VARCHAR(10) NULL"))
+            cols.append((f"{prefix}_{i}_name", "VARCHAR(80) NULL"))
+    return tuple(cols)
+
+
+TOP_CODE_COLUMNS = _top_code_columns()
+
+# From the reference server (sync --ref). Always on the profile, blank when the
+# master file has nothing for the NPI.
+PD_PROVIDER_REFERENCE_COLUMNS = (
+    ("affiliation_code", "BIGINT UNSIGNED NULL"),
+    ("affiliation_name", "VARCHAR(180) NULL"),
+    ("affiliation_source", "VARCHAR(16) NULL"),
+    ("reference_group_id", "BIGINT UNSIGNED NULL"),
+    ("reference_group_name", "VARCHAR(180) NULL"),
+    # The warehouse billing organization (physician_primary_affiliation), kept as
+    # "bills under" now that primary_organization_* is the master-file group practice.
+    ("billing_organization_id", "BIGINT NULL"),
+    ("billing_organization_name", "VARCHAR(180) NULL"),
+)
+
 PD_PROVIDER_PHASE2_COLUMNS = (
     ("active_provider", "TINYINT NULL"),
     ("visits_total", "INT UNSIGNED NULL"),
-    ("visits_top_diagnosis_1", "VARCHAR(10) NULL"),
-    ("visits_top_diagnosis_1_name", "VARCHAR(80) NULL"),
-    ("visits_top_diagnosis_2", "VARCHAR(10) NULL"),
-    ("visits_top_diagnosis_2_name", "VARCHAR(80) NULL"),
-    ("visits_top_diagnosis_3", "VARCHAR(10) NULL"),
-    ("visits_top_diagnosis_3_name", "VARCHAR(80) NULL"),
-    ("visits_top_procedure_1", "VARCHAR(10) NULL"),
-    ("visits_top_procedure_1_name", "VARCHAR(80) NULL"),
-    ("visits_top_procedure_2", "VARCHAR(10) NULL"),
-    ("visits_top_procedure_2_name", "VARCHAR(80) NULL"),
-    ("visits_top_procedure_3", "VARCHAR(10) NULL"),
-    ("visits_top_procedure_3_name", "VARCHAR(80) NULL"),
+    *TOP_CODE_COLUMNS,
     ("panel_size", "INT UNSIGNED NULL"),
     ("panel_average_age", "DECIMAL(5,1) NULL"),
     ("panel_percent_age_0_19", "DECIMAL(6,2) NULL"),
@@ -138,12 +166,18 @@ PD_PROVIDER_PHASE4_COLUMNS = (
     ("visits_percent_medicaid", "DECIMAL(6,2) NULL"),
     ("visits_percent_medicare_advantage", "DECIMAL(6,2) NULL"),
     ("visits_percent_medicare_traditional", "DECIMAL(6,2) NULL"),
+    ("visits_percent_hmo", "DECIMAL(6,2) NULL"),
+    ("visits_percent_medicare_other", "DECIMAL(6,2) NULL"),
     ("top_payer_name_1", "VARCHAR(140) NULL"),
     ("top_payer_percent_1", "DECIMAL(6,2) NULL"),
     ("top_payer_name_2", "VARCHAR(140) NULL"),
     ("top_payer_percent_2", "DECIMAL(6,2) NULL"),
     ("top_payer_name_3", "VARCHAR(140) NULL"),
     ("top_payer_percent_3", "DECIMAL(6,2) NULL"),
+    ("top_payer_name_4", "VARCHAR(140) NULL"),
+    ("top_payer_percent_4", "DECIMAL(6,2) NULL"),
+    ("top_payer_name_5", "VARCHAR(140) NULL"),
+    ("top_payer_percent_5", "DECIMAL(6,2) NULL"),
     ("primary_organization_id", "BIGINT NULL"),
     ("primary_organization_name", "VARCHAR(180) NULL"),
     ("primary_organization_npi", "BIGINT NULL"),
@@ -169,6 +203,11 @@ PD_PROVIDER_PHASE5_COLUMNS = (
     ("wrvu_prior_year_procedure_count", "INT UNSIGNED NULL"),
     ("wrvu_yoy_change_pct", "DECIMAL(12,2) NULL"),
     ("wrvu_state_specialty_average", "DECIMAL(14,2) NULL"),
+    ("wrvu_state_specialty_average_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_state_specialty_median_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_state_specialty_p25_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_state_specialty_p75_per_procedure", "DECIMAL(10,3) NULL"),
+    ("wrvu_average_specialty_percentile", "DECIMAL(5,1) NULL"),
     ("wrvu_state_specialty_median", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_p25", "DECIMAL(14,2) NULL"),
     ("wrvu_state_specialty_p75", "DECIMAL(14,2) NULL"),
@@ -221,6 +260,10 @@ PD_PROVIDER_EXTRAS_COLUMNS = (
     ("open_payments_ownership_total", "DECIMAL(14,2) NULL"),
     ("open_payments_count", "INT UNSIGNED NULL"),
 )
+
+
+def top_code_ddl() -> str:
+    return ",\n            ".join(f"{name} {definition}" for name, definition in TOP_CODE_COLUMNS) + ","
 
 
 def ddl_statements(mart_db: str = MART_DB) -> list[str]:
@@ -313,18 +356,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             school_source VARCHAR(16),
             active_provider TINYINT NULL,
             visits_total INT UNSIGNED NULL,
-            visits_top_diagnosis_1 VARCHAR(10) NULL,
-            visits_top_diagnosis_1_name VARCHAR(80) NULL,
-            visits_top_diagnosis_2 VARCHAR(10) NULL,
-            visits_top_diagnosis_2_name VARCHAR(80) NULL,
-            visits_top_diagnosis_3 VARCHAR(10) NULL,
-            visits_top_diagnosis_3_name VARCHAR(80) NULL,
-            visits_top_procedure_1 VARCHAR(10) NULL,
-            visits_top_procedure_1_name VARCHAR(80) NULL,
-            visits_top_procedure_2 VARCHAR(10) NULL,
-            visits_top_procedure_2_name VARCHAR(80) NULL,
-            visits_top_procedure_3 VARCHAR(10) NULL,
-            visits_top_procedure_3_name VARCHAR(80) NULL,
+            {top_code_ddl()}
             panel_size INT UNSIGNED NULL,
             panel_average_age DECIMAL(5,1) NULL,
             panel_percent_age_0_19 DECIMAL(6,2) NULL,
@@ -342,12 +374,18 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             visits_percent_medicaid DECIMAL(6,2) NULL,
             visits_percent_medicare_advantage DECIMAL(6,2) NULL,
             visits_percent_medicare_traditional DECIMAL(6,2) NULL,
+            visits_percent_hmo DECIMAL(6,2) NULL,
+            visits_percent_medicare_other DECIMAL(6,2) NULL,
             top_payer_name_1 VARCHAR(140) NULL,
             top_payer_percent_1 DECIMAL(6,2) NULL,
             top_payer_name_2 VARCHAR(140) NULL,
             top_payer_percent_2 DECIMAL(6,2) NULL,
             top_payer_name_3 VARCHAR(140) NULL,
             top_payer_percent_3 DECIMAL(6,2) NULL,
+            top_payer_name_4 VARCHAR(140) NULL,
+            top_payer_percent_4 DECIMAL(6,2) NULL,
+            top_payer_name_5 VARCHAR(140) NULL,
+            top_payer_percent_5 DECIMAL(6,2) NULL,
             primary_organization_id BIGINT NULL,
             primary_organization_name VARCHAR(180) NULL,
             primary_organization_npi BIGINT NULL,
@@ -478,6 +516,76 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         ) {table_options()}
         """,
         f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_src_physician (
+            npi BIGINT UNSIGNED NOT NULL,
+            npi_type VARCHAR(25) NULL,
+            first_name VARCHAR(30) NULL,
+            middle_name VARCHAR(15) NULL,
+            last_name VARCHAR(254) NULL,
+            suffix VARCHAR(4) NULL,
+            specialty_primary VARCHAR(4) NULL,
+            specialty_grp_code INT NULL,
+            specialty_grp_abbr VARCHAR(4) NULL,
+            specialty_grp_name VARCHAR(200) NULL,
+            npi_spec_grp_code VARCHAR(25) NULL,
+            npi_spec_grp_name VARCHAR(80) NULL,
+            taxonomy_cat VARCHAR(20) NULL,
+            taxonomy_cat_name VARCHAR(80) NULL,
+            degree_code SMALLINT NULL,
+            degree_abbr VARCHAR(10) NULL,
+            degree_name VARCHAR(30) NULL,
+            zip_code VARCHAR(5) NULL,
+            street VARCHAR(80) NULL,
+            city VARCHAR(80) NULL,
+            county_code VARCHAR(6) NULL,
+            county_name VARCHAR(80) NULL,
+            state_abbr VARCHAR(2) NULL,
+            physician_name VARCHAR(253) NULL,
+            dba_name VARCHAR(253) NULL,
+            latitude DECIMAL(10,6) NULL,
+            longitude DECIMAL(10,6) NULL,
+            phone_number VARCHAR(30) NULL,
+            group_prac_code BIGINT UNSIGNED NULL,
+            group_prac_name VARCHAR(180) NULL,
+            inpatient INT NULL,
+            outpatient INT NULL,
+            ed INT NULL,
+            claim INT UNSIGNED NULL,
+            affiliation_code BIGINT UNSIGNED NULL,
+            affiliation_name VARCHAR(255) NULL,
+            affiliation_dba_name VARCHAR(255) NULL,
+            rec_create_date DATETIME NULL,
+            rec_modify_date DATETIME NULL,
+            copied_at DATETIME NULL,
+            PRIMARY KEY (npi),
+            KEY idx_state_type (state_abbr, npi_type),
+            KEY idx_group (group_prac_code),
+            KEY idx_affiliation (affiliation_code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_src_group_practice (
+            rec_id BIGINT UNSIGNED NOT NULL,
+            group_pac_id VARCHAR(10) NULL,
+            group_enrollment_id VARCHAR(15) NULL,
+            group_name VARCHAR(70) NULL,
+            group_state VARCHAR(2) NULL,
+            group_member_count BIGINT UNSIGNED NULL,
+            record_type VARCHAR(19) NULL,
+            individual_enrollment_id VARCHAR(15) NULL,
+            npi BIGINT UNSIGNED NULL,
+            first_name VARCHAR(25) NULL,
+            last_name VARCHAR(35) NULL,
+            individual_state VARCHAR(2) NULL,
+            specialty_description VARCHAR(150) NULL,
+            employer_associations INT UNSIGNED NULL,
+            copied_at DATETIME NULL,
+            PRIMARY KEY (rec_id),
+            KEY idx_npi (npi),
+            KEY idx_group (group_pac_id)
+        ) {table_options()}
+        """,
+        f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_window_claim (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             encounter_id DECIMAL(25,0),
@@ -536,6 +644,17 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_px (
+            npi BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            name VARCHAR(80),
+            visit_count INT UNSIGNED NOT NULL,
+            rk TINYINT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, rk),
+            KEY idx_npi (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_top_primary_px (
             npi BIGINT UNSIGNED NOT NULL,
             code VARCHAR(10) NOT NULL,
             name VARCHAR(80),
@@ -645,6 +764,23 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
         ) {table_options()}
         """,
         f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_px_line (
+            npi BIGINT UNSIGNED NOT NULL,
+            sl_code BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            line_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, sl_code, code)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_px_line_prior (
+            npi BIGINT UNSIGNED NOT NULL,
+            code VARCHAR(10) NOT NULL,
+            line_count INT UNSIGNED NOT NULL,
+            PRIMARY KEY (npi, code)
+        ) {table_options()}
+        """,
+        f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_wrvu (
             npi BIGINT UNSIGNED NOT NULL,
             total_wrvu DECIMAL(14,4) NOT NULL,
@@ -716,8 +852,10 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             visits_per_provider DECIMAL(12,1) NULL,
             visits_percentile DECIMAL(5,1) NULL,
             activity_percentile DECIMAL(5,1) NULL,
+            state CHAR(2) NULL,
             refreshed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (member_scope, organization_id),
+            KEY idx_scope_state_visits (member_scope, state, visits_total),
             KEY idx_scope_visits (member_scope, visits_total),
             KEY idx_scope_name (member_scope, organization_name),
             KEY idx_scope_parent (member_scope, parent_name),
@@ -771,14 +909,25 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             specialty_code VARCHAR(25) NOT NULL,
             npi_count INT UNSIGNED NOT NULL,
             avg_wrvu DECIMAL(14,2) NOT NULL,
+            avg_wrvu_per_procedure DECIMAL(10,3) NULL,
             p25_wrvu DECIMAL(14,2) NULL,
             median_wrvu DECIMAL(14,2) NULL,
             p75_wrvu DECIMAL(14,2) NULL,
+            p25_wrvu_per_procedure DECIMAL(10,3) NULL,
+            median_wrvu_per_procedure DECIMAL(10,3) NULL,
+            p75_wrvu_per_procedure DECIMAL(10,3) NULL,
             PRIMARY KEY (specialty_code)
         ) {table_options()}
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_percentile (
+            npi BIGINT UNSIGNED NOT NULL,
+            pct DECIMAL(5,1) NOT NULL,
+            PRIMARY KEY (npi)
+        ) {table_options()}
+        """,
+        f"""
+        CREATE TABLE IF NOT EXISTS {db}.pd_stg_npi_avg_percentile (
             npi BIGINT UNSIGNED NOT NULL,
             pct DECIMAL(5,1) NOT NULL,
             PRIMARY KEY (npi)
@@ -871,6 +1020,27 @@ def migrate_phase5_columns(conn, mart_db: str = MART_DB) -> None:
         cur.execute(
             f"ALTER TABLE {provider} MODIFY COLUMN wrvu_yoy_change_pct DECIMAL(12,2) NULL"
         )
+
+
+GROUP_SUMMARY_EXTRA_COLUMNS = (("state", "CHAR(2) NULL"),)
+
+
+def migrate_group_summary_columns(conn, mart_db: str = MART_DB) -> None:
+    table = f"{quote_ident(mart_db)}.pd_group_practice"
+    with conn.cursor() as cur:
+        for name, definition in GROUP_SUMMARY_EXTRA_COLUMNS:
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}")
+        cur.execute(f"CREATE INDEX IF NOT EXISTS idx_scope_state_visits ON {table} (member_scope, state, visits_total)")
+
+
+def migrate_reference_columns(conn, mart_db: str = MART_DB) -> None:
+    """Add the reference-server columns (affiliation, reference group) to pd_provider."""
+    provider = f"{quote_ident(mart_db)}.pd_provider"
+    with conn.cursor() as cur:
+        for name, definition in PD_PROVIDER_REFERENCE_COLUMNS:
+            cur.execute(
+                f"ALTER TABLE {provider} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
+            )
 
 
 def migrate_extras_columns(conn, mart_db: str = MART_DB) -> None:
@@ -1043,5 +1213,7 @@ def create_schema(conn, mart_db: str = MART_DB) -> None:
     migrate_phase4_columns(conn, mart_db)
     migrate_phase5_columns(conn, mart_db)
     migrate_extras_columns(conn, mart_db)
+    migrate_reference_columns(conn, mart_db)
+    migrate_group_summary_columns(conn, mart_db)
     convert_engine(conn, mart_db)
     convert_persistent_collation(conn, mart_db)

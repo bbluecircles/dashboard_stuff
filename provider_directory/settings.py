@@ -75,6 +75,17 @@ MARKET_ALIASES = {
 
 PAYER_SOURCES = ("dash", "pat_dt")
 
+# Reference server (master_ref). A different MariaDB host from the claims warehouse,
+# so the pipeline never joins across it: it copies the two tables below into the
+# mart (pd_src_*) with short keyset-paged reads and builds from the copy.
+# Connection: REF_DB_HOST / REF_DB_PORT / REF_DB_USER / REF_DB_PASSWORD, falling
+# back to the DB_* values only when REF_DB_HOST is unset (same box).
+REF_DB = os.environ.get("PD_REF_DB", "master_ref")
+REF_PHYSICIAN_TABLE = os.environ.get("PD_REF_PHYSICIAN_TABLE", "111_physician")
+REF_GROUP_PRACTICE_TABLE = os.environ.get("PD_REF_GROUP_PRACTICE_TABLE", "cms_group_practice")
+REF_COPY_PAGE_ROWS = int(os.environ.get("PD_REF_COPY_PAGE_ROWS", "20000"))
+REF_COPY_MAX_STATEMENT_SECONDS = int(os.environ.get("PD_REF_COPY_MAX_STATEMENT_SECONDS", "30"))
+
 
 def payer_source_for_claims_db(claims_db: str) -> str:
     """Payer source for a claims database, by its market alias; "dash" otherwise."""
@@ -92,17 +103,86 @@ MARKET_STATE = DEFAULT_MARKET_STATE if _is_market_key(DEFAULT_MARKET_STATE) else
 MAX_PRACTICE_SITES = 5
 MAX_HOSPITAL_AFFILIATIONS = 5
 MIN_HOSPITAL_AFFILIATION_SHARE_PCT = 2.0
-MAX_REFERRAL_PEERS = 3
+MAX_REFERRAL_PEERS = 5
+# Referral peers left out of the ranked lists. Same group practice or same
+# claims billing organization catches the in-practice NP / partner case; the specialty pattern drops imaging,
+# lab and anesthesia "referrals" that are orders rather than hand-offs.
+REFERRAL_EXCLUDE_SAME_ORGANIZATION = True
+REFERRAL_EXCLUDED_SPECIALTY_REGEXP = "PATHOLOG|DIAGNOSTIC RADIOLOGY|BODY IMAGING|NEURORADIOLOG|NUCLEAR MEDICINE|ANESTHE|CLINICAL LABORATORY|STUDENT"
+# Specialty benchmark peers: same specialty, a practice site in the market state,
+# and at least this many visits in the window, so out-of-state clinicians with a
+# handful of claim lines do not set the median.
+BENCHMARK_MIN_VISITS = 50
+# Ranked lists on the profile (diagnoses, procedures, primary procedures) are top TOP_N.
+TOP_N = 5
+# (pd_provider column prefix, staging table) for each ranked code list.
+TOP_CODE_KINDS = (
+    ("visits_top_diagnosis", "pd_stg_top_dx"),
+    ("visits_top_procedure", "pd_stg_top_px"),
+    ("visits_top_primary_procedure", "pd_stg_top_primary_px"),
+)
+# Top Primary Procedures: codes whose strict physician work RVU is above this,
+# excluding visit-type services (ranges and codes below) and tracking / lab codes.
+PRIMARY_PROCEDURE_MIN_WORK_RVU = 1.0
+# Inclusive CPT ranges that are visits or evaluations rather than procedures.
+PRIMARY_PROCEDURE_EXCLUDED_RANGES = (
+    ("99202", "99499", "evaluation and management visits"),
+    ("98000", "98016", "telemedicine evaluation and management visits"),
+    ("92002", "92014", "ophthalmology exams"),
+    ("90785", "90899", "psychiatric evaluations and psychotherapy"),
+    ("97161", "97168", "physical and occupational therapy evaluations"),
+    ("92507", "92508", "speech therapy visits"),
+    ("92521", "92524", "speech and language evaluations"),
+    ("92526", "92526", "oral function therapy"),
+)
+# HCPCS visit codes outside those ranges.
+PRIMARY_PROCEDURE_EXCLUDED_CODES = (
+    "G0402", "G0438", "G0439",  # Medicare preventive / annual wellness visits
+    "G0463",                    # hospital outpatient clinic visit
+    "G2211", "G2212",           # visit complexity / prolonged visit add-ons
+    "G0442", "G0443", "G0444",  # screening and counseling visits
+    "G2010", "G2012", "G2025",  # virtual check-ins and telehealth distant-site visits
+    "99024",                    # postoperative follow-up visit
+)
+# Codes that never carry physician work and must not be priced: Category II
+# tracking codes (dddd F) and hospital outpatient pass-through C codes, whose
+# lookup rows hold a facility payment amount in the work RVU column.
+RVU_EXCLUDED_CODE_PATTERNS = ("^[0-9]{4}F$", "^C[0-9]{4}$")
+# Regex patterns left out of Top Primary Procedures: the above plus proprietary lab analyses (dddd U).
+PRIMARY_PROCEDURE_EXCLUDED_PATTERNS = RVU_EXCLUDED_CODE_PATTERNS + ("^[0-9]{4}U$",)
 GEO_CLUSTER_DECIMALS = 4
 REFERRAL_IN = "in"
 REFERRAL_OUT = "out"
 
+# az.payor.is_payor_code classes. Class 4 is HMO (not Medicare Advantage);
+# Medicare Advantage is class 6. Class 5 Other stays out of every denominator.
 PAYOR_MEDICARE_FFS = 1
 PAYOR_MEDICAID = 2
 PAYOR_COMMERCIAL = 3
-PAYOR_HMO_MA = 4
+PAYOR_HMO = 4
 PAYOR_OTHER = 5
-PAYOR_MIX_CODES = (PAYOR_MEDICARE_FFS, PAYOR_MEDICAID, PAYOR_COMMERCIAL, PAYOR_HMO_MA)
+PAYOR_MEDICARE_ADVANTAGE = 6
+PAYOR_MEDICARE_OTHER = 7
+PAYOR_CLASSES = {
+    PAYOR_MEDICARE_FFS: "Medicare FFS",
+    PAYOR_MEDICAID: "Medicaid",
+    PAYOR_COMMERCIAL: "Commercial",
+    PAYOR_HMO: "HMO",
+    PAYOR_OTHER: "Other",
+    PAYOR_MEDICARE_ADVANTAGE: "Medicare Advantage",
+    PAYOR_MEDICARE_OTHER: "Medicare Other",
+}
+# (class, pd_provider column) for every class in the payer-mix denominator.
+PAYOR_MIX_COLUMNS = (
+    (PAYOR_MEDICARE_FFS, "visits_percent_medicare_traditional"),
+    (PAYOR_MEDICAID, "visits_percent_medicaid"),
+    (PAYOR_COMMERCIAL, "visits_percent_third_party"),
+    (PAYOR_HMO, "visits_percent_hmo"),
+    (PAYOR_MEDICARE_ADVANTAGE, "visits_percent_medicare_advantage"),
+    (PAYOR_MEDICARE_OTHER, "visits_percent_medicare_other"),
+)
+PAYOR_MIX_CODES = tuple(code for code, _column in PAYOR_MIX_COLUMNS)
+MAX_TOP_PAYERS = 5
 
 CMS_CACHE_DIR = Path(os.environ.get("PD_CMS_CACHE", str(ROOT / "data" / "cms")))
 API_JOB_STORE = Path(os.environ.get("PD_API_JOB_STORE", str(ROOT / "data" / "api_jobs.json")))

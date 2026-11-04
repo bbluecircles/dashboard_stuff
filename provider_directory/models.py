@@ -58,7 +58,7 @@ class ProviderPractice(BaseModel):
 
 
 class ProviderGroupPractice(BaseModel):
-    """One billing org the Type 1 belongs to. Primary first (org_rank 1)."""
+    """One group on the clinician's list: the master-file group practice (primary, org_rank 1) or a CMS reassignment group."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -74,7 +74,7 @@ class ProviderGroupPractice(BaseModel):
 
 
 class HospitalAffiliation(BaseModel):
-    """Visit-weighted health system. Distinct systems, not campuses."""
+    """Hidden list: visit-weighted parent organization from claims.sl, one row per organization."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -129,6 +129,11 @@ class ProviderSpine(BaseModel):
     primary_specialty_description: str | None = None
     specialty_classification: str | None = None
     in_system_provider: bool | None = None
+    affiliation_code: int | None = None
+    affiliation_name: str | None = None
+    affiliation_source: str | None = None
+    reference_group_id: int | None = None
+    reference_group_name: str | None = None
     name_source: str | None = None
     gender_source: str | None = None
     school_source: str | None = None
@@ -152,6 +157,33 @@ class ProviderSpine(BaseModel):
     visits_top_procedure_3: str | None = None
     visits_top_procedure_3_name: str | None = None
     visits_top_procedure_3_percent: float | None = None
+    visits_top_diagnosis_4: str | None = None
+    visits_top_diagnosis_4_name: str | None = None
+    visits_top_diagnosis_4_percent: float | None = None
+    visits_top_diagnosis_5: str | None = None
+    visits_top_diagnosis_5_name: str | None = None
+    visits_top_diagnosis_5_percent: float | None = None
+    visits_top_procedure_4: str | None = None
+    visits_top_procedure_4_name: str | None = None
+    visits_top_procedure_4_percent: float | None = None
+    visits_top_procedure_5: str | None = None
+    visits_top_procedure_5_name: str | None = None
+    visits_top_procedure_5_percent: float | None = None
+    visits_top_primary_procedure_1: str | None = None
+    visits_top_primary_procedure_1_name: str | None = None
+    visits_top_primary_procedure_1_percent: float | None = None
+    visits_top_primary_procedure_2: str | None = None
+    visits_top_primary_procedure_2_name: str | None = None
+    visits_top_primary_procedure_2_percent: float | None = None
+    visits_top_primary_procedure_3: str | None = None
+    visits_top_primary_procedure_3_name: str | None = None
+    visits_top_primary_procedure_3_percent: float | None = None
+    visits_top_primary_procedure_4: str | None = None
+    visits_top_primary_procedure_4_name: str | None = None
+    visits_top_primary_procedure_4_percent: float | None = None
+    visits_top_primary_procedure_5: str | None = None
+    visits_top_primary_procedure_5_name: str | None = None
+    visits_top_primary_procedure_5_percent: float | None = None
     panel_size: int | None = None
     panel_average_age: float | None = None
     panel_percent_age_0_19: float | None = None
@@ -169,17 +201,25 @@ class ProviderSpine(BaseModel):
     visits_percent_medicaid: float | None = None
     visits_percent_medicare_advantage: float | None = None
     visits_percent_medicare_traditional: float | None = None
+    visits_percent_hmo: float | None = None
+    visits_percent_medicare_other: float | None = None
     top_payer_name_1: str | None = None
     top_payer_percent_1: float | None = None
     top_payer_name_2: str | None = None
     top_payer_percent_2: float | None = None
     top_payer_name_3: str | None = None
     top_payer_percent_3: float | None = None
+    top_payer_name_4: str | None = None
+    top_payer_percent_4: float | None = None
+    top_payer_name_5: str | None = None
+    top_payer_percent_5: float | None = None
     primary_organization_id: int | None = None
     primary_organization_name: str | None = None
     primary_organization_npi: int | None = None
     primary_organization_parent_id: int | None = None
     primary_organization_parent_name: str | None = None
+    billing_organization_id: int | None = None
+    billing_organization_name: str | None = None
     visits_percent_monday: float | None = None
     visits_percent_tuesday: float | None = None
     visits_percent_wednesday: float | None = None
@@ -192,6 +232,11 @@ class ProviderSpine(BaseModel):
     wrvu_prior_year_procedure_count: int | None = None
     wrvu_yoy_change_pct: float | None = None
     wrvu_state_specialty_average: float | None = None
+    wrvu_state_specialty_average_per_procedure: float | None = None
+    wrvu_state_specialty_median_per_procedure: float | None = None
+    wrvu_state_specialty_p25_per_procedure: float | None = None
+    wrvu_state_specialty_p75_per_procedure: float | None = None
+    wrvu_average_specialty_percentile: float | None = None
     wrvu_state_specialty_median: float | None = None
     wrvu_state_specialty_p25: float | None = None
     wrvu_state_specialty_p75: float | None = None
@@ -252,6 +297,9 @@ class ProviderDumpRow(BaseModel):
     practice_name: str | None = None
     city: str | None = None
     state: str | None = None
+    zip: str | None = None
+    visits_top_diagnosis_1_name: str | None = None
+    visits_top_primary_procedure_1_name: str | None = None
     visits_total: int | None = None
     panel_size: int | None = None
     in_system_provider: bool | None = None
@@ -259,6 +307,7 @@ class ProviderDumpRow(BaseModel):
     wrvu_specialty_percentile: float | None = None
     visits_specialty_percentile: float | None = None
     activity_specialty_percentile: float | None = None
+    is_primary_member: bool | None = None
 
 
 class ProviderDumpList(BaseModel):
@@ -283,6 +332,7 @@ class GroupPracticeDumpRow(BaseModel):
     provider_count: int = 0
     active_provider_count: int = 0
     in_system_provider_count: int = 0
+    state: str | None = None
     visits_total: int = 0
     panel_size: int = 0
     wrvu_total: float | None = None
@@ -299,6 +349,7 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     """
 
     visits_are_summed_across_npis: bool = True
+    member_count_any: int | None = None
     primary_specialty_code: str | None = None
     primary_specialty_description: str | None = None
     in_system_provider: bool | None = None
@@ -321,6 +372,33 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     visits_top_procedure_3: str | None = None
     visits_top_procedure_3_name: str | None = None
     visits_top_procedure_3_percent: float | None = None
+    visits_top_diagnosis_4: str | None = None
+    visits_top_diagnosis_4_name: str | None = None
+    visits_top_diagnosis_4_percent: float | None = None
+    visits_top_diagnosis_5: str | None = None
+    visits_top_diagnosis_5_name: str | None = None
+    visits_top_diagnosis_5_percent: float | None = None
+    visits_top_procedure_4: str | None = None
+    visits_top_procedure_4_name: str | None = None
+    visits_top_procedure_4_percent: float | None = None
+    visits_top_procedure_5: str | None = None
+    visits_top_procedure_5_name: str | None = None
+    visits_top_procedure_5_percent: float | None = None
+    visits_top_primary_procedure_1: str | None = None
+    visits_top_primary_procedure_1_name: str | None = None
+    visits_top_primary_procedure_1_percent: float | None = None
+    visits_top_primary_procedure_2: str | None = None
+    visits_top_primary_procedure_2_name: str | None = None
+    visits_top_primary_procedure_2_percent: float | None = None
+    visits_top_primary_procedure_3: str | None = None
+    visits_top_primary_procedure_3_name: str | None = None
+    visits_top_primary_procedure_3_percent: float | None = None
+    visits_top_primary_procedure_4: str | None = None
+    visits_top_primary_procedure_4_name: str | None = None
+    visits_top_primary_procedure_4_percent: float | None = None
+    visits_top_primary_procedure_5: str | None = None
+    visits_top_primary_procedure_5_name: str | None = None
+    visits_top_primary_procedure_5_percent: float | None = None
     panel_average_age: float | None = None
     panel_percent_age_0_19: float | None = None
     panel_percent_age_20_44: float | None = None
@@ -336,12 +414,18 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     visits_percent_medicaid: float | None = None
     visits_percent_medicare_advantage: float | None = None
     visits_percent_medicare_traditional: float | None = None
+    visits_percent_hmo: float | None = None
+    visits_percent_medicare_other: float | None = None
     top_payer_name_1: str | None = None
     top_payer_percent_1: float | None = None
     top_payer_name_2: str | None = None
     top_payer_percent_2: float | None = None
     top_payer_name_3: str | None = None
     top_payer_percent_3: float | None = None
+    top_payer_name_4: str | None = None
+    top_payer_percent_4: float | None = None
+    top_payer_name_5: str | None = None
+    top_payer_percent_5: float | None = None
     visits_percent_monday: float | None = None
     visits_percent_tuesday: float | None = None
     visits_percent_wednesday: float | None = None

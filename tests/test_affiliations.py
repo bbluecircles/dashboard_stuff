@@ -1,6 +1,6 @@
 import inspect
 
-from provider_directory.affiliations import _affiliation_name_ok_sql, rebuild_org_lists
+from provider_directory.affiliations import rebuild_org_lists
 from provider_directory.analytics import rebuild_analytics
 from provider_directory.locations import hospital_facility_name_sql, hospital_system_name_sql
 from provider_directory.lookup import fetch_group_hospital_affiliations, get_group_practice, list_group_practices
@@ -27,20 +27,22 @@ def test_schema_has_affiliation_mart_tables():
 def test_hospital_system_sql_drops_unknown():
     sql = hospital_system_name_sql()
     assert "sl_hospital_system_name" in sql
-    assert "provider_facility_npi_hospital_system_name" in sql
+    assert "provider_facility_npi" not in sql
     assert "'UNKNOWN'" in sql
     fac = hospital_facility_name_sql()
-    assert "npi_type = '2'" in fac
+    assert "provider_facility_npi" not in fac
     assert "sl_hospital_system_name" not in fac
+    assert "'UNKNOWN'" in fac
+    assert "provider_facility_npi" not in inspect.getsource(rebuild_org_lists)
 
 
 def test_org_list_sql_uses_affiliation_tables_not_pat_dt():
     source = inspect.getsource(rebuild_org_lists)
-    names = inspect.getsource(_affiliation_name_ok_sql)
-    assert "physician_affiliation_p" in source
-    assert "physician_affiliation_i" in source
-    assert "max_period_code >=" in source
-    assert "UNKNOWN GROUP PRACTICE" in names
+    assert "physician_affiliation_p" not in source
+    assert "physician_affiliation_i" not in source
+    assert "pd_src_group_practice g" in source and "CAST(g.group_pac_id AS UNSIGNED)" in source
+    assert "p.primary_organization_id," in source and "'R'," in source and "'C'," in source
+    assert "CASE t.billing_type WHEN 'R' THEN 0 WHEN 'C' THEN 1 ELSE 2 END" in source
     assert "GROUP BY x.npi, UPPER(x.hospital_system_name COLLATE {MART_COLLATION})" in source
     assert "primary_organization_parent_name" in source
     assert "hospital parent fallback" in source

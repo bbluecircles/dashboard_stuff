@@ -6,6 +6,7 @@ from provider_directory.cli import build_parser
 from provider_directory.field_help import (
     SCOPES,
     TABLE_REGISTRY,
+    table_closure,
     catalog,
     catalog_markdown,
     describe_table,
@@ -25,6 +26,10 @@ SCOPE_MODELS = {
     "hospital_affiliation": (models.HospitalAffiliation,),
     "referral": (models.ProviderReferral,),
     "utilization": (models.ProviderUtilization,),
+    "provider_filter": (),
+    "group_filter": (),
+    "section": (),
+    "group_section": (),
 }
 
 
@@ -137,14 +142,19 @@ def test_cli_field_help_writes_file(tmp_path, capsys):
 
 
 # Fields whose value is a constant or a pure derivation with no table of its own.
-NO_TABLE_FIELDS = {("group", "visits_are_summed_across_npis")}
+NO_TABLE_FIELDS = {
+    ("group", "visits_are_summed_across_npis"),
+    ("group_practice", "organization_npi"),
+    ("group_practice", "cases"),
+    ("group_practice", "max_period_code"),
+}
 
 
 def test_every_dev_entry_names_registered_tables():
     cat = catalog(dev=True)
     for scope, fields in cat.items():
         for key, item in fields.items():
-            if (scope, key) in NO_TABLE_FIELDS:
+            if (scope, key) in NO_TABLE_FIELDS or scope in ("section", "group_section"):
                 continue
             assert item["tables"], (scope, key)
             for table in item["tables"]:
@@ -155,7 +165,7 @@ def test_every_dev_entry_names_registered_tables():
 
 def test_tables_in_parses_prefixes_wildcards_and_rejects_unknown():
     found = tables_in("az_cms.pat_dt joined to azal.procd on procd_code; pd_stg_top_* visit_count / pd_provider.visits_total; cms_pdc_clinician.gndr")
-    assert found == ["claims.pat_dt", "lookup.procd", "pd_stg_top_dx", "pd_stg_top_px", "pd_provider", "cms_pdc_clinician"]
+    assert found == ["claims.pat_dt", "lookup.procd", "pd_stg_top_dx", "pd_stg_top_px", "pd_stg_top_primary_px", "pd_provider", "cms_pdc_clinician"]
     import pytest
     with pytest.raises(KeyError):
         tables_in("reads pd_stg_made_up")
@@ -185,7 +195,7 @@ def test_rendered_dev_entries_carry_tables_and_markdown_marks_external():
                               claims_db="az_cms", lookup_db="azal")
     rvu = rendered["scopes"]["provider"]["wrvu_total"]
     names = [t["name"] for t in rvu["tables"]]
-    assert "azal.procd" in names and "pd_stg_visit" in names and "pd_stg_npi_wrvu" in names
+    assert "azal.procd" in names and "pd_stg_npi_px_line" in names and "pd_stg_npi_wrvu" in names
     gender = rendered["scopes"]["provider"]["gender"]
     ext = [t for t in gender["tables"] if t["external"]]
     assert {t["name"] for t in ext} == {"cms_pdc_clinician", "cms_nppes_type1"}
@@ -205,11 +215,11 @@ def test_lineage_pulls_upstream_tables_through_the_chain():
                               claims_db="az_cms", lookup_db="azal")
     grp = rendered["scopes"]["group"]["wrvu_total"]
     assert [r["ref"] for r in grp["derived_from"]] == ["provider.wrvu_total"]
-    assert grp["derived_from"][0]["label"] == "RVU total"
+    assert grp["derived_from"][0]["label"] == "Work RVU total"
     own = [t["name"] for t in grp["tables"] if not t["upstream"]]
     up = [t["name"] for t in grp["tables"] if t["upstream"]]
     assert own == ["pd_provider", "pd_group_practice"]
-    assert "azal.procd" in up and "pd_stg_visit" in up and "pd_stg_npi_wrvu" in up
+    assert "azal.procd" in up and "pd_stg_npi_px_line" in up and "pd_stg_npi_wrvu" in up
     assert "pd_provider" not in up
     act = rendered["scopes"]["provider"]["activity_specialty_percentile"]
     assert {r["ref"] for r in act["derived_from"]} == {"provider.visits_specialty_percentile", "provider.wrvu_specialty_percentile"}
@@ -244,3 +254,104 @@ def test_markdown_shows_built_on_notes_and_upstream():
     assert "Notes: An encounter billed by two members of the group counts twice." in md
     assert "(upstream:" in md
     assert "| Refreshed by |" in md
+
+
+def test_every_mart_table_declares_valid_built_from():
+    for key, meta in TABLE_REGISTRY.items():
+        if meta["kind"] == "mart":
+            assert meta.get("built_from"), key
+            for dep in meta["built_from"]:
+                assert dep in TABLE_REGISTRY, (key, dep)
+        else:
+            assert "built_from" not in meta, key
+    assert table_closure("pd_stg_npi_wrvu") == ['pd_stg_npi_wrvu', 'pd_stg_npi_px_line', 'claims.pat_dt', 'pd_provider', 'lookup.procd']
+    assert table_closure("pd_group_practice") == ["pd_group_practice"]
+
+
+def test_field_upstream_reaches_the_warehouse():
+    rendered = render_catalog(dev=True, window_start=202411, window_end=202510, claims_db="az_cms")
+    grp = rendered["scopes"]["group"]["wrvu_total"]
+    up = [t["name"] for t in grp["tables"] if t["upstream"]]
+    assert "az_cms.pat_dt" in up and "pd_stg_npi_px_line" in up and "azal.procd" in up
+    assert "pd_provider" not in up
+    gp = rendered["scopes"]["group_practice"]["organization_name"]
+    names = [t["name"] for t in gp["tables"]]
+    assert "pd_src_group_practice" in names and "master_ref.cms_group_practice" in names
+    reg = {t["key"]: t for t in rendered["tables"]}
+    assert reg["pd_provider_group_practice"]["built_from"] == ["pd_src_group_practice", "pd_provider"]
+    prov = rendered["scopes"]["provider"]
+    assert prov["primary_organization_id"]["label"] == "Group practice id"
+    assert "master_ref.111_physician" in [t["name"] for t in prov["primary_organization_id"]["tables"]]
+    assert prov["billing_organization_name"]["label"] == "Bills under"
+    assert "built_from" not in reg["cms_pdc_clinician"]
+
+
+def test_client_tier_never_says_hospital_system_or_bare_rvu():
+    plain = catalog(dev=False)
+    banned = ("hospital system", "health system", "parent system")
+    for scope, fields in plain.items():
+        for key, item in fields.items():
+            text = (item["label"] + " " + item["help"]).lower()
+            for word in banned:
+                assert word not in text, (scope, key, word)
+    for scope, key in (("provider", "wrvu_total"), ("group", "wrvu_total"), ("practice", "wrvu_at_site"),
+                       ("provider", "wrvu_state_specialty_median"), ("provider", "wrvu_state_specialty_p25")):
+        assert "work rvu" in plain[scope][key]["label"].lower(), (scope, key)
+    assert plain["provider"]["wrvu_average"]["label"] == "Average work RVU per procedure"
+    assert "under review" not in plain["provider"]["wrvu_total"]["help"].lower()
+
+
+def test_payer_class_labels_match_the_warehouse_codes():
+    cat = catalog(dev=True)["provider"]
+    assert cat["visits_percent_hmo"]["label"] == "HMO"
+    assert "Class 4" in cat["visits_percent_hmo"]["dev"]
+    assert cat["visits_percent_medicare_advantage"]["label"] == "Medicare Advantage"
+    assert "Class 6" in cat["visits_percent_medicare_advantage"]["dev"]
+    assert cat["visits_percent_medicare_other"]["label"] == "Medicare Other"
+    assert "Class 7" in cat["visits_percent_medicare_other"]["dev"]
+    assert cat["top_payer_name_5"]["label"] == "Top commercial payer 5"
+    assert cat["is_primary_member"]["label"] == "Primary member"
+    group = catalog(dev=True)["group"]
+    assert group["member_count_any"]["label"] == "Clinicians listing this group"
+def test_filter_controls_have_help_for_every_query_parameter():
+    cat = catalog(dev=False)
+    for name in ("active", "in_system", "min_visits", "max_visits", "last_name", "specialty", "organization", "organization_id", "city"):
+        assert name in cat["provider_filter"], name
+    for name in ("active", "in_system", "min_visits", "max_visits", "min_providers", "organization", "organization_id", "parent"):
+        assert name in cat["group_filter"], name
+    assert cat["group_filter"]["active"]["label"] == "Roll up active providers only"
+    assert cat["group_filter"]["in_system"]["label"] == "Has in-system providers"
+    assert cat["provider_filter"]["active"]["label"] == "Active only"
+    assert cat["provider_filter"]["in_system"]["label"] == "In-system only"
+
+
+def test_top_code_help_covers_five_ranks_and_primary_procedures():
+    cat = catalog(dev=True)["provider"]
+    for prefix in ("visits_top_diagnosis", "visits_top_procedure", "visits_top_primary_procedure"):
+        for i in range(1, 6):
+            assert f"{prefix}_{i}" in cat and f"{prefix}_{i}_name" in cat and f"{prefix}_{i}_percent" in cat, (prefix, i)
+    assert cat["visits_top_primary_procedure_1"]["label"] == "Top primary procedure 1"
+    assert "work RVU above 1" in cat["visits_top_primary_procedure_1"]["help"]
+    assert "pd_stg_top_primary_px" in cat["visits_top_primary_procedure_1"]["tables"]
+    assert any("Visit-type codes" in c for c in cat["visits_top_primary_procedure_2"]["caveats"])
+    group = catalog(dev=True)["group"]
+    assert "stored top 5" in group["visits_top_primary_procedure_1_percent"]["help"]
+
+
+def test_section_scope_names_headings_and_group_sources():
+    sec = catalog(dev=False)["section"]
+    assert sec["top_primary_procedures"]["label"] == "Top primary procedures"
+    assert sec["work_rvu_vs_specialty"]["label"] == "Work RVU vs specialty"
+    assert sec["group_source_R"]["label"] == "Master reference file"
+    assert sec["group_source_C"]["label"] == "CMS reassignment"
+    for key in ("volume", "referrals", "payer_mix", "sites", "panel", "cms"):
+        assert key in sec
+
+
+def test_group_section_rewords_captions_for_member_sums():
+    sec = catalog(dev=False)
+    for key in ("volume", "standing", "top_diagnoses", "referrals", "panel", "sites"):
+        assert key in sec["group_section"], key
+        assert "clinician in" not in sec["group_section"][key]["help"]
+    assert "member" in sec["group_section"]["volume"]["help"]
+    assert "modal_specialty" in sec["group_section"]

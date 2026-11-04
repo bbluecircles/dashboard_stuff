@@ -5,8 +5,9 @@ Clocks, one mart per --state:
   claims         warehouse grew a usable month → phase6 --slide, then E/M + POS extras
   spine          Type 1 NPIs on {st}.physician missing from pd_provider (hung on claims)
   cms            new DAC/NPPES already in data/cms → overlay-cms (+ optional --reload-pdc)
-  open_payments  new Open Payments CSVs → extras --download (reuses cache; general file is huge)
+  open_payments  new Open Payments CSVs → extras --download (loads cms_open_payments; omitted from HTTP GET)
   mips / util    Care Compare yearly files → extras --download --skip-open-payments
+  ref            reference server (master_ref) changed → copy pd_src_* and overlay affiliations
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ def run_sync(
     reload_pdc: bool = False,
     skip_staging_indexes: bool = False,
     dry_run: bool = False,
+    ref: bool = False,
 ) -> dict:
     """Apply the requested refresh clocks. Does not call run_phase1 or rebuild_spine."""
     if claims:
@@ -55,6 +57,7 @@ def run_sync(
             "open_payments": open_payments,
             "mips": mips,
             "utilization": utilization,
+            "ref": ref,
         },
         "plan": plan,
         "ran": [],
@@ -80,6 +83,16 @@ def run_sync(
             summary["ran"].append(f"spine upsert inserted={inserted}")
     else:
         summary["spine_action"] = "not_requested"
+
+    if ref:
+        if dry_run:
+            summary["ran"].append("ref: would copy pd_src_physician / pd_src_group_practice and overlay affiliations")
+        else:
+            from provider_directory.reference import copy_reference_tables, overlay_reference
+
+            summary["reference"] = copy_reference_tables(conn, mart_db=mart_db, state=market_state)
+            summary["reference"]["overlay"] = overlay_reference(conn, mart_db=mart_db)
+            summary["ran"].append("ref: copied reference tables and overlaid affiliations")
 
     overlay_done = False
     if cms:

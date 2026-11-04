@@ -1,4 +1,4 @@
-"""Phase 5: referrals, day-of-week mix, prior-year wRVU, specialty benchmarks.
+"""Phase 5: referrals, day-of-week mix, prior-year work RVU, in-state specialty benchmarks.
 
 Reads az / azal / Phase 2–4 staging. Writes az_pd only.
 Does not rescan Phase 2/3/4 tables and does not drop them.
@@ -11,18 +11,24 @@ is rendering; outgoing = this NPI is the implied referring physician.
 Day-of-week uses az.pat_dt.service_end_date (YYYYMMDD), not period_code.
 Visit dates are cached in pd_stg_visit_date and reused on reruns.
 
-Prior-year wRVU is the same visit-grain formula as Phase 4, for
-PRIOR_WINDOW_START–PRIOR_WINDOW_END. Cached in pd_stg_npi_wrvu_prior.
+Prior-year work RVU prices every billed line like Phase 4, for
+PRIOR_WINDOW_START–PRIOR_WINDOW_END. The lines are cached in
+pd_stg_npi_px_line_prior and re-priced into pd_stg_npi_wrvu_prior each run.
 """
 
 from __future__ import annotations
 
+import re
+
 from provider_directory.activity import PROVIDER_BUCKETS, VISIT_BUCKETS, iter_period_codes
-from provider_directory.analytics import is_hcpcs_sql, period_in_sql, work_rvu_sql
+from provider_directory.activity import CLAIM_ID_BUCKETS
+from provider_directory.analytics import is_hcpcs_sql, period_in_sql, priced_line_filter_sql
 from provider_directory.db import quote_ident
 from provider_directory.locations import table_has_rows
 from provider_directory.schema import create_schema, drop_phase5_cached, drop_phase5_staging
 from provider_directory.settings import (
+    BENCHMARK_MIN_VISITS,
+    MARKET_STATE,
     CLAIMS_DB,
     DUMMY_NPIS,
     LOOKUP_DB,
@@ -31,12 +37,14 @@ from provider_directory.settings import (
     MAX_REFERRAL_PEERS,
     PRIOR_WINDOW_END,
     PRIOR_WINDOW_START,
+    REFERRAL_EXCLUDE_SAME_ORGANIZATION,
+    REFERRAL_EXCLUDED_SPECIALTY_REGEXP,
     REFERRAL_IN,
     REFERRAL_OUT,
     WINDOW_END,
     WINDOW_START,
 )
-from provider_directory.transforms import DOW_PERCENT_COLUMNS, MAX_YOY_CHANGE_PCT, MIN_YOY_PRIOR_WRVU
+from provider_directory.transforms import DOW_PERCENT_COLUMNS, MAX_YOY_CHANGE_PCT, MIN_YOY_PRIOR_WRVU, strict_work_rvu_sql
 
 
 def _session_timeouts(cur) -> None:
@@ -126,6 +134,7 @@ def rebuild_complete(
     prior_end: int = PRIOR_WINDOW_END,
     max_peers: int = MAX_REFERRAL_PEERS,
     reuse_cached: bool = True,
+    market_state: str = MARKET_STATE,
 ) -> dict:
     create_schema(conn, mart_db)
     drop_phase5_staging(conn, mart_db)
@@ -176,7 +185,8 @@ def rebuild_complete(
         _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_provider_referral")
 
         counts["referral_edges"] = _fill_referral_edges(
-            cur, conn, mart, claims, dummy, period_in
+            cur, conn, mart, claims, dummy, period_in,
+            mart_db=mart_db, reuse_cached=reuse_cached,
         )
         counts["referral_rows"] = _rank_referrals(cur, conn, mart, max_peers)
 
@@ -207,8 +217,8 @@ def rebuild_complete(
         )
         counts["prior_wrvu_npi"] = prior_npi
         counts["providers_prior"] = providers_prior
-        counts["specialty_rows"] = _fill_specialty_stats(cur, conn, mart)
-        counts["providers_benchmark"] = _overlay_benchmarks(cur, conn, mart)
+        counts["specialty_rows"] = _fill_specialty_stats(cur, conn, mart, market_state)
+        counts["providers_benchmark"] = _overlay_benchmarks(cur, conn, mart, market_state)
 
     return {
         "window_start": window_start,
@@ -219,7 +229,24 @@ def rebuild_complete(
     }
 
 
-def _fill_referral_edges(cur, conn, mart: str, claims: str, dummy: str, period_in: str) -> int:
+def _fill_referral_edges(
+    cur,
+    conn,
+    mart: str,
+    claims: str,
+    dummy: str,
+    period_in: str,
+    *,
+    mart_db: str = MART_DB,
+    reuse_cached: bool = True,
+) -> int:
+    """Every (npi, direction, peer) edge in the window from the warehouse referral
+    table. Cached: reused on later runs so peers can be re-ranked without
+    re-reading the warehouse (phase5 --referrals-only); --rebuild-edges refills."""
+    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_referral_edge"):
+        print("phase5 referral edges reused", flush=True)
+        return 0
+    _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_referral_edge")
     total = 0
     in_sql = f"""
         INSERT INTO {mart}.pd_stg_referral_edge (
@@ -281,8 +308,54 @@ def _fill_referral_edges(cur, conn, mart: str, claims: str, dummy: str, period_i
     return total
 
 
+def referral_exclusion_sql(me: str = "me", peer: str = "peer") -> str:
+    """Predicate that is TRUE for an edge to leave out of the ranked peers:
+    same group practice or same claims billing organization (settings.REFERRAL_EXCLUDE_SAME_ORGANIZATION)
+    or a peer specialty on settings.REFERRAL_EXCLUDED_SPECIALTY_REGEXP (pathology,
+    diagnostic radiology, anesthesiology, lab). Returns '0' when nothing is excluded."""
+    parts: list[str] = []
+    if REFERRAL_EXCLUDE_SAME_ORGANIZATION:
+        parts.append(
+            f"({peer}.primary_organization_id IS NOT NULL "
+            f"AND {peer}.primary_organization_id = {me}.primary_organization_id)"
+        )
+        parts.append(
+            f"({peer}.billing_organization_id IS NOT NULL "
+            f"AND {peer}.billing_organization_id = {me}.billing_organization_id)"
+        )
+    if REFERRAL_EXCLUDED_SPECIALTY_REGEXP:
+        pattern = REFERRAL_EXCLUDED_SPECIALTY_REGEXP.replace("'", "''")
+        parts.append(
+            f"UPPER(CONCAT_WS(' ', IFNULL({peer}.primary_specialty_description, ''), "
+            f"IFNULL({peer}.specialty_classification, ''))) REGEXP '{pattern}'"
+        )
+    return "(" + " OR ".join(parts) + ")" if parts else "0"
+
+
+# Taxonomy descriptions that say nothing on their own (physician assistants are
+# "Medical" or "Surgical"); the classification column carries the useful word.
+GENERIC_SPECIALTY_DESCRIPTIONS = ("MEDICAL", "SURGICAL", "PROFESSIONAL", "UNKNOWN", "OTHER")
+
+
+def peer_specialty_sql(alias: str = "peer") -> str:
+    desc = f"NULLIF(TRIM({alias}.primary_specialty_description), '')"
+    cls = f"NULLIF(TRIM({alias}.specialty_classification), '')"
+    generic = ", ".join(f"'{g}'" for g in GENERIC_SPECIALTY_DESCRIPTIONS)
+    return f"""
+        CASE
+            WHEN {desc} IS NULL THEN {cls}
+            WHEN UPPER({desc}) IN ({generic}) AND {cls} IS NOT NULL
+                THEN CONCAT({cls}, ' - ', {desc})
+            ELSE {desc}
+        END
+    """
+
+
 def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
+    """Top max_peers per NPI per direction from the edge table, after the
+    exclusions, so rank 1..N are the first eligible peers."""
     total = 0
+    excluded = referral_exclusion_sql("me", "peer")
     sql = f"""
         INSERT INTO {mart}.pd_provider_referral (
             npi, direction, peer_rank, peer_npi, peer_name, peer_specialty,
@@ -298,10 +371,7 @@ def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
                 NULLIF(TRIM(peer.last_name), ''),
                 NULLIF(TRIM(peer.first_name), '')
             )),
-            COALESCE(
-                NULLIF(TRIM(peer.primary_specialty_description), ''),
-                NULLIF(TRIM(peer.specialty_classification), '')
-            ),
+            {peer_specialty_sql("peer")},
             ranked.patient_count,
             ranked.claim_count,
             NOW()
@@ -317,7 +387,10 @@ def _rank_referrals(cur, conn, mart: str, max_peers: int) -> int:
                     ORDER BY e.patient_count DESC, e.claim_count DESC, e.peer_npi
                 ) AS rk
             FROM {mart}.pd_stg_referral_edge e
+            INNER JOIN {mart}.pd_provider me ON me.npi = e.npi
+            INNER JOIN {mart}.pd_provider peer ON peer.npi = e.peer_npi
             WHERE MOD(e.npi, {PROVIDER_BUCKETS}) = %s
+              AND NOT {excluded}
         ) ranked
         INNER JOIN {mart}.pd_provider peer ON peer.npi = ranked.peer_npi
         WHERE ranked.rk <= {int(max_peers)}
@@ -471,6 +544,28 @@ def _overlay_practice_dow(cur, conn, mart: str) -> int:
     return total
 
 
+def prior_line_scan_sql(mart: str, claims: str) -> str:
+    """One prior-window month x pat_id bucket of claim lines into the cached
+    pd_stg_npi_px_line_prior (npi, code). Two %s params: period_code, bucket."""
+    code = "COALESCE(NULLIF(TRIM(t.work_procd_code), ''), NULLIF(TRIM(t.procd_code), ''))"
+    return f"""
+        INSERT INTO {mart}.pd_stg_npi_px_line_prior (npi, code, line_count)
+        SELECT
+            t.rendering_physician_code,
+            {code},
+            COUNT(*)
+        FROM {claims}.pat_dt t
+        INNER JOIN {mart}.pd_provider p ON p.npi = t.rendering_physician_code
+        WHERE t.period_code = %s
+          AND MOD(IFNULL(t.pat_id, 0), {CLAIM_ID_BUCKETS}) = %s
+          AND {code} IS NOT NULL
+          AND CHAR_LENGTH({code}) = 5
+        GROUP BY t.rendering_physician_code, {code}
+        ON DUPLICATE KEY UPDATE
+            line_count = {mart}.pd_stg_npi_px_line_prior.line_count + VALUES(line_count)
+    """
+
+
 def _fill_prior_wrvu(
     cur,
     conn,
@@ -483,48 +578,38 @@ def _fill_prior_wrvu(
     *,
     reuse_cached: bool = True,
 ) -> tuple[int, int]:
-    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_npi_wrvu_prior"):
-        print("phase5 prior wrvu reused", flush=True)
-        cur.execute(f"SELECT COUNT(*) AS n FROM {mart}.pd_stg_npi_wrvu_prior")
-        npi_n = int(cur.fetchone()["n"])
-        overlay = _overlay_prior_wrvu(cur, conn, mart)
-        return npi_n, overlay
+    """Prior-year work RVU on the same line-level basis as Phase 4. The line
+    staging is cached; pricing into pd_stg_npi_wrvu_prior is redone every run so
+    a fee-schedule or rule change is picked up without a rescan."""
+    if reuse_cached and table_has_rows(conn, mart_db, "pd_stg_npi_px_line_prior"):
+        print("phase5 prior rvu lines reused", flush=True)
+    else:
+        _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_stg_npi_px_line_prior")
+        scan = prior_line_scan_sql(mart, claims)
+        for period in iter_period_codes(prior_start, prior_end):
+            for bucket in range(CLAIM_ID_BUCKETS):
+                n = _run(cur, conn, scan, (period, bucket))
+                print(f"phase5 prior rvu lines {period} bucket {bucket}: {n} rows", flush=True)
 
-    wrvu_expr = work_rvu_sql("pr")
-    sql = f"""
+    wrvu_expr = strict_work_rvu_sql("pr")
+    price_sql = f"""
         INSERT INTO {mart}.pd_stg_npi_wrvu_prior (npi, total_wrvu, procedure_count)
         SELECT
-            v.rendering_npi,
-            SUM({wrvu_expr}),
-            COUNT(*)
-        FROM (
-            SELECT
-                t.encounter_id,
-                MAX(t.encounter_rendering_physician_code) AS rendering_npi,
-                MAX(NULLIF(TRIM(t.encounter_work_procd_code), '')) AS px
-            FROM {claims}.pat_dt t
-            WHERE t.period_code = %s
-              AND MOD(ABS(IFNULL(t.encounter_id, 0)), {VISIT_BUCKETS}) = %s
-              AND t.encounter_id IS NOT NULL AND t.encounter_id <> 0
-            GROUP BY t.encounter_id
-        ) v
-        INNER JOIN {mart}.pd_provider p ON p.npi = v.rendering_npi
+            l.npi,
+            SUM(l.line_count * {wrvu_expr}),
+            SUM(l.line_count)
+        FROM {mart}.pd_stg_npi_px_line_prior l
         INNER JOIN {lookup}.procd pr
-            ON pr.procd_code = TRIM(v.px) COLLATE {MART_COLLATION}
-        WHERE v.px IS NOT NULL AND v.px <> ''
-          AND {is_hcpcs_sql("v.px")}
-          AND {wrvu_expr} IS NOT NULL
-        GROUP BY v.rendering_npi
-        ON DUPLICATE KEY UPDATE
-            total_wrvu = {mart}.pd_stg_npi_wrvu_prior.total_wrvu + VALUES(total_wrvu),
-            procedure_count = {mart}.pd_stg_npi_wrvu_prior.procedure_count + VALUES(procedure_count)
+            ON pr.procd_code = l.code COLLATE {MART_COLLATION}
+        WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
+          AND {priced_line_filter_sql("l.code", "pr")}
+        GROUP BY l.npi
     """
     total = 0
-    for period in iter_period_codes(prior_start, prior_end):
-        for bucket in range(VISIT_BUCKETS):
-            n = _run(cur, conn, sql, (period, bucket))
-            total += n
-            print(f"phase5 prior wrvu {period} bucket {bucket}: {n} rows", flush=True)
+    for bucket in range(PROVIDER_BUCKETS):
+        n = _run(cur, conn, price_sql, (bucket,))
+        total += n
+        print(f"phase5 prior wrvu bucket {bucket}: {n} rows", flush=True)
     overlay = _overlay_prior_wrvu(cur, conn, mart)
     return total, overlay
 
@@ -549,34 +634,60 @@ def _overlay_prior_wrvu(cur, conn, mart: str) -> int:
     return total
 
 
-def _fill_specialty_stats(cur, conn, mart: str) -> int:
+def benchmark_peer_where(mart: str, state: str, alias: str = "p") -> str:
+    """Peer set for the specialty benchmarks and percentiles: a specialty on file,
+    at least BENCHMARK_MIN_VISITS visits in the window, and a practice site in the
+    market state (pd_provider_practice)."""
+    if not re.fullmatch(r"[A-Z]{2}", state or ""):
+        raise ValueError(f"state must be a USPS code, got {state!r}")
+    return (
+        f"NULLIF(TRIM({alias}.primary_specialty_code), '') IS NOT NULL "
+        f"AND IFNULL({alias}.visits_total, 0) >= {int(BENCHMARK_MIN_VISITS)} "
+        f"AND EXISTS (SELECT 1 FROM {mart}.pd_provider_practice pr "
+        f"WHERE pr.npi = {alias}.npi AND pr.state = '{state}')"
+    )
+
+
+def _fill_specialty_stats(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
+    peers = benchmark_peer_where(mart, state)
     sql = f"""
         INSERT INTO {mart}.pd_stg_specialty_wrvu (
-            specialty_code, npi_count, avg_wrvu, p25_wrvu, median_wrvu, p75_wrvu
+            specialty_code, npi_count, avg_wrvu, avg_wrvu_per_procedure, p25_wrvu, median_wrvu, p75_wrvu,
+            p25_wrvu_per_procedure, median_wrvu_per_procedure, p75_wrvu_per_procedure
         )
         SELECT
             primary_specialty_code,
             cnt,
             avg_wrvu,
+            ROUND(SUM(wrvu_total) / NULLIF(SUM(wrvu_procedure_count), 0), 3),
             MAX(CASE WHEN rn = p25_rn THEN wrvu_total END),
             MAX(CASE WHEN rn = p50_rn THEN wrvu_total END),
-            MAX(CASE WHEN rn = p75_rn THEN wrvu_total END)
+            MAX(CASE WHEN rn = p75_rn THEN wrvu_total END),
+            MAX(CASE WHEN rn_avg = p25_rn THEN wrvu_average END),
+            MAX(CASE WHEN rn_avg = p50_rn THEN wrvu_average END),
+            MAX(CASE WHEN rn_avg = p75_rn THEN wrvu_average END)
         FROM (
             SELECT
                 primary_specialty_code,
                 wrvu_total,
+                wrvu_procedure_count,
+                wrvu_average,
                 ROW_NUMBER() OVER (
                     PARTITION BY primary_specialty_code
                     ORDER BY wrvu_total, npi
                 ) AS rn,
+                ROW_NUMBER() OVER (
+                    PARTITION BY primary_specialty_code
+                    ORDER BY wrvu_average, npi
+                ) AS rn_avg,
                 COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt,
                 ROUND(AVG(wrvu_total) OVER (PARTITION BY primary_specialty_code), 2) AS avg_wrvu,
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.25)) AS p25_rn,
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.50)) AS p50_rn,
                 GREATEST(1, FLOOR(COUNT(*) OVER (PARTITION BY primary_specialty_code) * 0.75)) AS p75_rn
-            FROM {mart}.pd_provider
-            WHERE wrvu_total IS NOT NULL AND wrvu_total > 0
-              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+            FROM {mart}.pd_provider p
+            WHERE p.wrvu_total IS NOT NULL AND p.wrvu_total > 0
+              AND {peers}
         ) ranked
         GROUP BY primary_specialty_code, cnt, avg_wrvu
     """
@@ -585,7 +696,8 @@ def _fill_specialty_stats(cur, conn, mart: str) -> int:
     return n
 
 
-def _overlay_benchmarks(cur, conn, mart: str) -> int:
+def _overlay_benchmarks(cur, conn, mart: str, state: str = MARKET_STATE) -> int:
+    peers = benchmark_peer_where(mart, state)
     _run(
         cur,
         conn,
@@ -602,9 +714,31 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
                     ORDER BY wrvu_total, npi
                 ) AS rn,
                 COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
-            FROM {mart}.pd_provider
-            WHERE wrvu_total IS NOT NULL AND wrvu_total > 0
-              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+            FROM {mart}.pd_provider p
+            WHERE p.wrvu_total IS NOT NULL AND p.wrvu_total > 0
+              AND {peers}
+        ) ranked
+        """,
+    )
+    _run(
+        cur,
+        conn,
+        f"""
+        INSERT INTO {mart}.pd_stg_npi_avg_percentile (npi, pct)
+        SELECT
+            npi,
+            ROUND(100.0 * rn / cnt, 1)
+        FROM (
+            SELECT
+                npi,
+                ROW_NUMBER() OVER (
+                    PARTITION BY primary_specialty_code
+                    ORDER BY wrvu_average, npi
+                ) AS rn,
+                COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
+            FROM {mart}.pd_provider p
+            WHERE p.wrvu_average IS NOT NULL AND p.wrvu_average > 0
+              AND {peers}
         ) ranked
         """,
     )
@@ -624,9 +758,8 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
                     ORDER BY visits_total, npi
                 ) AS rn,
                 COUNT(*) OVER (PARTITION BY primary_specialty_code) AS cnt
-            FROM {mart}.pd_provider
-            WHERE IFNULL(visits_total, 0) > 0
-              AND NULLIF(TRIM(primary_specialty_code), '') IS NOT NULL
+            FROM {mart}.pd_provider p
+            WHERE {peers}
         ) ranked
         """,
     )
@@ -636,9 +769,15 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
         LEFT JOIN {mart}.pd_stg_specialty_wrvu s
             ON s.specialty_code = p.primary_specialty_code
         LEFT JOIN {mart}.pd_stg_npi_percentile wrvu ON wrvu.npi = p.npi
+        LEFT JOIN {mart}.pd_stg_npi_avg_percentile avgp ON avgp.npi = p.npi
         LEFT JOIN {mart}.pd_stg_npi_visits_percentile vis ON vis.npi = p.npi
         SET
             p.wrvu_state_specialty_average = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu, p.wrvu_state_specialty_average),
+            p.wrvu_state_specialty_average_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.avg_wrvu_per_procedure, p.wrvu_state_specialty_average_per_procedure),
+            p.wrvu_state_specialty_median_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.median_wrvu_per_procedure, p.wrvu_state_specialty_median_per_procedure),
+            p.wrvu_state_specialty_p25_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p25_wrvu_per_procedure, p.wrvu_state_specialty_p25_per_procedure),
+            p.wrvu_state_specialty_p75_per_procedure = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p75_wrvu_per_procedure, p.wrvu_state_specialty_p75_per_procedure),
+            p.wrvu_average_specialty_percentile = avgp.pct,
             p.wrvu_state_specialty_median = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.median_wrvu, p.wrvu_state_specialty_median),
             p.wrvu_state_specialty_p25 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p25_wrvu, p.wrvu_state_specialty_p25),
             p.wrvu_state_specialty_p75 = IF(p.wrvu_total IS NOT NULL AND p.wrvu_total > 0, s.p75_wrvu, p.wrvu_state_specialty_p75),
@@ -662,3 +801,34 @@ def _overlay_benchmarks(cur, conn, mart: str) -> int:
         total += n
         print(f"phase5 benchmark overlay bucket {bucket}: {n} rows", flush=True)
     return total
+
+
+def rebuild_referrals(
+    conn,
+    *,
+    mart_db: str = MART_DB,
+    claims_db: str = CLAIMS_DB,
+    window_start: int = WINDOW_START,
+    window_end: int = WINDOW_END,
+    max_peers: int = MAX_REFERRAL_PEERS,
+    rebuild_edges: bool = False,
+) -> dict:
+    """phase5 --referrals-only: re-rank referral peers from the cached edge table
+    with the current exclusions and MAX_REFERRAL_PEERS. Reads the warehouse only
+    when the edge table is empty or rebuild_edges is set. Minutes."""
+    create_schema(conn, mart_db)
+    mart = quote_ident(mart_db)
+    claims = quote_ident(claims_db)
+    dummy = ", ".join(str(n) for n in sorted(DUMMY_NPIS))
+    period_in = period_in_sql(window_start, window_end)
+    counts: dict[str, int | bool] = {"referrals_only": True, "referral_edges": 0, "referral_rows": 0}
+    with conn.cursor() as cur:
+        _session_timeouts(cur)
+        conn.commit()
+        counts["referral_edges"] = _fill_referral_edges(
+            cur, conn, mart, claims, dummy, period_in,
+            mart_db=mart_db, reuse_cached=not rebuild_edges,
+        )
+        _run(cur, conn, f"TRUNCATE TABLE {mart}.pd_provider_referral")
+        counts["referral_rows"] = _rank_referrals(cur, conn, mart, max_peers)
+    return {"window_start": window_start, "window_end": window_end, **counts}

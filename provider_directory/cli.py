@@ -26,7 +26,7 @@ import argparse
 import json
 import sys
 
-from provider_directory.db import ConfigError, ensure_mart_database, get_connection
+from provider_directory.db import ConfigError, ensure_mart_database, get_connection, quote_ident
 from provider_directory.field_help import catalog_markdown, render_catalog
 from provider_directory.locations import Phase2Required
 from provider_directory.lookup import get_group_practice, get_provider, list_group_practices, list_providers
@@ -114,7 +114,7 @@ def _cmd_phase1(args: argparse.Namespace) -> int:
 
 def _cmd_phase2(args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
-        summary = run_phase2(conn, **_market_kwargs(args))
+        summary = run_phase2(conn, top_codes_only=args.top_codes_only, **_market_kwargs(args))
     print(json.dumps(summary, indent=2, default=str))
     return 0
 
@@ -131,6 +131,9 @@ def _cmd_phase4(args: argparse.Namespace) -> int:
         summary = run_phase4(
             conn,
             org_lists_only=args.org_lists_only,
+            payers_only=args.payers_only,
+            rvu_only=args.rvu_only,
+            rescan_lines=args.rescan_lines,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
@@ -139,7 +142,12 @@ def _cmd_phase4(args: argparse.Namespace) -> int:
 
 def _cmd_phase5(args: argparse.Namespace) -> int:
     with get_connection(autocommit=False) as conn:
-        summary = run_phase5(conn, **_market_kwargs(args))
+        summary = run_phase5(
+            conn,
+            referrals_only=args.referrals_only,
+            rebuild_edges=args.rebuild_edges,
+            **_market_kwargs(args),
+        )
     print(json.dumps(summary, indent=2, default=str))
     return 0
 
@@ -182,7 +190,7 @@ def _cmd_extras(args: argparse.Namespace) -> int:
 
 
 def _cmd_sync(args: argparse.Namespace) -> int:
-    other = args.cms or args.open_payments or args.mips or args.utilization or args.spine
+    other = args.cms or args.open_payments or args.mips or args.utilization or args.spine or args.ref
     claims = args.claims or not other
     with get_connection(autocommit=False) as conn:
         summary = run_sync(
@@ -196,9 +204,32 @@ def _cmd_sync(args: argparse.Namespace) -> int:
             reload_pdc=args.reload_pdc,
             skip_staging_indexes=args.skip_staging_indexes,
             dry_run=args.dry_run,
+            ref=args.ref,
             **_market_kwargs(args),
         )
     print(json.dumps(summary, indent=2, default=str))
+    return 0
+
+
+def _cmd_ref_overlay(args: argparse.Namespace) -> int:
+    from provider_directory.reference import overlay_reference
+
+    market = _market_kwargs(args)
+    with get_connection(autocommit=False) as conn:
+        out = overlay_reference(conn, mart_db=market["mart_db"])
+    out["state"] = market["market_state"]
+    print(json.dumps(out, indent=2, default=str))
+    return 0
+
+
+def _cmd_ref_compare(args: argparse.Namespace) -> int:
+    from provider_directory.reference import reference_compare
+
+    market = _market_kwargs(args)
+    with get_connection(autocommit=False) as conn:
+        out = reference_compare(conn, mart_db=market["mart_db"], limit=args.limit)
+    out["state"] = market["market_state"]
+    print(json.dumps(out, indent=2, default=str))
     return 0
 
 
@@ -377,7 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "overlay-cms",
         parents=[state_parent],
-        help="Fill gender/school/age from cms_* tables",
+        help="Fill gender/school/age and in_system_provider from cms_* tables, refresh pd_network_npi, rebuild pd_group_practice",
     )
     p.set_defaults(func=_cmd_overlay)
 
@@ -394,7 +425,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "phase2",
         parents=[state_parent],
-        help="Activity + panel + top dx/px for period_code 202308–202407",
+        help="Activity + panel + top dx/px/primary px for the mart's current window (pd_refresh_state)",
+    )
+    p.add_argument(
+        "--top-codes-only",
+        action="store_true",
+        help="Re-rank top diagnoses, procedures and primary procedures from the existing "
+        "pd_stg_visit and overlay those columns only; no claims read, minutes",
     )
     p.set_defaults(func=_cmd_phase2)
 
@@ -408,19 +445,44 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "phase4",
         parents=[state_parent],
-        help="wRVU, payer mix, primary org, group/hospital lists, and work_type polish for 202308–202407",
+        help="Work RVU per billed line, payer mix, Bills under and the group practice from the reference copy, group list, work_type polish for the current window",
     )
     p.add_argument(
         "--org-lists-only",
         action="store_true",
-        help="Rebuild pd_provider_group_practice and pd_provider_hospital_affiliation only (skip wRVU/payers)",
+        help="Organizations only: Bills under from claims, the group practice from the reference copy, then pd_provider_group_practice and the hidden affiliation list (skip RVU/payers)",
     )
+    p.add_argument(
+        "--payers-only",
+        action="store_true",
+        help="Refill payer-class shares (1-4, 6, 7) and top 5 commercial payers from the existing "
+        "pd_stg_npi_payor staging; no claims read, a few minutes",
+    )
+    p.add_argument(
+        "--rvu-only",
+        action="store_true",
+        help="Work RVU only: one 12-month pat_dt line scan, strict pricing of every billed "
+        "procedure line, provider and site overlays; payers and lists untouched. Reuses the staged "
+        "lines when present (minutes); add --rescan-lines to read pat_dt again",
+    )
+    p.add_argument("--rescan-lines", action="store_true", help="With --rvu-only: rescan the 12 months of pat_dt lines")
     p.set_defaults(func=_cmd_phase4)
 
     p = sub.add_parser(
         "phase5",
         parents=[state_parent],
-        help="Referrals both ways, day-of-week mix, prior-year wRVU, state-specialty benchmarks",
+        help="Referrals both ways, day-of-week mix, prior-year work RVU, in-state specialty benchmarks (average work RVU per procedure)",
+    )
+    p.add_argument(
+        "--referrals-only",
+        action="store_true",
+        help="Re-rank referral peers from the cached pd_stg_referral_edge with the current "
+        "exclusions and peer count; no warehouse read unless the cache is empty",
+    )
+    p.add_argument(
+        "--rebuild-edges",
+        action="store_true",
+        help="With --referrals-only: refill pd_stg_referral_edge from the warehouse first",
     )
     p.set_defaults(func=_cmd_phase5)
 
@@ -432,7 +494,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--slide",
         action="store_true",
-        help="If az has a later usable month, drop the oldest month and rebuild 3–5 from updated staging",
+        help="If the claims warehouse has a later usable month, drop the oldest month and rebuild 3–5 from updated staging",
     )
     p.add_argument(
         "--skip-staging-indexes",
@@ -444,7 +506,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "extras",
         parents=[state_parent],
-        help="Cheap extras overlay (group size, POS mix, MIPS, Open Payments). Does not rescan pat_dt.",
+        help="Cheap extras overlay (group size, POS mix, MIPS, Open Payments; open_payments_* stay off HTTP GET). Does not rescan pat_dt.",
     )
     p.add_argument(
         "--download",
@@ -496,7 +558,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--open-payments",
         action="store_true",
-        help="Download/parse Open Payments into the mart. Reuses cache; general file is huge.",
+        help="Download/parse Open Payments into cms_open_payments and overlay pd_provider (off HTTP GET). Reuses cache; general file is huge.",
     )
     p.add_argument(
         "--mips",
@@ -519,11 +581,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pass through to phase6 if a slide runs",
     )
     p.add_argument(
+        "--ref",
+        action="store_true",
+        help="Reference clock: copy master_ref.111_physician (state rows + spine NPIs) and "
+        "cms_group_practice into pd_src_*, then overlay the group key (primary_organization_*), affiliation_* and reference_group_* on pd_provider, with the claims tie-break. "
+        "Read-only, paged, no locks on the reference server.",
+    )
+    p.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the window plan and what would run; do not write the mart",
     )
     p.set_defaults(func=_cmd_sync)
+
+    p = sub.add_parser(
+        "ref-overlay",
+        parents=[state_parent],
+        help="Re-apply the group key (primary_organization_*), affiliation_* and reference_group_* from the existing pd_src_physician copy, with the claims tie-break (seconds); no reference-server read",
+    )
+    p.set_defaults(func=_cmd_ref_overlay)
+
+    p = sub.add_parser(
+        "ref-compare",
+        parents=[state_parent],
+        help="How warehouse groups and affiliations line up with the reference copy (pd_src_*); mart only",
+    )
+    p.add_argument("--limit", type=int, default=15)
+    p.set_defaults(func=_cmd_ref_compare)
 
     p = sub.add_parser(
         "serve",
@@ -547,13 +631,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--out", help="Write to this file instead of stdout (parent folders are created)")
     p.set_defaults(func=_cmd_field_help)
 
-    p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (preview of the future API)")
+    p = sub.add_parser("get", parents=[state_parent], help="Look up a provider (same payload as GET /v1/providers/{npi}, plus the columns GET omits)")
     p.add_argument("npi", nargs="?", type=int)
     p.add_argument("--last-name")
     p.add_argument("--specialty")
     p.add_argument(
         "--organization",
-        help="Contains match on primary_organization_name",
+        help="Contains match on the group practice name (primary_organization_name)",
     )
     p.add_argument("--city", help="Contains match on primary practice city (site_rank 1)")
     p.add_argument("--active", action="store_true", help="Only providers with activity in the frozen window")
@@ -567,7 +651,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--organization-id",
         type=int,
         dest="organization_id",
-        help="Exact primary_organization_id (billing NPI). Use after picking a group row.",
+        help="Exact group practice id (primary_organization_id, the CMS group PAC ID). Use after picking a group row.",
     )
     p.add_argument("--min-visits", type=int, dest="min_visits", help="Minimum visits_total")
     p.add_argument("--max-visits", type=int, dest="max_visits", help="Maximum visits_total")
@@ -577,11 +661,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "groups",
         parents=[state_parent],
-        help="Paged group-practice dump (sums of Type 1 NPIs on primary_organization_id)",
+        help="Paged group-practice dump (sums of Type 1 NPIs by group practice id). Lists every state; the API defaults to the market state",
     )
     p.add_argument("--organization", help="Contains match on group name")
     p.add_argument("--organization-id", type=int, dest="organization_id")
-    p.add_argument("--parent", help="Contains match on parent system name")
+    p.add_argument("--parent", help="Contains match on parent organization name")
     p.add_argument("--active", action="store_true", help="Only roll up NPIs active in the frozen window")
     p.add_argument(
         "--in-system",
@@ -605,7 +689,87 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=25)
     p.add_argument("--offset", type=int, default=0)
     p.set_defaults(func=_cmd_groups)
+
+    p = sub.add_parser(
+        "group-summary",
+        parents=[state_parent],
+        help="Rebuild pd_group_practice from pd_provider only (seconds); no claims read",
+    )
+    p.set_defaults(func=_cmd_group_summary)
+
+    p = sub.add_parser(
+        "ref-check",
+        help="Connect to the reference server (REF_DB_*) and describe master_ref.111_physician "
+        "and cms_group_practice: columns, keys, approximate rows, one sample row. Read-only.",
+    )
+    p.set_defaults(func=_cmd_ref_check)
     return parser
+
+
+def _cmd_group_summary(args: argparse.Namespace) -> int:
+    """Rebuild pd_group_practice only (seconds). Use after a change to the group
+    scoring rule, such as the parent-organization pick."""
+    from provider_directory.group_summary import rebuild_group_summary
+
+    market = _market_kwargs(args)
+    with get_connection(autocommit=False) as conn:
+        counts = rebuild_group_summary(conn, market["mart_db"])
+    print(json.dumps({"state": market["market_state"], "group_summary": counts}, indent=2))
+    return 0
+
+
+def _cmd_ref_check(args: argparse.Namespace) -> int:
+    """Connect to the reference server and describe the two source tables.
+    Reads information_schema and one LIMIT 1 row each; no scans, no locks."""
+    from provider_directory.db import get_ref_connection, ref_db_config
+    from provider_directory.settings import REF_DB, REF_GROUP_PRACTICE_TABLE, REF_PHYSICIAN_TABLE
+
+    cfg = ref_db_config()
+    out: dict = {
+        "host": cfg["host"],
+        "port": cfg["port"],
+        "user": cfg["user"],
+        "same_server_as_claims": bool(cfg.get("same_server")),
+        "database": REF_DB,
+        "tables": {},
+    }
+    with get_ref_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT @@hostname AS hostname, @@version AS version, @@tx_isolation AS isolation")
+        out["server"] = cur.fetchone()
+        for table in (REF_PHYSICIAN_TABLE, REF_GROUP_PRACTICE_TABLE):
+            cur.execute(
+                """
+                SELECT ENGINE AS engine, TABLE_ROWS AS approx_rows, UPDATE_TIME AS update_time
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                """,
+                (REF_DB, table),
+            )
+            meta = cur.fetchone()
+            if not meta:
+                out["tables"][table] = {"found": False}
+                continue
+            cur.execute(
+                """
+                SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, COLUMN_KEY AS key_type
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                ORDER BY ORDINAL_POSITION
+                """,
+                (REF_DB, table),
+            )
+            cols = cur.fetchall()
+            cur.execute(f"SELECT * FROM {quote_ident(REF_DB)}.{quote_ident(table)} LIMIT 1")
+            sample = cur.fetchone()
+            out["tables"][table] = {
+                "found": True,
+                **meta,
+                "primary_key": [c["name"] for c in cols if c["key_type"] == "PRI"],
+                "columns": [f"{c['name']} {c['type']}" for c in cols],
+                "sample": sample,
+            }
+    print(json.dumps(out, indent=2, default=str))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

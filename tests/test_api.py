@@ -164,6 +164,26 @@ def test_get_and_search_providers(tmp_path, monkeypatch):
     by_org = client.get("/v1/providers", params={"state": "AZ", "organization_id": 1234567893})
     assert by_org.status_code == 200
 
+    seen = {}
+
+    def fake_membership(conn, **kwargs):
+        seen.update(kwargs)
+        return ProviderDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_providers", fake_membership)
+    any_members = client.get(
+        "/v1/providers",
+        params={"state": "AZ", "organization_id": 1234567893, "membership": "any"},
+    )
+    assert any_members.status_code == 200
+    assert seen["membership"] == "any"
+    assert seen["organization_id"] == 1234567893
+    default = client.get("/v1/providers", params={"state": "AZ", "organization_id": 1234567893})
+    assert default.status_code == 200
+    assert seen["membership"] == "primary"
+    bad = client.get("/v1/providers", params={"state": "AZ", "membership": "everyone"})
+    assert bad.status_code == 422
+
 
 def test_group_practice_dump(tmp_path, monkeypatch):
     from provider_directory.models import GroupPracticeDumpList, GroupPracticeDumpRow
@@ -276,3 +296,54 @@ def test_phase_job_202_and_unknown_phase(tmp_path, monkeypatch):
     assert res.headers["location"] == f"/v1/jobs/{job_id}"
     assert client.get(f"/v1/jobs/{job_id}").status_code == 200
     assert client.post("/v1/jobs/phase9").status_code == 404
+
+
+def test_mart_status_carries_window_labels():
+    from provider_directory.api import MartStatus
+
+    body = MartStatus(state="AZ", mart_db="az_pd", claims_db="az_cms", lookup_db="azal",
+                      window_start=202411, window_end=202510, prior_window_start=202311, prior_window_end=202410,
+                      window_label="Nov 2024 to Oct 2025", prior_window_label="Nov 2023 to Oct 2024")
+    assert body.window_label == "Nov 2024 to Oct 2025"
+    import inspect
+
+    from provider_directory import api
+
+    assert "window_label=format_period_range(window_start, window_end)" in inspect.getsource(api.create_app)
+
+
+def test_group_dump_defaults_to_market_state(tmp_path, monkeypatch):
+    from provider_directory.models import GroupPracticeDumpList
+
+    client = _client(tmp_path, monkeypatch)
+    seen = {}
+
+    def fake(conn, **kwargs):
+        seen.update(kwargs)
+        return GroupPracticeDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_group_practices", fake)
+    assert client.get("/v1/group-practices", params={"state": "AZ"}).status_code == 200
+    assert seen["group_state"] == "AZ"
+    assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "any"}).status_code == 200
+    assert seen["group_state"] is None
+    assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "ca"}).status_code == 200
+    assert seen["group_state"] == "CA"
+    assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "everywhere"}).status_code == 422
+
+
+def test_provider_zip_filter_param(tmp_path, monkeypatch):
+    from provider_directory.models import ProviderDumpList
+
+    client = _client(tmp_path, monkeypatch)
+    seen = {}
+
+    def fake(conn, **kwargs):
+        seen.update(kwargs)
+        return ProviderDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_providers", fake)
+    assert client.get("/v1/providers", params={"state": "AZ", "zip": "85251"}).status_code == 200
+    assert seen["zip_code"] == "85251"
+    assert client.get("/v1/providers", params={"state": "AZ", "zip": "852"}).status_code == 200
+    assert client.get("/v1/providers", params={"state": "AZ", "zip": "8525"}).status_code == 422
