@@ -52,13 +52,13 @@ def test_pick_practice_name_dba_first_never_unknown():
         sl_name="VALLEY HEART TYPE-2-ENTITY",
     )
     assert type2 == "VALLEY HEART"
-    # The hospital-system string no longer names a site; a clinician's own DBA falls to the address.
+    # A clinician's own name as the DBA keeps the name with ' Office' appended.
     person = pick_practice_name(
         dba_name="SMITH, SEAN",
         street="1 Main St",
         city="Mesa",
     )
-    assert person == "1 Main St, Mesa"
+    assert person == "SMITH, SEAN Office"
     mayo = pick_practice_name(
         dba_name="Mayo Clinic Scottsdale",
     )
@@ -77,9 +77,10 @@ def test_pick_practice_name_dba_first_never_unknown():
         street="13400 E Shea Blvd",
         city="Scottsdale",
     )
-    assert clone == "13400 E Shea Blvd, Scottsdale"
+    assert clone == "ROBETORYE, RYAN Office"
     own = pick_practice_name(dba_name="SMITH, SEAN", sl_name="SMITH, SEAN")
-    assert own is None
+    assert own == "SMITH, SEAN Office"
+    assert pick_practice_name(dba_name="", street="1 Main St", city="Mesa") == "1 Main St, Mesa"
 
 
 def test_practice_name_sql_guards_unknown_and_drops_facility_npi():
@@ -146,6 +147,7 @@ def test_phase3_sql_stays_on_staging_and_mart():
     name_sql = practice_name_sql()
     assert "sl.street" in name_sql
     assert PERSON_NAME_REGEXP in name_sql or "^[^,]+," in name_sql
+    assert name_sql.count("' Office')") == 3
     key = cluster_key_sql("sl.street", "sl.zip_code", "sl.latitude", "sl.longitude", "sl.sl_code")
     assert "a:" in key and "g:" in key and "s:" in key
 

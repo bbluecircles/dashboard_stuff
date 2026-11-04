@@ -229,6 +229,7 @@ def fetch_group_top_codes(
         SELECT
             ranked.code,
             ranked.name,
+            ranked.visit_count,
             CASE WHEN %s > 0 THEN ROUND(100.0 * ranked.visit_count / %s, 2) END AS pct
         FROM (
             SELECT
@@ -249,6 +250,7 @@ def fetch_group_top_codes(
     for i, row in enumerate(rows, start=1):
         out[f"{prefix}_{i}"] = row.get("code")
         out[f"{prefix}_{i}_name"] = row.get("name")
+        out[f"{prefix}_{i}_count"] = int(row["visit_count"]) if row.get("visit_count") is not None else None
         out[f"{prefix}_{i}_percent"] = row.get("pct")
     return out
 

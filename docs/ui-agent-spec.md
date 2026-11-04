@@ -184,7 +184,7 @@ Reuse the **same five tabs and the same JSON keys** as the provider profile. Do 
 
 - **Numbers** for counts and scores: visits, panel size, work RVU total, percentile, MIPS, referral patient counts. Do not draw a bar for `visits_total` — Schott (~156k) vs Smith (6) would be a useless axis.
 - **Bars** for mixes that sum toward 100%: POS, weekday, panel age, panel sex, payer mix. A simple horizontal stacked or small-multiples bar is enough. No chart library required if CSS bars are easier.
-- **Lists** for ranked names: dx, px, group practices, sites, referrals. Dx/px send `visits_top_diagnosis_*_percent` / `visits_top_procedure_*_percent` (share of visits; the shares will not add to 100%). Sites send `visit_share_pct`.
+- **Lists** for ranked names: dx, px, group practices, sites, referrals. Show the 12-month visit count next to each top diagnosis and top primary procedure: `visits_top_diagnosis_*_count` / `visits_top_primary_procedure_*_count` (also on group pages and in the Clinical summary box). The `*_percent` fields stay in the payload for the export only; do not render them on the page. Sites send `visit_share_pct`.
 
 ### Extras fields (null means CMS has no row for the clinician)
 

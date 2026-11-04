@@ -46,6 +46,7 @@ from provider_directory.transforms import (
     is_unpriced_code_sql,
     strict_work_rvu_sql,
     EMPTY_NAME_SQL_LIST,
+    SITE_OFFICE_SUFFIX,
     work_type_case_sql,
 )
 
@@ -660,6 +661,15 @@ def rebuild_analytics(
                 counts["practices_work_type"] += n
                 print(f"phase4 work_type bucket {bucket}: {n} rows", flush=True)
 
+            # A clinician's own LAST, FIRST as the site name keeps the name with
+            # ' Office' appended (same rule as Phase 3's site_name_sql).
+            office_sql = f"""
+                UPDATE {mart}.pd_provider_practice pr
+                SET pr.name = CONCAT(TRIM(pr.name), '{SITE_OFFICE_SUFFIX}')
+                WHERE MOD(pr.npi, {PROVIDER_BUCKETS}) = %s
+                  AND {is_person_practice_name_sql("pr.name")}
+                  AND UPPER(TRIM(pr.name)) NOT LIKE CONCAT('%%', UPPER('{SITE_OFFICE_SUFFIX}'))
+            """
             name_sql = f"""
                 UPDATE {mart}.pd_provider_practice pr
                 SET pr.name = TRIM(BOTH ' ,' FROM CONCAT_WS(
@@ -671,7 +681,6 @@ def rebuild_analytics(
                   AND (
                       pr.name IS NULL
                       OR UPPER(TRIM(pr.name)) IN {EMPTY_NAME_SQL_LIST}
-                      OR {is_person_practice_name_sql("pr.name")}
                   )
                   AND (
                       NULLIF(TRIM(pr.street), '') IS NOT NULL
@@ -679,7 +688,8 @@ def rebuild_analytics(
                   )
             """
             for bucket in range(PROVIDER_BUCKETS):
-                n = _run(cur, conn, name_sql, (bucket,))
+                n = _run(cur, conn, office_sql, (bucket,))
+                n += _run(cur, conn, name_sql, (bucket,))
                 counts["practices_names"] += n
                 print(f"phase4 practice name bucket {bucket}: {n} rows", flush=True)
 

@@ -1144,6 +1144,105 @@
           }
         ]
       },
+      "visits_top_diagnosis_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis.",
@@ -1418,6 +1517,105 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_diagnosis_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -1700,6 +1898,105 @@
           }
         ]
       },
+      "visits_top_diagnosis_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis.",
@@ -1974,6 +2271,105 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_diagnosis_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -2256,6 +2652,105 @@
           }
         ]
       },
+      "visits_top_diagnosis_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_diagnosis_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis.",
@@ -2530,6 +3025,105 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -2812,6 +3406,105 @@
           }
         ]
       },
+      "visits_top_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure.",
@@ -3086,6 +3779,105 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -3368,6 +4160,105 @@
           }
         ]
       },
+      "visits_top_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure.",
@@ -3646,6 +4537,105 @@
           }
         ]
       },
+      "visits_top_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_procedure_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure.",
@@ -3798,7 +4788,7 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes.",
+        "help": "Most common procedure across the clinician's visits in Nov 2024 to Oct 2025, among those with a physician work RVU above 1. Procedures with a work RVU below 1, office visits, exams, therapy evaluations, psychotherapy and lab panels are filtered out. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes.",
         "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
@@ -3996,6 +4986,107 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_primary_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
+        ],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -4355,6 +5446,107 @@
           }
         ]
       },
+      "visits_top_primary_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
+        ],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_primary_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure.",
@@ -4706,6 +5898,107 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_primary_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
+        ],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -5065,6 +6358,107 @@
           }
         ]
       },
+      "visits_top_primary_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
+        ],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_primary_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure.",
@@ -5416,6 +6810,107 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_primary_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked."
+        ],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -14209,6 +15704,112 @@
           }
         ]
       },
+      "visits_top_diagnosis_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_diagnosis_1_count",
+            "scope": "provider",
+            "field": "visits_top_diagnosis_1_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -14517,6 +16118,112 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_diagnosis_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_diagnosis_2_count",
+            "scope": "provider",
+            "field": "visits_top_diagnosis_2_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -14833,6 +16540,112 @@
           }
         ]
       },
+      "visits_top_diagnosis_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_diagnosis_3_count",
+            "scope": "provider",
+            "field": "visits_top_diagnosis_3_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -15141,6 +16954,112 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_diagnosis_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_diagnosis_4_count",
+            "scope": "provider",
+            "field": "visits_top_diagnosis_4_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -15457,6 +17376,112 @@
           }
         ]
       },
+      "visits_top_diagnosis_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_diagnosis_5_count",
+            "scope": "provider",
+            "field": "visits_top_diagnosis_5_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_diagnosis_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -15765,6 +17790,112 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_procedure_1_count",
+            "scope": "provider",
+            "field": "visits_top_procedure_1_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -16081,6 +18212,112 @@
           }
         ]
       },
+      "visits_top_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_procedure_2_count",
+            "scope": "provider",
+            "field": "visits_top_procedure_2_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -16389,6 +18626,112 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_procedure_3_count",
+            "scope": "provider",
+            "field": "visits_top_procedure_3_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -16705,6 +19048,112 @@
           }
         ]
       },
+      "visits_top_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_procedure_4_count",
+            "scope": "provider",
+            "field": "visits_top_procedure_4_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -17017,6 +19466,112 @@
           }
         ]
       },
+      "visits_top_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_procedure_5_count",
+            "scope": "provider",
+            "field": "visits_top_procedure_5_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_procedure_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -17189,7 +19744,7 @@
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes.",
+        "help": "Most common procedure across the clinician's visits in Nov 2024 to Oct 2025, among those with a physician work RVU above 1. Procedures with a work RVU below 1, office visits, exams, therapy evaluations, psychotherapy and lab panels are filtered out. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes.",
         "dev": "pd_stg_visit joined to azal.procd on the visit's px before ranking; kept only when the strict physician work RVU (WORK_RVU >= 0.05, else non-facility total minus PE minus MP, else the facility equivalent; no nf_total_rvu fallback) is above 1.0 and the code is not a visit-type service: E/M 99202-99499, telemedicine E/M 98000-98016, eye exams 92002-92014, psychiatry 90785-90899, PT/OT evaluations 97161-97168, speech therapy and evaluations 92507-92508, 92521-92524, 92526, postoperative visit 99024, wellness, clinic and telehealth visit G codes (G0402, G0438, G0439, G0463, G2211, G2212, G0442-G0444, G2010, G2012, G2025), Category II (dddd F), hospital pass-through C codes and proprietary lab (dddd U) codes; see settings.PRIMARY_PROCEDURE_EXCLUDED_*. Strict codes are picked first; when fewer than 5 qualify the open slots are filled from the clinician's other billed codes (office visits included) and the final 5 are ranked by visit count desc then code, in pd_stg_top_primary_px with is_strict per row (Phase 2). pd_provider.primary_procedures_filled = 1 when the fill was used.",
         "caveats": [
           "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
@@ -17403,6 +19958,115 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_primary_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
+          "A lower bound on the group page: only members' stored top 5 codes are summed."
+        ],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_primary_procedure_1_count",
+            "scope": "provider",
+            "field": "visits_top_primary_procedure_1_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -17799,6 +20463,115 @@
           }
         ]
       },
+      "visits_top_primary_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
+          "A lower bound on the group page: only members' stored top 5 codes are summed."
+        ],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_primary_procedure_2_count",
+            "scope": "provider",
+            "field": "visits_top_primary_procedure_2_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_primary_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -18187,6 +20960,115 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_primary_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
+          "A lower bound on the group page: only members' stored top 5 codes are summed."
+        ],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_primary_procedure_3_count",
+            "scope": "provider",
+            "field": "visits_top_primary_procedure_3_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -18583,6 +21465,115 @@
           }
         ]
       },
+      "visits_top_primary_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
+          "A lower bound on the group page: only members' stored top 5 codes are summed."
+        ],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_primary_procedure_4_count",
+            "scope": "provider",
+            "field": "visits_top_primary_procedure_4_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          }
+        ]
+      },
       "visits_top_primary_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed.",
@@ -18971,6 +21962,115 @@
             "external": false,
             "phase": "warehouse load, outside this pipeline",
             "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          }
+        ]
+      },
+      "visits_top_primary_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025.",
+        "dev": "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five.",
+        "caveats": [
+          "Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.",
+          "A lower bound on the group page: only members' stored top 5 codes are summed."
+        ],
+        "derived_from": [
+          {
+            "ref": "provider.visits_top_primary_procedure_5_count",
+            "scope": "provider",
+            "field": "visits_top_primary_procedure_5_count",
+            "label": "Visits"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_stg_top_dx",
+            "name": "pd_stg_top_dx",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 diagnoses per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.diagnosis"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_px",
+            "name": "pd_stg_top_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 procedures per NPI with visit counts (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_top_primary_px",
+            "name": "pd_stg_top_primary_px",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Top 5 primary procedures per NPI: strict work RVU above 1, excluding the visit-type code families in settings.PRIMARY_PROCEDURE_EXCLUDED_* and Category II, C and U codes (Phase 2).",
+            "built_from": [
+              "pd_stg_visit",
+              "azal.procd"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.diagnosis",
+            "name": "azal.diagnosis",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "ICD-10 diagnosis code to description.",
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
             "upstream": true
           }
         ]
@@ -28463,8 +31563,8 @@
       },
       "name": {
         "label": "Site name",
-        "help": "Name of the practice site: its DBA name, else its registered name, else street and city.",
-        "dev": "az.sl.sl_dba_name, else sl_name, else sl_common_name, else street and city (Phase 3). Blank, Unknown and LAST, FIRST values fall through, so a site is never named Unknown. Phase 4 rewrites any remaining blank, Unknown or LAST, FIRST name to street and city.",
+        "help": "Name of the practice site: its DBA name, else its registered name, else street and city. A site named after the clinician reads as their name followed by Office.",
+        "dev": "az.sl.sl_dba_name, else sl_name, else sl_common_name, else street and city (Phase 3). Blank, Unknown and LAST, FIRST values fall through, so a site is never named Unknown. Phase 4 rewrites any remaining blank, Unknown or LAST, FIRST name to street and city. A LAST, FIRST value keeps the name with ' Office' appended (transforms.site_name_sql; Phase 4 applies the same suffix).",
         "caveats": [
           "A location named after a clinician, or with no usable name, is shown as street and city instead."
         ],
@@ -33142,39 +36242,39 @@
       },
       "top_diagnoses": {
         "label": "Top diagnoses",
-        "help": "The five diagnoses most often on the clinician's visits, with each one's share of visits.",
-        "dev": "UI heading over visits_top_diagnosis_1..5; no table.",
+        "help": "The five diagnoses most often on the clinician's visits, with the number of visits in Nov 2024 to Oct 2025 for each.",
+        "dev": "UI heading over visits_top_diagnosis_1..5 with visits_top_diagnosis_N_count; no table.",
         "caveats": [],
         "derived_from": [],
         "tables": []
       },
       "top_procedures": {
         "label": "Top billed codes",
-        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export.",
-        "dev": "UI heading over visits_top_procedure_1..5; no table.",
+        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with the number of visits in Nov 2024 to Oct 2025 for each. The Top primary procedures list is the one to show; this one is kept for the data export.",
+        "dev": "UI heading over visits_top_procedure_1..5 with visits_top_procedure_N_count; no table.",
         "caveats": [],
         "derived_from": [],
         "tables": []
       },
       "clinical_summary": {
         "label": "Clinical summary",
-        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure.",
-        "dev": "UI box over practices[0].zip, visits_top_diagnosis_1_name and visits_top_primary_procedure_1_name; no table.",
+        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure, each with its number of visits in Nov 2024 to Oct 2025.",
+        "dev": "UI box over practices[0].zip, visits_top_diagnosis_1_name (+ _count) and visits_top_primary_procedure_1_name (+ _count); no table.",
         "caveats": [],
         "derived_from": [],
         "tables": []
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included.",
-        "dev": "UI heading over visits_top_primary_procedure_1..5; no table. Show section.top_primary_procedures_filled as the caption when primary_procedures_filled is true.",
+        "help": "The five procedures most often billed by the clinician among those with a physician work RVU above 1, with the number of visits in Nov 2024 to Oct 2025 for each. Procedures with a work RVU below 1 are filtered out, as are office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included.",
+        "dev": "UI heading over visits_top_primary_procedure_1..5 with visits_top_primary_procedure_N_count; no table. Show section.top_primary_procedures_filled as the caption when primary_procedures_filled is true.",
         "caveats": [],
         "derived_from": [],
         "tables": []
       },
       "top_primary_procedures_filled": {
         "label": "Includes all billed codes",
-        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1, so the list also shows their most billed office visits and other services.",
+        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1 (the rest are filtered out), so the list also shows their most billed office visits and other services.",
         "dev": "Caption under Top primary procedures when pd_provider.primary_procedures_filled = 1; no table.",
         "caveats": [],
         "derived_from": [],
@@ -33373,7 +36473,7 @@
       },
       "top_diagnoses": {
         "label": "Top diagnoses",
-        "help": "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share.",
+        "help": "The five diagnoses most often on members' visits, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five, so the counts are a lower bound of the group-wide figure.",
         "dev": "UI heading on the group page; no table.",
         "caveats": [],
         "derived_from": [],
@@ -33381,7 +36481,7 @@
       },
       "top_procedures": {
         "label": "Top procedures",
-        "help": "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound.",
+        "help": "The five procedure codes most often billed by members, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five, so the counts are a lower bound.",
         "dev": "UI heading on the group page; no table.",
         "caveats": [],
         "derived_from": [],
@@ -33389,7 +36489,7 @@
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures most often billed by members, summed from each member's own top five primary procedures; a member with fewer than five procedures above a work RVU of 1 contributes their other billed codes too.",
+        "help": "The five procedures most often billed by members, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five primary procedures. Procedures with a work RVU below 1 are filtered out for each member; a member with fewer than five qualifying procedures contributes their other billed codes too.",
         "dev": "UI heading on the group page; no table.",
         "caveats": [],
         "derived_from": [],

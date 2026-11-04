@@ -205,6 +205,8 @@ def test_phase4_name_polish_rewrites_blank_unknown_and_person_names_for_any_npi_
     source = inspect.getsource(rebuild_analytics)
     assert "UPPER(TRIM(pr.name)) IN {EMPTY_NAME_SQL_LIST}" in source
     assert "pr.name IS NULL" in source
+    assert "SET pr.name = CONCAT(TRIM(pr.name), '{SITE_OFFICE_SUFFIX}')" in source
+    assert "NOT LIKE CONCAT('%%', UPPER('{SITE_OFFICE_SUFFIX}'))" in source
     assert "IFNULL(pr.npi_type, '') = '1'" not in source
     assert "provider_facility_npi" not in source
 

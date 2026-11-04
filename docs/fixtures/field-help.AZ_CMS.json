@@ -110,6 +110,10 @@
         "label": "Top diagnosis 1",
         "help": "Description of the most common diagnosis."
       },
+      "visits_top_diagnosis_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
+      },
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis."
@@ -121,6 +125,10 @@
       "visits_top_diagnosis_2_name": {
         "label": "Top diagnosis 2",
         "help": "Description of the second most common diagnosis."
+      },
+      "visits_top_diagnosis_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_2_percent": {
         "label": "Share of visits",
@@ -134,6 +142,10 @@
         "label": "Top diagnosis 3",
         "help": "Description of the third most common diagnosis."
       },
+      "visits_top_diagnosis_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
+      },
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis."
@@ -145,6 +157,10 @@
       "visits_top_diagnosis_4_name": {
         "label": "Top diagnosis 4",
         "help": "Description of the fourth most common diagnosis."
+      },
+      "visits_top_diagnosis_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_4_percent": {
         "label": "Share of visits",
@@ -158,6 +174,10 @@
         "label": "Top diagnosis 5",
         "help": "Description of the fifth most common diagnosis."
       },
+      "visits_top_diagnosis_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
+      },
       "visits_top_diagnosis_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis."
@@ -169,6 +189,10 @@
       "visits_top_procedure_1_name": {
         "label": "Top procedure 1",
         "help": "Description of the most common procedure."
+      },
+      "visits_top_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_1_percent": {
         "label": "Share of visits",
@@ -182,6 +206,10 @@
         "label": "Top procedure 2",
         "help": "Description of the second most common procedure."
       },
+      "visits_top_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure."
@@ -193,6 +221,10 @@
       "visits_top_procedure_3_name": {
         "label": "Top procedure 3",
         "help": "Description of the third most common procedure."
+      },
+      "visits_top_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_3_percent": {
         "label": "Share of visits",
@@ -206,6 +238,10 @@
         "label": "Top procedure 4",
         "help": "Description of the fourth most common procedure."
       },
+      "visits_top_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure."
@@ -218,17 +254,25 @@
         "label": "Top procedure 5",
         "help": "Description of the fifth most common procedure."
       },
+      "visits_top_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_procedure_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure."
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
+        "help": "Most common procedure across the clinician's visits in Nov 2024 to Oct 2025, among those with a physician work RVU above 1. Procedures with a work RVU below 1, office visits, exams, therapy evaluations, psychotherapy and lab panels are filtered out. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
         "help": "Description of the most common primary procedure."
+      },
+      "visits_top_primary_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_1_percent": {
         "label": "Share of visits",
@@ -242,6 +286,10 @@
         "label": "Top primary procedure 2",
         "help": "Description of the second most common primary procedure."
       },
+      "visits_top_primary_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_primary_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure."
@@ -253,6 +301,10 @@
       "visits_top_primary_procedure_3_name": {
         "label": "Top primary procedure 3",
         "help": "Description of the third most common primary procedure."
+      },
+      "visits_top_primary_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_3_percent": {
         "label": "Share of visits",
@@ -266,6 +318,10 @@
         "label": "Top primary procedure 4",
         "help": "Description of the fourth most common primary procedure."
       },
+      "visits_top_primary_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_primary_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure."
@@ -277,6 +333,10 @@
       "visits_top_primary_procedure_5_name": {
         "label": "Top primary procedure 5",
         "help": "Description of the fifth most common primary procedure."
+      },
+      "visits_top_primary_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_5_percent": {
         "label": "Share of visits",
@@ -768,6 +828,10 @@
         "label": "Top diagnosis 1",
         "help": "Description of the most common diagnosis."
       },
+      "visits_top_diagnosis_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
+      },
       "visits_top_diagnosis_1_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -779,6 +843,10 @@
       "visits_top_diagnosis_2_name": {
         "label": "Top diagnosis 2",
         "help": "Description of the second most common diagnosis."
+      },
+      "visits_top_diagnosis_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_2_percent": {
         "label": "Share of visits",
@@ -792,6 +860,10 @@
         "label": "Top diagnosis 3",
         "help": "Description of the third most common diagnosis."
       },
+      "visits_top_diagnosis_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
+      },
       "visits_top_diagnosis_3_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -803,6 +875,10 @@
       "visits_top_diagnosis_4_name": {
         "label": "Top diagnosis 4",
         "help": "Description of the fourth most common diagnosis."
+      },
+      "visits_top_diagnosis_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_4_percent": {
         "label": "Share of visits",
@@ -816,6 +892,10 @@
         "label": "Top diagnosis 5",
         "help": "Description of the fifth most common diagnosis."
       },
+      "visits_top_diagnosis_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
+      },
       "visits_top_diagnosis_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -827,6 +907,10 @@
       "visits_top_procedure_1_name": {
         "label": "Top procedure 1",
         "help": "Description of the most common procedure."
+      },
+      "visits_top_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_1_percent": {
         "label": "Share of visits",
@@ -840,6 +924,10 @@
         "label": "Top procedure 2",
         "help": "Description of the second most common procedure."
       },
+      "visits_top_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -851,6 +939,10 @@
       "visits_top_procedure_3_name": {
         "label": "Top procedure 3",
         "help": "Description of the third most common procedure."
+      },
+      "visits_top_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_3_percent": {
         "label": "Share of visits",
@@ -864,6 +956,10 @@
         "label": "Top procedure 4",
         "help": "Description of the fourth most common procedure."
       },
+      "visits_top_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -876,17 +972,25 @@
         "label": "Top procedure 5",
         "help": "Description of the fifth most common procedure."
       },
+      "visits_top_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_procedure_5_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
+        "help": "Most common procedure across the clinician's visits in Nov 2024 to Oct 2025, among those with a physician work RVU above 1. Procedures with a work RVU below 1, office visits, exams, therapy evaluations, psychotherapy and lab panels are filtered out. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
         "help": "Description of the most common primary procedure."
+      },
+      "visits_top_primary_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_1_percent": {
         "label": "Share of visits",
@@ -900,6 +1004,10 @@
         "label": "Top primary procedure 2",
         "help": "Description of the second most common primary procedure."
       },
+      "visits_top_primary_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_primary_procedure_2_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -911,6 +1019,10 @@
       "visits_top_primary_procedure_3_name": {
         "label": "Top primary procedure 3",
         "help": "Description of the third most common primary procedure."
+      },
+      "visits_top_primary_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_3_percent": {
         "label": "Share of visits",
@@ -924,6 +1036,10 @@
         "label": "Top primary procedure 4",
         "help": "Description of the fourth most common primary procedure."
       },
+      "visits_top_primary_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
       "visits_top_primary_procedure_4_percent": {
         "label": "Share of visits",
         "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
@@ -935,6 +1051,10 @@
       "visits_top_primary_procedure_5_name": {
         "label": "Top primary procedure 5",
         "help": "Description of the fifth most common primary procedure."
+      },
+      "visits_top_primary_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_5_percent": {
         "label": "Share of visits",
@@ -1392,7 +1512,7 @@
       },
       "name": {
         "label": "Site name",
-        "help": "Name of the practice site: its DBA name, else its registered name, else street and city."
+        "help": "Name of the practice site: its DBA name, else its registered name, else street and city. A site named after the clinician reads as their name followed by Office."
       },
       "street": {
         "label": "Street",
@@ -1742,23 +1862,23 @@
       },
       "top_diagnoses": {
         "label": "Top diagnoses",
-        "help": "The five diagnoses most often on the clinician's visits, with each one's share of visits."
+        "help": "The five diagnoses most often on the clinician's visits, with the number of visits in Nov 2024 to Oct 2025 for each."
       },
       "top_procedures": {
         "label": "Top billed codes",
-        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export."
+        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with the number of visits in Nov 2024 to Oct 2025 for each. The Top primary procedures list is the one to show; this one is kept for the data export."
       },
       "clinical_summary": {
         "label": "Clinical summary",
-        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure."
+        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure, each with its number of visits in Nov 2024 to Oct 2025."
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included."
+        "help": "The five procedures most often billed by the clinician among those with a physician work RVU above 1, with the number of visits in Nov 2024 to Oct 2025 for each. Procedures with a work RVU below 1 are filtered out, as are office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included."
       },
       "top_primary_procedures_filled": {
         "label": "Includes all billed codes",
-        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1, so the list also shows their most billed office visits and other services."
+        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1 (the rest are filtered out), so the list also shows their most billed office visits and other services."
       },
       "group_practices": {
         "label": "Group practices",
@@ -1840,15 +1960,15 @@
       },
       "top_diagnoses": {
         "label": "Top diagnoses",
-        "help": "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share."
+        "help": "The five diagnoses most often on members' visits, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five, so the counts are a lower bound of the group-wide figure."
       },
       "top_procedures": {
         "label": "Top procedures",
-        "help": "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound."
+        "help": "The five procedure codes most often billed by members, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five, so the counts are a lower bound."
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures most often billed by members, summed from each member's own top five primary procedures; a member with fewer than five procedures above a work RVU of 1 contributes their other billed codes too."
+        "help": "The five procedures most often billed by members, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five primary procedures. Procedures with a work RVU below 1 are filtered out for each member; a member with fewer than five qualifying procedures contributes their other billed codes too."
       },
       "group_practices": {
         "label": "Group practices",

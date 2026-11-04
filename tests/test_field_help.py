@@ -385,3 +385,15 @@ def test_referral_wording_follows_the_referral_source_setting():
     for source in ("implied", "claims"):
         for key in ("patient_count", "direction"):
             assert ", not " not in out[source]["ref"][key]["help"]
+
+
+def test_top_code_counts_and_rvu_filter_are_in_the_catalog():
+    cat = catalog(dev=False)
+    prov = cat["provider"]
+    assert prov["visits_top_diagnosis_1_count"]["label"] == "Visits"
+    assert prov["visits_top_primary_procedure_3_count"]["help"].endswith("with this procedure in {window}.")
+    assert "below 1" in prov["visits_top_primary_procedure_1"]["help"]
+    assert "below 1" in cat["section"]["top_primary_procedures"]["help"]
+    assert "number of visits" in cat["section"]["top_diagnoses"]["help"]
+    assert "Office" in cat["practice"]["name"]["help"]
+    assert cat["practice"]["work_type"]["label"] == "Service type"

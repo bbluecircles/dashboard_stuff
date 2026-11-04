@@ -449,6 +449,24 @@ def org_name_sql(expr: str) -> str:
             ELSE {cleaned}
         END
     """
+
+
+SITE_OFFICE_SUFFIX = " Office"
+
+
+def site_name_sql(expr: str) -> str:
+    """clean_name_sql for a practice site: a LAST, FIRST value (a clinician's own
+    name used as the location name) keeps the name with ' Office' appended, so
+    a solo practice reads 'SMITH, SEAN Office'. Blank and sentinels are NULL."""
+    cleaned = clean_name_sql(expr)
+    return f"""
+        CASE
+            WHEN {cleaned} IS NULL THEN NULL
+            WHEN UPPER({cleaned}) REGEXP '{ORG_NAME_REGEXP}' THEN {cleaned}
+            WHEN {cleaned} REGEXP '{PERSON_NAME_REGEXP}' THEN CONCAT({cleaned}, '{SITE_OFFICE_SUFFIX}')
+            ELSE {cleaned}
+        END
+    """
 MIN_PLAUSIBLE_WORK_RVU = 0.05
 
 
@@ -623,12 +641,14 @@ def pick_practice_name(
     city: Any = None,
 ) -> str | None:
     """Python twin of practice_name_sql: DBA, then name, then common name, each
-    cleaned of sentinels and of LAST, FIRST clones; else street and city. Never
-    returns Unknown."""
+    cleaned of sentinels; a LAST, FIRST value keeps the name with ' Office'
+    appended; else street and city. Never returns Unknown."""
     for value in (dba_name, sl_name, common_name):
         found = strip_entity_suffix(value)
-        if found is None or looks_like_person_name(found):
+        if found is None:
             continue
+        if looks_like_person_name(found):
+            return f"{found}{SITE_OFFICE_SUFFIX}"
         return found
     return street_city_label(street=street, city=city)
 
