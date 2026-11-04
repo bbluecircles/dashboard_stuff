@@ -330,3 +330,20 @@ def test_group_dump_defaults_to_market_state(tmp_path, monkeypatch):
     assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "ca"}).status_code == 200
     assert seen["group_state"] == "CA"
     assert client.get("/v1/group-practices", params={"state": "AZ", "group_state": "everywhere"}).status_code == 422
+
+
+def test_provider_zip_filter_param(tmp_path, monkeypatch):
+    from provider_directory.models import ProviderDumpList
+
+    client = _client(tmp_path, monkeypatch)
+    seen = {}
+
+    def fake(conn, **kwargs):
+        seen.update(kwargs)
+        return ProviderDumpList(state="AZ", mart_db="az_pd", items=[], total=0, limit=50, offset=0)
+
+    monkeypatch.setattr("provider_directory.api.list_providers", fake)
+    assert client.get("/v1/providers", params={"state": "AZ", "zip": "85251"}).status_code == 200
+    assert seen["zip_code"] == "85251"
+    assert client.get("/v1/providers", params={"state": "AZ", "zip": "852"}).status_code == 200
+    assert client.get("/v1/providers", params={"state": "AZ", "zip": "8525"}).status_code == 422

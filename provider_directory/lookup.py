@@ -437,8 +437,8 @@ def _provider_filter_clauses(
         params.append(f"%{organization.strip()}%")
     if organization_id is not None:
         if membership == MEMBERSHIP_ANY:
-            # Any in-window billing org (physician_affiliation_p/_i), not just the
-            # primary one, so the picker can list every provider whose profile
+            # Any group membership (master-file group or CMS reassignment group), not
+            # just the primary one, so the picker can list every provider whose profile
             # names this group. idx_npi_org on pd_provider_group_practice serves it.
             clauses.append(
                 f"EXISTS (SELECT 1 FROM {quote_ident(mart_db)}.pd_provider_group_practice g "
@@ -512,6 +512,7 @@ def list_providers(
     in_system: bool | None = None,
     organization: str | None = None,
     city: str | None = None,
+    zip_code: str | None = None,
     mart_db: str = MART_DB,
     state: str | None = None,
     organization_id: int | None = None,
@@ -542,6 +543,16 @@ def list_providers(
     if city_term:
         clauses.append("pr.city LIKE %s")
         params.append(f"%{city_term}%")
+    zip_term = (zip_code or "").strip()
+    if zip_term:
+        if not zip_term.isdigit() or len(zip_term) not in (3, 5):
+            raise ValueError("zip must be a 5-digit ZIP code or a 3-digit prefix")
+        # Any of the clinician's top-5 sites in the ZIP (or prefix), not only the primary one.
+        clauses.append(
+            f"EXISTS (SELECT 1 FROM {quote_ident(mart_db)}.pd_provider_practice pz "
+            f"WHERE pz.npi = p.npi AND pz.zip LIKE %s)"
+        )
+        params.append(zip_term if len(zip_term) == 5 else zip_term + "%")
     where = " AND ".join(clauses)
     mart = quote_ident(mart_db)
     provider = f"{mart}.pd_provider p"
@@ -577,6 +588,9 @@ def list_providers(
                 pr.name AS practice_name,
                 pr.city,
                 pr.state,
+                pr.zip,
+                p.visits_top_diagnosis_1_name,
+                p.visits_top_primary_procedure_1_name,
                 {member_sql} AS is_primary_member
             FROM {provider}
             {join_sql}

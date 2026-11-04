@@ -522,6 +522,10 @@
         "label": "Primary member",
         "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
       },
+      "zip": {
+        "label": "Primary site ZIP",
+        "help": "ZIP code of the clinician's main practice site."
+      },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and work RVU)",
         "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank."
@@ -1172,6 +1176,10 @@
         "label": "Primary member",
         "help": "On a group member list, whether this organization is the clinician's primary billing organization. Blank outside a group list."
       },
+      "zip": {
+        "label": "Primary site ZIP",
+        "help": "ZIP code of the clinician's main practice site."
+      },
       "activity_specialty_percentile": {
         "label": "Activity vs specialty peers (visits and work RVU)",
         "help": "Combined volume rank within the specialty: the average of the visits percentile and the work RVU percentile. A volume rank."
@@ -1636,6 +1644,10 @@
         "label": "City contains",
         "help": "Clinicians whose main practice site is in a city containing the text."
       },
+      "zip": {
+        "label": "ZIP code",
+        "help": "Clinicians with any of their top five practice sites in this 5-digit ZIP code, or in a 3-digit ZIP prefix."
+      },
       "active": {
         "label": "Active only",
         "help": "Show only clinicians with at least one visit or panel patient in Nov 2024 to Oct 2025. Unchecked, the list includes clinicians with no claims activity in the window."
@@ -1725,8 +1737,12 @@
         "help": "The five diagnoses most often on the clinician's visits, with each one's share of visits."
       },
       "top_procedures": {
-        "label": "Top procedures",
-        "help": "The five procedure codes most often billed on the clinician's visits, with each one's share of visits."
+        "label": "Top billed codes",
+        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export."
+      },
+      "clinical_summary": {
+        "label": "Clinical summary",
+        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure."
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",

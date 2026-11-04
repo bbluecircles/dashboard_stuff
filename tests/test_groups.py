@@ -138,3 +138,17 @@ def test_group_state_and_parent_harmonization():
     assert "p.primary_organization_parent_name = g.parent_name" in src and "g.member_scope = 'all'" in src
     source = inspect.getsource(list_group_practices)
     assert 's.state = %s' in source and "group_state" in source
+
+
+def test_list_providers_zip_filter_and_summary_columns():
+    import inspect
+
+    from provider_directory.models import ProviderDumpRow
+
+    source = inspect.getsource(list_providers)
+    assert "pz.zip LIKE %s" in source and "zip_code" in source
+    assert "p.visits_top_diagnosis_1_name" in source and "p.visits_top_primary_procedure_1_name" in source
+    for f in ("zip", "visits_top_diagnosis_1_name", "visits_top_primary_procedure_1_name"):
+        assert f in ProviderDumpRow.model_fields
+    with pytest.raises(ValueError):
+        list_providers(object(), zip_code="ABCDE")

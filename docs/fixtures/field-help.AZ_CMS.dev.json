@@ -5864,7 +5864,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -7159,7 +7159,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -7177,7 +7177,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -7195,7 +7195,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -7213,7 +7213,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -7231,7 +7231,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           },
           {
@@ -9209,7 +9209,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -9534,6 +9534,201 @@
               "cms_pdc_mips"
             ],
             "upstream": false
+          }
+        ]
+      },
+      "zip": {
+        "label": "Primary site ZIP",
+        "help": "ZIP code of the clinician's main practice site.",
+        "dev": "pd_provider_practice.zip on the site_rank 1 row (picker dump only).",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider_practice",
+            "name": "pd_provider_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5.",
+            "built_from": [
+              "pd_stg_npi_sl",
+              "az_cms.sl",
+              "cms_pdc_clinician",
+              "pd_stg_site_wrvu",
+              "pd_stg_site_dow"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_sl",
+            "name": "pd_stg_npi_sl",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Visits per NPI per location with the site cluster key (Phase 3).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "az_cms.sl"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_site",
+            "name": "pd_stg_visit_site",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "One service location per encounter, the modal one (Phase 3).",
+            "built_from": [
+              "pd_stg_visit",
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "claims.sl",
+            "name": "az_cms.sl",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
+            "upstream": true
+          },
+          {
+            "key": "cms_pdc_clinician",
+            "name": "cms_pdc_clinician",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs.",
+            "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)",
+            "url": "https://data.cms.gov/provider-data/dataset/mj5m-pzi6",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_wrvu",
+            "name": "pd_stg_site_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU per NPI per location (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_dow",
+            "name": "pd_stg_site_dow",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Visits per NPI per site per weekday (Phase 5).",
+            "built_from": [
+              "pd_stg_visit_date",
+              "pd_stg_visit_site"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_date",
+            "name": "pd_stg_visit_date",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Service date per encounter, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_stg_visit"
+            ],
+            "upstream": true
           }
         ]
       },
@@ -9966,7 +10161,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10032,7 +10227,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10098,7 +10293,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10164,7 +10359,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10230,7 +10425,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10296,7 +10491,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10362,7 +10557,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10428,7 +10623,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -10711,7 +10906,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -10977,7 +11172,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -11205,7 +11400,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -11400,7 +11595,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -11595,7 +11790,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -18449,7 +18644,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -19883,7 +20078,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -19908,7 +20103,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -19933,7 +20128,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -19958,7 +20153,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           }
         ]
@@ -19983,7 +20178,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "One row per NPI: primary professional and institutional billing org and hospital system.",
+            "description": "One row per NPI: the claims billing organizations and their parent organization.",
             "upstream": false
           },
           {
@@ -21987,7 +22182,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -22313,6 +22508,208 @@
               "cms_pdc_mips"
             ],
             "upstream": false
+          }
+        ]
+      },
+      "zip": {
+        "label": "Primary site ZIP",
+        "help": "ZIP code of the clinician's main practice site.",
+        "dev": "pd_provider_practice.zip on the site_rank 1 row (picker dump only).",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.zip",
+            "scope": "provider",
+            "field": "zip",
+            "label": "Primary site ZIP"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_provider_practice",
+            "name": "pd_provider_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5.",
+            "built_from": [
+              "pd_stg_npi_sl",
+              "az_cms.sl",
+              "cms_pdc_clinician",
+              "pd_stg_site_wrvu",
+              "pd_stg_site_dow"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_sl",
+            "name": "pd_stg_npi_sl",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Visits per NPI per location with the site cluster key (Phase 3).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "az_cms.sl"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_site",
+            "name": "pd_stg_visit_site",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "One service location per encounter, the modal one (Phase 3).",
+            "built_from": [
+              "pd_stg_visit",
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "claims.sl",
+            "name": "az_cms.sl",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
+            "upstream": true
+          },
+          {
+            "key": "cms_pdc_clinician",
+            "name": "cms_pdc_clinician",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs.",
+            "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)",
+            "url": "https://data.cms.gov/provider-data/dataset/mj5m-pzi6",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_wrvu",
+            "name": "pd_stg_site_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU per NPI per location (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_dow",
+            "name": "pd_stg_site_dow",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Visits per NPI per site per weekday (Phase 5).",
+            "built_from": [
+              "pd_stg_visit_date",
+              "pd_stg_visit_site"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_date",
+            "name": "pd_stg_visit_date",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Service date per encounter, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_stg_visit"
+            ],
+            "upstream": true
           }
         ]
       },
@@ -22850,7 +23247,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -22924,7 +23321,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -22998,7 +23395,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -23072,7 +23469,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -23146,7 +23543,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -23220,7 +23617,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -23294,7 +23691,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -23368,7 +23765,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -23703,7 +24100,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -23983,7 +24380,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -24232,7 +24629,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -24434,7 +24831,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -24669,7 +25066,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -25690,7 +26087,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -25892,7 +26289,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -26012,7 +26409,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26030,7 +26427,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26050,7 +26447,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26068,7 +26465,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26086,7 +26483,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26104,7 +26501,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26122,7 +26519,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26140,7 +26537,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26158,7 +26555,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26176,7 +26573,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26218,7 +26615,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26295,7 +26692,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           }
         ]
@@ -26417,7 +26814,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           }
         ]
@@ -26435,7 +26832,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -26528,7 +26925,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -26723,7 +27120,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -26863,7 +27260,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -28200,7 +28597,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -28328,7 +28725,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -28378,7 +28775,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           },
           {
@@ -28455,7 +28852,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": false
           }
         ]
@@ -28532,7 +28929,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           }
         ]
@@ -28609,7 +29006,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           }
         ]
@@ -28745,7 +29142,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           }
         ]
@@ -28836,7 +29233,7 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -29616,7 +30013,202 @@
             "kind": "warehouse",
             "external": false,
             "phase": "warehouse load, outside this pipeline",
-            "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system.",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
+            "upstream": true
+          },
+          {
+            "key": "cms_pdc_clinician",
+            "name": "cms_pdc_clinician",
+            "kind": "cms",
+            "external": true,
+            "phase": "Phase 1",
+            "description": "Clinician identity, school, graduation year, group PAC id and size, telehealth, secondary specialties. Loaded by Phase 1, filtered to spine and in-state NPIs.",
+            "source": "CMS Provider Data Catalog: National Downloadable File (doctors and clinicians)",
+            "url": "https://data.cms.gov/provider-data/dataset/mj5m-pzi6",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_wrvu",
+            "name": "pd_stg_site_wrvu",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Work RVU per NPI per location (Phase 4).",
+            "built_from": [
+              "pd_stg_npi_px_line",
+              "azal.procd"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_npi_px_line",
+            "name": "pd_stg_npi_px_line",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 4",
+            "description": "Billed procedure lines per NPI, location and code with line counts, from a 12-month pat_dt scan (Phase 4).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_provider"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "lookup.procd",
+            "name": "azal.procd",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Procedure code to description and fee-schedule RVU columns.",
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_site_dow",
+            "name": "pd_stg_site_dow",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Visits per NPI per site per weekday (Phase 5).",
+            "built_from": [
+              "pd_stg_visit_date",
+              "pd_stg_visit_site"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_date",
+            "name": "pd_stg_visit_date",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 5",
+            "description": "Service date per encounter, cached (Phase 5).",
+            "built_from": [
+              "az_cms.pat_dt",
+              "pd_stg_visit"
+            ],
+            "upstream": true
+          }
+        ]
+      },
+      "zip": {
+        "label": "ZIP code",
+        "help": "Clinicians with any of their top five practice sites in this 5-digit ZIP code, or in a 3-digit ZIP prefix.",
+        "dev": "EXISTS pd_provider_practice row for the NPI with zip = value, or zip LIKE 'ddd%' for a 3-digit prefix.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider_practice",
+            "name": "pd_provider_practice",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Top 5 practice sites per NPI (Phase 3), polished by Phases 4 and 5.",
+            "built_from": [
+              "pd_stg_npi_sl",
+              "az_cms.sl",
+              "cms_pdc_clinician",
+              "pd_stg_site_wrvu",
+              "pd_stg_site_dow"
+            ],
+            "upstream": false
+          },
+          {
+            "key": "pd_stg_npi_sl",
+            "name": "pd_stg_npi_sl",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "Visits per NPI per location with the site cluster key (Phase 3).",
+            "built_from": [
+              "pd_stg_visit_site",
+              "az_cms.sl"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit_site",
+            "name": "pd_stg_visit_site",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 3",
+            "description": "One service location per encounter, the modal one (Phase 3).",
+            "built_from": [
+              "pd_stg_visit",
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_visit",
+            "name": "pd_stg_visit",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "One row per encounter: rendering NPI, one diagnosis, one procedure (Phase 2).",
+            "built_from": [
+              "pd_stg_window_claim"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "pd_stg_window_claim",
+            "name": "pd_stg_window_claim",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 2",
+            "description": "Claim lines for the window, copied from claims.pat_dt (Phase 2).",
+            "built_from": [
+              "az_cms.pat_dt"
+            ],
+            "upstream": true
+          },
+          {
+            "key": "claims.pat_dt",
+            "name": "az_cms.pat_dt",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Claim lines. One row per service line with encounter, patient, rendering and referring NPI, codes, site, date and payer.",
+            "upstream": true
+          },
+          {
+            "key": "claims.sl",
+            "name": "az_cms.sl",
+            "kind": "warehouse",
+            "external": false,
+            "phase": "warehouse load, outside this pipeline",
+            "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string.",
             "upstream": true
           },
           {
@@ -30273,9 +30865,17 @@
         "tables": []
       },
       "top_procedures": {
-        "label": "Top procedures",
-        "help": "The five procedure codes most often billed on the clinician's visits, with each one's share of visits.",
+        "label": "Top billed codes",
+        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export.",
         "dev": "UI heading over visits_top_procedure_1..5; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "clinical_summary": {
+        "label": "Clinical summary",
+        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure.",
+        "dev": "UI box over practices[0].zip, visits_top_diagnosis_1_name and visits_top_primary_procedure_1_name; no table.",
         "caveats": [],
         "derived_from": [],
         "tables": []
@@ -30571,7 +31171,7 @@
       "kind": "warehouse",
       "external": false,
       "phase": "warehouse load, outside this pipeline",
-      "description": "Service locations: address, geo, place-of-service type, specialty rollup, hospital system."
+      "description": "Service locations: address, geo, place-of-service type, specialty rollup, parent organization string."
     },
     {
       "key": "claims.payor",
@@ -30603,23 +31203,7 @@
       "kind": "warehouse",
       "external": false,
       "phase": "warehouse load, outside this pipeline",
-      "description": "One row per NPI: primary professional and institutional billing org and hospital system."
-    },
-    {
-      "key": "claims.physician_affiliation_p",
-      "name": "az_cms.physician_affiliation_p",
-      "kind": "warehouse",
-      "external": false,
-      "phase": "warehouse load, outside this pipeline",
-      "description": "Every professional billing org an NPI billed under, with cases and last month."
-    },
-    {
-      "key": "claims.physician_affiliation_i",
-      "name": "az_cms.physician_affiliation_i",
-      "kind": "warehouse",
-      "external": false,
-      "phase": "warehouse load, outside this pipeline",
-      "description": "Every institutional billing org an NPI billed under, with cases and last month."
+      "description": "One row per NPI: the claims billing organizations and their parent organization."
     },
     {
       "key": "claims.period",

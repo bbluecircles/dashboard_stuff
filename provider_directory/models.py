@@ -297,6 +297,9 @@ class ProviderDumpRow(BaseModel):
     practice_name: str | None = None
     city: str | None = None
     state: str | None = None
+    zip: str | None = None
+    visits_top_diagnosis_1_name: str | None = None
+    visits_top_primary_procedure_1_name: str | None = None
     visits_total: int | None = None
     panel_size: int | None = None
     in_system_provider: bool | None = None

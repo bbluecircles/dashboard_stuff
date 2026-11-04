@@ -304,6 +304,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
         in_system: bool | None = None,
         organization_id: int | None = Query(default=None, ge=1),
         membership: str = Query(default="primary", pattern="^(primary|any)$"),
+        zip: str | None = Query(default=None, pattern="^[0-9]{3}([0-9]{2})?$"),
     ) -> ProviderDumpList:
         market = _market_or_422(state)
         if min_visits is not None and max_visits is not None and min_visits > max_visits:
@@ -321,6 +322,7 @@ def create_app(*, runner: JobRunner | None = None) -> FastAPI:
                 organization_id=organization_id,
                 membership=membership,
                 city=city,
+                zip_code=zip,
                 active=active,
                 min_visits=min_visits,
                 max_visits=max_visits,
