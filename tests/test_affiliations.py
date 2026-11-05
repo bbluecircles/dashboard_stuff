@@ -81,7 +81,6 @@ def test_nested_affiliation_models_roundtrip():
                 org_rank=1,
                 organization_id=1234567893,
                 organization_name="Mayo Clinic Arizona",
-                billing_type="P",
                 is_primary=True,
             )
         ],

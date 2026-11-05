@@ -304,12 +304,10 @@ def _top_code_entries() -> dict[str, dict[str, str]]:
             out[f"{prefix}_{i}"] = _entry(f"{label} {i}", help_code, dev)
             out[f"{prefix}_{i}_name"] = _entry(f"{label} {i}", f"Description of the {ordinal.lower()} {noun}.", dev)
             out[f"{prefix}_{i}_count"] = _entry("Visits", f"Number of the clinician's visits {share_help} in {{window}}.", _TOP_COUNT_DEV)
-            out[f"{prefix}_{i}_percent"] = _entry("Share of visits", f"Share of the clinician's visits {share_help}.", _TOP_PCT_DEV)
     return out
 
 
 _TOP_COUNT_DEV = "pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count: visits in the 12-month window that carried the code, read at request time. On a group page, summed from members' stored top five."
-_TOP_PCT_DEV = "Computed at read time: pd_stg_top_dx / pd_stg_top_px / pd_stg_top_primary_px visit_count / pd_provider.visits_total x100, 2 decimals, computed at read time. Shares of all visits, so the five do not add to 100."
 
 
 def _weekday_entries(scope_note: str, dev_note: str) -> dict[str, dict[str, str]]:
@@ -533,8 +531,6 @@ SECTION: dict[str, dict[str, str]] = {
     "top_primary_procedures": _entry("Top primary procedures", "The five procedures most often billed by the clinician among those with a physician work RVU above 1, with the number of visits in {window} for each. Procedures with a work RVU below 1 are filtered out, as are office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included.", "UI heading over visits_top_primary_procedure_1..5 with visits_top_primary_procedure_N_count; no table. Show section.top_primary_procedures_filled as the caption when primary_procedures_filled is true."),
     "top_primary_procedures_filled": _entry("Includes all billed codes", "Fewer than five of this clinician's procedures have a physician work RVU above 1 (the rest are filtered out), so the list also shows their most billed office visits and other services.", "Caption under Top primary procedures when pd_provider.primary_procedures_filled = 1; no table."),
     "group_practices": _entry("Group practices", "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them.", "UI heading over group_practices[]; no table."),
-    "group_source_R": _entry("Master reference file", "Group practice recorded for the clinician in the master reference file.", "group_practice.billing_type = 'R'; no table."),
-    "group_source_C": _entry("CMS reassignment", "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file.", "group_practice.billing_type = 'C'; no table."),
     "referrals": _entry("Referrals", f"{_REFERRAL_SECTION_LEAD} {_REFERRAL_BASIS} Clinicians in the same group practice or billing organization, and pathology, radiology, anesthesia and lab clinicians, are left out.", "UI heading over referrals[] in and out; no table."),
     "referrals_in": _entry("Referrals in", _REFERRAL_IN_TEXT, "referral.direction = 'in'; no table."),
     "referrals_out": _entry("Referrals out", _REFERRAL_OUT_TEXT, "referral.direction = 'out'; no table."),
@@ -577,9 +573,9 @@ GROUP_SECTION: dict[str, dict[str, str]] = {
 def _group_scope() -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for key, entry in PROVIDER.items():
-        if key.startswith("visits_top_") and key.endswith("_percent"):
-            out[key] = _entry(entry["label"], entry["help"] + " On the group page this is a lower bound: only members' stored top 5 codes are summed.",
-                              entry["dev"] + " Group: SUM of members' pd_stg_top_* visit_count for the code / group visits_total.")
+        if key.startswith("visits_top_") and key.endswith("_count"):
+            out[key] = _entry(entry["label"], entry["help"].replace("the clinician's visits", "members' visits") + " On the group page this is a lower bound: only members' stored top 5 codes are summed.",
+                              entry["dev"] + " Group: SUM of members' pd_stg_top_* visit_count for the code.")
         elif key.startswith("panel_percent_") or key.startswith("visits_percent_") or key == "panel_average_age":
             out[key] = _entry(entry["label"], entry["help"] + _GROUP_PCT_NOTE, entry["dev"] + " Group: member percent weighted by member visits_total (group_profile.weighted_pct_sql).")
         else:
@@ -621,7 +617,6 @@ GROUP_PRACTICE: dict[str, dict[str, str]] = {
     "organization_id": _entry("Group practice id", "Identifier of the group (the CMS group PAC ID).", "pd_src_group_practice.group_pac_id for CMS rows, pd_provider.primary_organization_id for the primary row."),
     "organization_npi": _entry("Organization NPI", "Blank: the group id is a CMS PAC ID, which is not an NPI.", "Always null since the reference sources took over."),
     "organization_name": _entry("Group", "Name of the group practice.", "pd_src_group_practice.group_name (CMS legal business name) or pd_provider.primary_organization_name for the primary row."),
-    "billing_type": _entry("Source", "R: the master reference file's group practice. C: a CMS reassignment group.", "'R' from pd_provider.primary_organization_* (pd_src_physician), 'C' from pd_src_group_practice. R wins when both list the same group."),
     "is_primary": _entry("Primary", "This is the clinician's group practice in the master reference file.", "pd_provider_group_practice.organization_id = pd_provider.primary_organization_id."),
     "cases": _entry("Cases", "Blank: case counts are not available from the reference sources.", "Always null since the reference sources took over."),
     "max_period_code": _entry("Last month billed", "Blank: billing months are not available from the reference sources.", "Always null since the reference sources took over."),
@@ -781,8 +776,6 @@ _GROUP_PASSTHROUGH = {"organization_id", "organization_name", "organization_npi"
 
 def _caveats_for(scope: str, key: str) -> list[str]:
     out = list(CAVEATS.get((scope, key), []))
-    if key.startswith("visits_top_") and key.endswith("_percent"):
-        out.append("A share of all visits; the shares do not add to 100.")
     if key.startswith("visits_top_primary_procedure_"):
         out.append("Visit-type codes (office and telehealth visits, eye exams, psychiatry, therapy evaluations), tracking and lab-panel codes, and procedures with a work RVU of 1 or less are not ranked.")
         if scope == "group":
@@ -801,8 +794,8 @@ def _caveats_for(scope: str, key: str) -> list[str]:
 
 def _derived_for(scope: str, key: str) -> list[str]:
     out = list(DERIVED_FROM.get((scope, key), []))
-    if key.startswith("visits_top_") and key.endswith("_percent"):
-        out += [f"{scope}.{key[:-len('_percent')]}", f"{scope}.visits_total"]
+    if key.startswith("visits_top_") and key.endswith("_count"):
+        out += [f"{scope}.{key[:-len('_count')]}"]
     if key.startswith("panel_percent_") or key == "panel_average_age":
         out.append(f"{scope}.panel_size")
     if scope == "group" and key not in _GROUP_PASSTHROUGH and key in PROVIDER and (scope, key) not in DERIVED_FROM:

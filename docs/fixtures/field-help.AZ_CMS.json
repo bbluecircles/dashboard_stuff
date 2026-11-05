@@ -114,10 +114,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
-      "visits_top_diagnosis_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
-      },
       "visits_top_diagnosis_2": {
         "label": "Top diagnosis 2",
         "help": "Second most common diagnosis code."
@@ -129,10 +125,6 @@
       "visits_top_diagnosis_2_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
       },
       "visits_top_diagnosis_3": {
         "label": "Top diagnosis 3",
@@ -146,10 +138,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
-      "visits_top_diagnosis_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
-      },
       "visits_top_diagnosis_4": {
         "label": "Top diagnosis 4",
         "help": "Fourth most common diagnosis code."
@@ -161,10 +149,6 @@
       "visits_top_diagnosis_4_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
       },
       "visits_top_diagnosis_5": {
         "label": "Top diagnosis 5",
@@ -178,10 +162,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
-      "visits_top_diagnosis_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
-      },
       "visits_top_procedure_1": {
         "label": "Top procedure 1",
         "help": "Most common procedure (CPT/HCPCS) across the clinician's visits in Nov 2024 to Oct 2025."
@@ -193,10 +173,6 @@
       "visits_top_procedure_1_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
       },
       "visits_top_procedure_2": {
         "label": "Top procedure 2",
@@ -210,10 +186,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
-      "visits_top_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
-      },
       "visits_top_procedure_3": {
         "label": "Top procedure 3",
         "help": "Third most common procedure code."
@@ -225,10 +197,6 @@
       "visits_top_procedure_3_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
       },
       "visits_top_procedure_4": {
         "label": "Top procedure 4",
@@ -242,10 +210,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
-      "visits_top_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
-      },
       "visits_top_procedure_5": {
         "label": "Top procedure 5",
         "help": "Fifth most common procedure code."
@@ -257,10 +221,6 @@
       "visits_top_procedure_5_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
@@ -274,10 +234,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
-      "visits_top_primary_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
-      },
       "visits_top_primary_procedure_2": {
         "label": "Top primary procedure 2",
         "help": "Second most common primary procedure code."
@@ -289,10 +245,6 @@
       "visits_top_primary_procedure_2_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
       },
       "visits_top_primary_procedure_3": {
         "label": "Top primary procedure 3",
@@ -306,10 +258,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
-      "visits_top_primary_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
-      },
       "visits_top_primary_procedure_4": {
         "label": "Top primary procedure 4",
         "help": "Fourth most common primary procedure code."
@@ -322,10 +270,6 @@
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
-      "visits_top_primary_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
-      },
       "visits_top_primary_procedure_5": {
         "label": "Top primary procedure 5",
         "help": "Fifth most common primary procedure code."
@@ -337,10 +281,6 @@
       "visits_top_primary_procedure_5_count": {
         "label": "Visits",
         "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
       },
       "primary_procedures_filled": {
         "label": "Primary procedures filled",
@@ -830,11 +770,7 @@
       },
       "visits_top_diagnosis_1_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_2": {
         "label": "Top diagnosis 2",
@@ -846,11 +782,7 @@
       },
       "visits_top_diagnosis_2_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_3": {
         "label": "Top diagnosis 3",
@@ -862,11 +794,7 @@
       },
       "visits_top_diagnosis_3_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_4": {
         "label": "Top diagnosis 4",
@@ -878,11 +806,7 @@
       },
       "visits_top_diagnosis_4_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_5": {
         "label": "Top diagnosis 5",
@@ -894,11 +818,7 @@
       },
       "visits_top_diagnosis_5_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
-      },
-      "visits_top_diagnosis_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_1": {
         "label": "Top procedure 1",
@@ -910,11 +830,7 @@
       },
       "visits_top_procedure_1_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_2": {
         "label": "Top procedure 2",
@@ -926,11 +842,7 @@
       },
       "visits_top_procedure_2_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_3": {
         "label": "Top procedure 3",
@@ -942,11 +854,7 @@
       },
       "visits_top_procedure_3_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_4": {
         "label": "Top procedure 4",
@@ -958,11 +866,7 @@
       },
       "visits_top_procedure_4_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_5": {
         "label": "Top procedure 5",
@@ -974,11 +878,7 @@
       },
       "visits_top_procedure_5_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
@@ -990,11 +890,7 @@
       },
       "visits_top_primary_procedure_1_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_2": {
         "label": "Top primary procedure 2",
@@ -1006,11 +902,7 @@
       },
       "visits_top_primary_procedure_2_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_3": {
         "label": "Top primary procedure 3",
@@ -1022,11 +914,7 @@
       },
       "visits_top_primary_procedure_3_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_4": {
         "label": "Top primary procedure 4",
@@ -1038,11 +926,7 @@
       },
       "visits_top_primary_procedure_4_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_5": {
         "label": "Top primary procedure 5",
@@ -1054,11 +938,7 @@
       },
       "visits_top_primary_procedure_5_count": {
         "label": "Visits",
-        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
-      },
-      "visits_top_primary_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "primary_procedures_filled": {
         "label": "Primary procedures filled",
@@ -1636,10 +1516,6 @@
         "label": "Group",
         "help": "Name of the group practice."
       },
-      "billing_type": {
-        "label": "Source",
-        "help": "R: the master reference file's group practice. C: a CMS reassignment group."
-      },
       "is_primary": {
         "label": "Primary",
         "help": "This is the clinician's group practice in the master reference file."
@@ -1883,14 +1759,6 @@
       "group_practices": {
         "label": "Group practices",
         "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
-      },
-      "group_source_R": {
-        "label": "Master reference file",
-        "help": "Group practice recorded for the clinician in the master reference file."
-      },
-      "group_source_C": {
-        "label": "CMS reassignment",
-        "help": "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file."
       },
       "referrals": {
         "label": "Referrals",
