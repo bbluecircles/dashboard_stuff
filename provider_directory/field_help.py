@@ -455,6 +455,13 @@ PROVIDER: dict[str, dict[str, str]] = {
     "state": _entry("State", "State of the clinician's primary practice site.", "pd_provider_practice.state where site_rank = 1."),
 }
 
+# Every work RVU figure on the profile follows the clinician's floor rule, so
+# every work RVU tooltip says so (the peers' figures follow their own rule).
+_RVU_PEER_FLOOR = "Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
+for _key, _entry_ in PROVIDER.items():
+    if _key.startswith("wrvu_") and _key != "wrvu_filter_applied" and "below 1" not in _entry_["help"]:
+        _entry_["help"] = _entry_["help"].rstrip() + " " + (_RVU_PEER_FLOOR if "specialty" in _key else _RVU_FLOOR)
+
 GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "organization_id": _entry("Group practice id", "Identifier of the group in the master reference file (the CMS group PAC ID). Members are the clinicians whose group practice this is.", "pd_provider.primary_organization_id. One pd_group_practice row per group per member scope (all / active / inactive)."),
     "organization_name": _entry("Group practice", "Name of the group practice.", "MAX(pd_provider.primary_organization_name) over members, in pd_group_practice."),
@@ -467,7 +474,7 @@ GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "in_system_provider_count": _entry("In-system clinicians", "Members with a CMS hospital affiliation.", "SUM(pd_provider.in_system_provider = 1) over members, in pd_group_practice."),
     "visits_total": _entry("Visits", "Sum of member clinicians' visits in {window}. An encounter billed by two members counts twice.", "SUM(IFNULL(pd_provider.visits_total, 0)) over members, precomputed in pd_group_practice."),
     "panel_size": _entry("Panel size", "Sum of member clinicians' panel sizes. Patients seen by two members count twice.", "SUM(IFNULL(pd_provider.panel_size, 0)) over members, in pd_group_practice."),
-    "wrvu_total": _entry("Work RVU total, members combined", "Sum of the member clinicians' work RVU totals.", "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice."),
+    "wrvu_total": _entry("Work RVU total, members combined", "Sum of the member clinicians' work RVU totals. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1.", "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice."),
     "visits_per_provider": _entry("Visits per clinician", "Group visits divided by number of member clinicians.", "pd_group_practice.visits_total / provider_count, 1 decimal."),
     "visits_percentile": _entry("Visits percentile", "Where this group's visit total ranks among all groups. 100 is the highest.", "pd_group_practice: ROW_NUMBER over groups with visits_total > 0 ordered by visits_total / count x100, 1 decimal. Ranked among all groups."),
     "activity_percentile": _entry("Activity percentile", "Where this group's visits per clinician ranks among all groups. 100 is the highest.", "pd_group_practice: same rank on visits_total / provider_count."),
@@ -479,8 +486,8 @@ GROUP_OVERRIDES: dict[str, dict[str, str]] = {
     "active_provider": _entry("Active", "At least one member was active in {window}.", "pd_group_practice.active_provider_count >= 1."),
     "group_size": _entry("Group size", "Largest CMS-reported group size among members.", "MAX(pd_provider.group_size) over members."),
     "telehealth_offered": _entry("Telehealth offered", "At least one member reports offering telehealth to CMS.", "MAX(pd_provider.telehealth_offered) over members."),
-    "wrvu_average": _entry("Average work RVU per procedure, members combined", "Members' work RVU total divided by members' priced procedures.", "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members."),
-    "wrvu_procedure_count": _entry("Priced procedures, members combined", "Sum of members' priced procedure lines.", "SUM(pd_provider.wrvu_procedure_count) over members."),
+    "wrvu_average": _entry("Average work RVU per procedure, members combined", "Members' work RVU total divided by members' priced procedures. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1.", "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members."),
+    "wrvu_procedure_count": _entry("Priced procedures, members combined", "Sum of members' priced procedure lines. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1.", "SUM(pd_provider.wrvu_procedure_count) over members."),
 }
 
 _GROUP_PCT_NOTE = " On the group page this is weighted across members by their visits."
@@ -610,8 +617,8 @@ PRACTICE: dict[str, dict[str, str]] = {
     "location_flag": _entry("Location status", "Confidence flag for the address. Always claims-confirmed today.", "Constant 'claims_confirmed' on pd_provider_practice."),
     "phone_source": _entry("Phone source", "Where the phone came from: CMS PDC, or blank.", "'pdc' when the cms_pdc_clinician match found a phone, else null."),
     "needs_geocode": _entry("Needs geocode", "The warehouse has no coordinates for this location.", "az.sl.latitude or longitude is null."),
-    "wrvu_at_site": _entry("Work RVU at site", "The clinician's work RVU total over procedures billed at this site.", "SUM of line-level work RVU for lines at the site's locations (pd_stg_site_wrvu, Phase 4)."),
-    "wrvu_share_pct": _entry("Share of work RVU at site", "This site's part of the clinician's work RVU total.", "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals."),
+    "wrvu_at_site": _entry("Work RVU at site", "The clinician's work RVU total over procedures billed at this site. Follows the clinician's floor rule: procedures below 1 work RVU are left out when the clinician has at least five procedures above 1.", "SUM of line-level work RVU for lines at the site's locations (pd_stg_site_wrvu, Phase 4)."),
+    "wrvu_share_pct": _entry("Share of work RVU at site", "This site's part of the clinician's work RVU total. Follows the clinician's floor rule: procedures below 1 work RVU are left out when the clinician has at least five procedures above 1.", "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals."),
     **_weekday_entries("the clinician's visits at this site", "pd_stg_site_dow: visits at the site by DAYOFWEEK of the visit date / visits at the site with a date x100 (Phase 5)."),
 }
 

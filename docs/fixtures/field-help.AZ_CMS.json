@@ -464,63 +464,63 @@
       },
       "wrvu_prior_year_total": {
         "label": "Prior-year work RVU total",
-        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_average": {
         "label": "Prior-year average work RVU per procedure",
-        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_procedure_count": {
         "label": "Prior-year priced procedures",
-        "help": "Billed procedure lines that count toward the prior-year total."
+        "help": "Billed procedure lines that count toward the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_yoy_change_pct": {
         "label": "Work RVU change vs prior year",
-        "help": "Percent change of the work RVU total against the prior-year total."
+        "help": "Percent change of the work RVU total against the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_average_per_procedure": {
         "label": "Specialty average work RVU per procedure",
-        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median_per_procedure": {
         "label": "Specialty median average work RVU per procedure",
-        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25_per_procedure": {
         "label": "Specialty 25th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75_per_procedure": {
         "label": "Specialty 75th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_average_specialty_percentile": {
         "label": "Average work RVU per procedure percentile within specialty",
-        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
-        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75": {
         "label": "Specialty 75th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_npi_count": {
         "label": "Peers in specialty",
-        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
-        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
@@ -990,15 +990,15 @@
       },
       "wrvu_total": {
         "label": "Work RVU total, members combined",
-        "help": "Sum of the member clinicians' work RVU totals."
+        "help": "Sum of the member clinicians' work RVU totals. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1."
       },
       "wrvu_average": {
         "label": "Average work RVU per procedure, members combined",
-        "help": "Members' work RVU total divided by members' priced procedures."
+        "help": "Members' work RVU total divided by members' priced procedures. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1."
       },
       "wrvu_procedure_count": {
         "label": "Priced procedures, members combined",
-        "help": "Sum of members' priced procedure lines."
+        "help": "Sum of members' priced procedure lines. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1."
       },
       "wrvu_filter_applied": {
         "label": "Work RVU filter applied",
@@ -1126,63 +1126,63 @@
       },
       "wrvu_prior_year_total": {
         "label": "Prior-year work RVU total",
-        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_average": {
         "label": "Prior-year average work RVU per procedure",
-        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_procedure_count": {
         "label": "Prior-year priced procedures",
-        "help": "Billed procedure lines that count toward the prior-year total."
+        "help": "Billed procedure lines that count toward the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_yoy_change_pct": {
         "label": "Work RVU change vs prior year",
-        "help": "Percent change of the work RVU total against the prior-year total."
+        "help": "Percent change of the work RVU total against the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_average_per_procedure": {
         "label": "Specialty average work RVU per procedure",
-        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median_per_procedure": {
         "label": "Specialty median average work RVU per procedure",
-        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25_per_procedure": {
         "label": "Specialty 25th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75_per_procedure": {
         "label": "Specialty 75th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_average_specialty_percentile": {
         "label": "Average work RVU per procedure percentile within specialty",
-        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
-        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75": {
         "label": "Specialty 75th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_npi_count": {
         "label": "Peers in specialty",
-        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
-        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
@@ -1468,11 +1468,11 @@
       },
       "wrvu_at_site": {
         "label": "Work RVU at site",
-        "help": "The clinician's work RVU total over procedures billed at this site."
+        "help": "The clinician's work RVU total over procedures billed at this site. Follows the clinician's floor rule: procedures below 1 work RVU are left out when the clinician has at least five procedures above 1."
       },
       "wrvu_share_pct": {
         "label": "Share of work RVU at site",
-        "help": "This site's part of the clinician's work RVU total."
+        "help": "This site's part of the clinician's work RVU total. Follows the clinician's floor rule: procedures below 1 work RVU are left out when the clinician has at least five procedures above 1."
       },
       "visits_percent_monday": {
         "label": "Monday %",
