@@ -249,6 +249,7 @@ def _entry(label: str, help_text: str, dev: str) -> dict[str, str]:
 _VISIT = "A visit is one distinct encounter in the claims window {window}, credited to the rendering clinician on the encounter."
 _PANEL = "Panel patients are distinct patients on any claim line in {window} where this clinician is the rendering or the referring physician."
 _PANEL_DEV = "Grain: pd_stg_panel_patient (npi, pat_id) built from pd_stg_window_claim. A patient's age is the greatest age_code across their lines; gender is the first non-null gender_code."
+_RVU_FLOOR = "Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
 _RVU_DEV = (
     "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, "
     "counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 "
@@ -371,9 +372,10 @@ PROVIDER: dict[str, dict[str, str]] = {
     "panel_percent_female": _entry("Female", "Share of panel patients recorded as female. Unknown gender stays in the denominator.", _PANEL_DEV + " gender_code in (F, FEMALE) / panel_size x100."),
     "panel_percent_male": _entry("Male", "Share of panel patients recorded as male.", _PANEL_DEV + " gender_code in (M, MALE) / panel_size x100."),
     "provider_practices_total": _entry("Sites", "Number of practice sites shown, at most 5.", "COUNT of pd_provider_practice rows for the NPI after ranking to MAX_PRACTICE_SITES = 5."),
-    "wrvu_total": _entry("Work RVU total", "Physician work RVU summed over every procedure the clinician billed in {window}, priced from the Medicare fee schedule.", _RVU_DEV + " ROUND(SUM(line_count x work RVU), 2)."),
-    "wrvu_average": _entry("Average work RVU per procedure", "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries.", _RVU_DEV + " wrvu_total / wrvu_procedure_count, 3 decimals."),
-    "wrvu_procedure_count": _entry("Priced procedures", "Billed procedure lines in {window} that had a work RVU and so count toward the total.", _RVU_DEV + " SUM(line_count) of priced lines."),
+    "wrvu_total": _entry("Work RVU total", "Physician work RVU summed over the procedures the clinician billed in {window}, priced from the Medicare fee schedule. " + _RVU_FLOOR, _RVU_DEV + " ROUND(SUM(line_count x work RVU), 2) over the lines rvu_line_filter_sql keeps."),
+    "wrvu_average": _entry("Average work RVU per procedure", "The work RVU total divided by the number of counted procedures. A measure of how much work each billed procedure carries. " + _RVU_FLOOR, _RVU_DEV + " wrvu_total / wrvu_procedure_count, 3 decimals."),
+    "wrvu_procedure_count": _entry("Priced procedures", "Billed procedure lines in {window} that count toward the work RVU total. " + _RVU_FLOOR, _RVU_DEV + " SUM(line_count) of the lines rvu_line_filter_sql keeps."),
+    "wrvu_filter_applied": _entry("Work RVU filter applied", "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1.", "pd_provider.wrvu_filter_applied: CASE WHEN primary_procedures_filled = 1 THEN 0 ELSE 1 END at Phase 4 pricing (settings.RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES, floor RVU_LINE_MIN_WORK_RVU); null when nothing was priced."),
     "visits_percent_third_party": _entry("Commercial", "Share of claims paid by commercial insurers.", _PAYER_DEV + " Class 3."),
     "visits_percent_medicaid": _entry("Medicaid", "Share of claims paid by Medicaid, including managed care.", _PAYER_DEV + " Class 2."),
     "visits_percent_medicare_advantage": _entry("Medicare Advantage", "Share of claims paid by Medicare Advantage plans.", _PAYER_DEV + " Class 6. Before the class-7 rework this column held class 4 (HMO)."),
@@ -519,6 +521,8 @@ GROUP_FILTER: dict[str, dict[str, str]] = {
 # headings, their captions and the group-source codes. The UI binds these by
 # key like any field; `label` is the heading, `help` the caption or tooltip.
 SECTION: dict[str, dict[str, str]] = {
+    "work_rvu_filter_applied": _entry("Procedures below 1 work RVU left out", "This clinician has at least five procedures above 1 work RVU, so procedures below 1, such as office visits, are left out of their work RVU figures.", "Caption for the Volume and Work RVU vs specialty boxes when wrvu_filter_applied is true; no table."),
+    "work_rvu_filter_lifted": _entry("Every priced procedure counted", "Fewer than five of this clinician's procedures have a work RVU above 1, so every priced procedure, office visits included, counts in their work RVU figures.", "Caption for the Volume and Work RVU vs specialty boxes when wrvu_filter_applied is false; no table."),
     "volume": _entry("Volume", "Visits, panel size and work RVU for the clinician in {window}.", "UI heading over visits_total, panel_size, wrvu_total, wrvu_average and wrvu_procedure_count; no table."),
     "work_rvu_vs_specialty": _entry("Work RVU vs specialty", "How the clinician's average work RVU per procedure, and their total, compare with same-specialty peers who practise in the state with at least 50 visits.", "UI heading over the wrvu_state_specialty_*_per_procedure fields, wrvu_average_specialty_percentile, and the total-based wrvu_state_specialty_* fields; no table."),
     "standing": _entry("Standing", "Where the clinician ranks among specialty peers on visits and on activity.", "UI heading over visits_specialty_percentile and activity_specialty_percentile; no table."),
@@ -659,7 +663,7 @@ UTILIZATION: dict[str, dict[str, str]] = {
 # Keys are (scope, field). Family rules below fill repeated patterns.
 # ---------------------------------------------------------------------------
 
-_RVU_SCALE = "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+_RVU_SCALE = "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
 _RVU_EXCL = "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
 _DOUBLE = "An encounter billed by two members of the group counts twice."
 _VOLUME = "A volume rank."

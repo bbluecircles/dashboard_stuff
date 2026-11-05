@@ -398,3 +398,14 @@ def test_top_code_counts_and_rvu_filter_are_in_the_catalog():
     assert "number of visits" in cat["section"]["top_diagnoses"]["help"]
     assert "Office" in cat["practice"]["name"]["help"]
     assert cat["practice"]["work_type"]["label"] == "Service type"
+
+
+def test_rvu_help_states_the_per_clinician_floor():
+    cat = catalog(dev=False)
+    for key in ("wrvu_total", "wrvu_average", "wrvu_procedure_count"):
+        assert "below 1" in cat["provider"][key]["help"], key
+    assert cat["provider"]["wrvu_filter_applied"]["label"] == "Work RVU filter applied"
+    sec = cat["section"]
+    assert "below 1" in sec["work_rvu_filter_applied"]["help"] and "Fewer than five" in sec["work_rvu_filter_lifted"]["help"]
+    dev = catalog(dev=True)["provider"]["wrvu_state_specialty_median"]
+    assert any("floor rule" in c for c in dev["caveats"])

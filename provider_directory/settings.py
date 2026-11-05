@@ -143,6 +143,15 @@ TOP_CODE_KINDS = (
 # Top Primary Procedures: codes whose strict physician work RVU is above this,
 # excluding visit-type services (ranges and codes below) and tracking / lab codes.
 PRIMARY_PROCEDURE_MIN_WORK_RVU = 1.0
+# Work RVU figures (total, average per procedure, site shares, prior year and so
+# the specialty benchmarks) follow the same rule per clinician: lines whose
+# strict work RVU is at or below RVU_LINE_MIN_WORK_RVU are left out, unless the
+# clinician has fewer than TOP_N procedures above it (primary_procedures_filled,
+# the office-visit practices), in which case every priced line counts.
+# pd_provider.wrvu_filter_applied records which rule applied. False prices every
+# line for everyone.
+RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES = True
+RVU_LINE_MIN_WORK_RVU = PRIMARY_PROCEDURE_MIN_WORK_RVU
 # Inclusive CPT ranges that are visits or evaluations rather than procedures.
 PRIMARY_PROCEDURE_EXCLUDED_RANGES = (
     ("99202", "99499", "evaluation and management visits"),

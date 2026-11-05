@@ -197,6 +197,7 @@ class ProviderSpine(BaseModel):
     wrvu_total: float | None = None
     wrvu_average: float | None = None
     wrvu_procedure_count: int | None = None
+    wrvu_filter_applied: bool | None = None
     visits_percent_third_party: float | None = None
     visits_percent_medicaid: float | None = None
     visits_percent_medicare_advantage: float | None = None
@@ -411,6 +412,7 @@ class GroupPracticeProfile(GroupPracticeDumpRow):
     provider_practices_total: int | None = None
     wrvu_average: float | None = None
     wrvu_procedure_count: int | None = None
+    wrvu_filter_applied: bool | None = None
     visits_percent_third_party: float | None = None
     visits_percent_medicaid: float | None = None
     visits_percent_medicare_advantage: float | None = None

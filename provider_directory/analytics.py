@@ -38,6 +38,8 @@ from provider_directory.settings import (
     PAYOR_COMMERCIAL,
     PAYOR_MIX_CODES,
     PAYOR_MIX_COLUMNS,
+    RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES,
+    RVU_LINE_MIN_WORK_RVU,
     WINDOW_END,
     WINDOW_START,
     payer_source_for_claims_db,
@@ -79,6 +81,27 @@ def period_in_sql(start: int = WINDOW_START, end: int = WINDOW_END) -> str:
 def is_hcpcs_sql(expr: str) -> str:
     """Professional claims use 5-character CPT/HCPCS, not 7-character ICD-10-PCS."""
     return f"CHAR_LENGTH(TRIM({expr})) = 5"
+
+
+def rvu_line_filter_sql(provider_alias: str = "p", procd_alias: str = "pr") -> str:
+    """Per-clinician work RVU floor (settings.RVU_LINE_MIN_WORK_RVU): TRUE for a
+    line that counts toward the clinician's work RVU figures. Lines at or below
+    the floor count only when the clinician's primary_procedures_filled flag is
+    set (fewer than TOP_N procedures above the floor, so the filter is lifted).
+    Always TRUE when RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES is off."""
+    if not RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES:
+        return "1"
+    return (
+        f"(IFNULL({provider_alias}.primary_procedures_filled, 0) = 1 "
+        f"OR {strict_work_rvu_sql(procd_alias)} > {RVU_LINE_MIN_WORK_RVU})"
+    )
+
+
+def wrvu_filter_applied_sql(provider_alias: str = "p") -> str:
+    """Value for pd_provider.wrvu_filter_applied under the same rule."""
+    if not RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES:
+        return "0"
+    return f"CASE WHEN IFNULL({provider_alias}.primary_procedures_filled, 0) = 1 THEN 0 ELSE 1 END"
 
 
 def priced_line_filter_sql(code_expr: str, procd_alias: str = "pr") -> str:
@@ -128,17 +151,19 @@ def _rebuild_rvu(
     has_npi_sl: bool,
     rescan_lines: bool = True,
 ) -> None:
-    """Work RVU from every billed procedure line: scan pat_dt into
+    """Work RVU from the billed procedure lines: scan pat_dt into
     pd_stg_npi_px_line, price each line with the strict rule (Category II codes
-    excluded), sum per NPI and per NPI x location, overlay pd_provider and the
-    practice sites. wrvu_average is the average work RVU per priced procedure."""
+    excluded), keep the lines the clinician's floor rule allows
+    (rvu_line_filter_sql), sum per NPI and per NPI x location, overlay
+    pd_provider and the practice sites. wrvu_average is the average work RVU
+    per counted procedure; wrvu_filter_applied says whether the floor was used."""
     for bucket in range(PROVIDER_BUCKETS):
         _run(
             cur,
             conn,
             f"""
             UPDATE {mart}.pd_provider
-            SET wrvu_total = NULL, wrvu_average = NULL, wrvu_procedure_count = NULL
+            SET wrvu_total = NULL, wrvu_average = NULL, wrvu_procedure_count = NULL, wrvu_filter_applied = NULL
             WHERE MOD(npi, {PROVIDER_BUCKETS}) = {int(bucket)}
             """,
         )
@@ -169,6 +194,7 @@ def _rebuild_rvu(
 
     wrvu_expr = strict_work_rvu_sql("pr")
     priced = priced_line_filter_sql("l.code", "pr")
+    floor = rvu_line_filter_sql("p", "pr")
     wrvu_sql = f"""
         INSERT INTO {mart}.pd_stg_npi_wrvu (npi, total_wrvu, procedure_count)
         SELECT
@@ -176,10 +202,12 @@ def _rebuild_rvu(
             ROUND(SUM(l.line_count * {wrvu_expr}), 2),
             SUM(l.line_count)
         FROM {mart}.pd_stg_npi_px_line l
+        INNER JOIN {mart}.pd_provider p ON p.npi = l.npi
         INNER JOIN {lookup}.procd pr
             ON pr.procd_code = l.code COLLATE {MART_COLLATION}
         WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
           AND {priced}
+          AND {floor}
         GROUP BY l.npi
     """
     for bucket in range(PROVIDER_BUCKETS):
@@ -194,6 +222,7 @@ def _rebuild_rvu(
             p.wrvu_total = w.total_wrvu,
             p.wrvu_procedure_count = w.procedure_count,
             p.wrvu_average = ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3),
+            p.wrvu_filter_applied = {wrvu_filter_applied_sql("p")},
             p.refreshed_at = NOW()
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = %s
     """
@@ -210,11 +239,13 @@ def _rebuild_rvu(
             SUM(l.line_count * {wrvu_expr}),
             SUM(l.line_count)
         FROM {mart}.pd_stg_npi_px_line l
+        INNER JOIN {mart}.pd_provider p ON p.npi = l.npi
         INNER JOIN {lookup}.procd pr
             ON pr.procd_code = l.code COLLATE {MART_COLLATION}
         WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
           AND l.sl_code <> 0
           AND {priced}
+          AND {floor}
         GROUP BY l.npi, l.sl_code
     """
     for bucket in range(PROVIDER_BUCKETS):

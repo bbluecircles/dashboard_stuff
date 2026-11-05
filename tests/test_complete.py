@@ -221,3 +221,15 @@ def test_claim_referral_edges_come_from_window_claims_behind_the_setting():
         text=True,
     )
     assert bad.returncode != 0 and "PD_REFERRAL_SOURCE" in bad.stderr
+
+
+def test_prior_year_rvu_uses_the_same_per_clinician_floor():
+    import inspect
+
+    from provider_directory.complete import _fill_prior_wrvu
+    from provider_directory.models import ProviderSpine
+
+    src = inspect.getsource(_fill_prior_wrvu)
+    assert "INNER JOIN {mart}.pd_provider p ON p.npi = l.npi" in src
+    assert 'rvu_line_filter_sql("p", "pr")' in src
+    assert "wrvu_filter_applied" in ProviderSpine.model_fields

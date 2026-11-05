@@ -165,6 +165,10 @@ PD_PROVIDER_PHASE4_COLUMNS = (
     ("wrvu_total", "DECIMAL(14,2) NULL"),
     ("wrvu_average", "DECIMAL(10,3) NULL"),
     ("wrvu_procedure_count", "INT UNSIGNED NULL"),
+    # 1 when lines below RVU_LINE_MIN_WORK_RVU were left out of this clinician's
+    # work RVU figures; 0 when every priced line counted (fewer than five
+    # procedures above the floor); null when nothing was priced.
+    ("wrvu_filter_applied", "TINYINT NULL"),
     ("visits_percent_third_party", "DECIMAL(6,2) NULL"),
     ("visits_percent_medicaid", "DECIMAL(6,2) NULL"),
     ("visits_percent_medicare_advantage", "DECIMAL(6,2) NULL"),

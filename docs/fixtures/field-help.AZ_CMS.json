@@ -328,15 +328,19 @@
       },
       "wrvu_total": {
         "label": "Work RVU total",
-        "help": "Physician work RVU summed over every procedure the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule."
+        "help": "Physician work RVU summed over the procedures the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_average": {
         "label": "Average work RVU per procedure",
-        "help": "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries."
+        "help": "The work RVU total divided by the number of counted procedures. A measure of how much work each billed procedure carries. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_procedure_count": {
         "label": "Priced procedures",
-        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that had a work RVU and so count toward the total."
+        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that count toward the work RVU total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
+      },
+      "wrvu_filter_applied": {
+        "label": "Work RVU filter applied",
+        "help": "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -995,6 +999,10 @@
       "wrvu_procedure_count": {
         "label": "Priced procedures, members combined",
         "help": "Sum of members' priced procedure lines."
+      },
+      "wrvu_filter_applied": {
+        "label": "Work RVU filter applied",
+        "help": "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -1712,6 +1720,14 @@
       }
     },
     "section": {
+      "work_rvu_filter_applied": {
+        "label": "Procedures below 1 work RVU left out",
+        "help": "This clinician has at least five procedures above 1 work RVU, so procedures below 1, such as office visits, are left out of their work RVU figures."
+      },
+      "work_rvu_filter_lifted": {
+        "label": "Every priced procedure counted",
+        "help": "Fewer than five of this clinician's procedures have a work RVU above 1, so every priced procedure, office visits included, counts in their work RVU figures."
+      },
       "volume": {
         "label": "Volume",
         "help": "Visits, panel size and work RVU for the clinician in Nov 2024 to Oct 2025."

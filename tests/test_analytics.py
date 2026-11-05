@@ -230,6 +230,15 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert build_parser().parse_args(["phase4", "--rvu-only", "--rescan-lines"]).rescan_lines is True
     body = inspect.getsource(_rebuild_rvu)
     assert "SUM(l.line_count * {wrvu_expr})" in body and "SUM(l.line_count)" in body
+    from provider_directory.analytics import rvu_line_filter_sql, wrvu_filter_applied_sql
+    from provider_directory.settings import RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES, RVU_LINE_MIN_WORK_RVU
+    assert RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES is True and RVU_LINE_MIN_WORK_RVU == 1.0
+    floor = rvu_line_filter_sql("p", "pr")
+    assert "IFNULL(p.primary_procedures_filled, 0) = 1" in floor and "> 1.0" in floor
+    assert "CASE WHEN IFNULL(p.primary_procedures_filled, 0) = 1 THEN 0 ELSE 1 END" == wrvu_filter_applied_sql("p")
+    assert body.count("INNER JOIN {mart}.pd_provider p ON p.npi = l.npi") == 2 and body.count("AND {floor}") == 2
+    assert "p.wrvu_filter_applied = {wrvu_filter_applied_sql(\"p\")}" in body
+    assert dict(PD_PROVIDER_PHASE4_COLUMNS)["wrvu_filter_applied"] == "TINYINT NULL"
     assert "phase4 rvu lines reused" in body
     assert "pd_stg_visit v" not in body
     assert "ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3)" in body

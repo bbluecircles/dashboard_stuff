@@ -6189,10 +6189,10 @@
       },
       "wrvu_total": {
         "label": "Work RVU total",
-        "help": "Physician work RVU summed over every procedure the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule.",
-        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM(line_count x work RVU), 2).",
+        "help": "Physician work RVU summed over the procedures the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts.",
+        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). ROUND(SUM(line_count x work RVU), 2) over the lines rvu_line_filter_sql keeps.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
         ],
         "derived_from": [],
@@ -6281,10 +6281,10 @@
       },
       "wrvu_average": {
         "label": "Average work RVU per procedure",
-        "help": "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries.",
+        "help": "The work RVU total divided by the number of counted procedures. A measure of how much work each billed procedure carries. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts.",
         "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). wrvu_total / wrvu_procedure_count, 3 decimals.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "An average per billed procedure, so a long office visit and a short one each count once."
         ],
         "derived_from": [
@@ -6386,8 +6386,8 @@
       },
       "wrvu_procedure_count": {
         "label": "Priced procedures",
-        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that had a work RVU and so count toward the total.",
-        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). SUM(line_count) of priced lines.",
+        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that count toward the work RVU total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts.",
+        "dev": "Per billed claim line: az.pat_dt work_procd_code (else procd_code), credited to the line's rendering NPI and location, counted into pd_stg_npi_px_line, then priced on azal.procd with the strict physician work RVU: WORK_RVU when >= 0.05 (0.001 placeholders fall through); else NON_FACILITY_TOTAL - NON_FAC_PE_RVU - MP_RVU when >= 0.05; else the FACILITY equivalent. 5-character CPT/HCPCS only; Category II (dddd F) codes, hospital pass-through C codes (whose lookup rows carry a facility amount in the work column) and lines with no work RVU are left out. Summed into pd_stg_npi_wrvu (Phase 4). SUM(line_count) of the lines rvu_line_filter_sql keeps.",
         "caveats": [
           "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
         ],
@@ -6472,6 +6472,51 @@
               "pd_group_practice"
             ],
             "upstream": true
+          }
+        ]
+      },
+      "wrvu_filter_applied": {
+        "label": "Work RVU filter applied",
+        "help": "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1.",
+        "dev": "pd_provider.wrvu_filter_applied: CASE WHEN primary_procedures_filled = 1 THEN 0 ELSE 1 END at Phase 4 pricing (settings.RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES, floor RVU_LINE_MIN_WORK_RVU); null when nothing was priced.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
           }
         ]
       },
@@ -7984,7 +8029,7 @@
         "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024.",
         "dev": "Same line-level rule over az.pat_dt for Nov 2023 to Oct 2024: lines cached in pd_stg_npi_px_line_prior, priced on azal.procd into pd_stg_npi_wrvu_prior each run (Phase 5).",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
         ],
         "derived_from": [],
@@ -8076,7 +8121,7 @@
         "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024.",
         "dev": "pd_stg_npi_wrvu_prior total / procedure_count, 3 decimals.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
         ],
         "derived_from": [
           {
@@ -8400,7 +8445,7 @@
         "dev": "AVG(wrvu_total) over the benchmark peer set (complete.benchmark_peer_where), in pd_stg_specialty_wrvu.",
         "caveats": [
           "Skewed by a few very high totals; the median is the better centre.",
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
         ],
         "derived_from": [
           {
@@ -8510,7 +8555,7 @@
         "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure.",
         "dev": "SUM(wrvu_total) / SUM(wrvu_procedure_count) over the benchmark peer set, 3 decimals, in pd_stg_specialty_wrvu.avg_wrvu_per_procedure (Phase 5).",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Procedure-weighted: a cohort average per billed procedure, so high-volume clinicians weigh more."
         ],
         "derived_from": [
@@ -8627,7 +8672,7 @@
         "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits.",
         "dev": "pd_stg_specialty_wrvu.median_wrvu_per_procedure: value at row FLOOR(n x 0.50) of the peer set's pd_provider.wrvu_average sorted ascending (Phase 5).",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Clinician-weighted: each peer's own average counts once."
         ],
         "derived_from": [
@@ -9065,7 +9110,7 @@
         "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.50) of the peer set's pd_provider.wrvu_total sorted ascending, n = peers (benchmark_peer_where: same specialty, practice site in the market state, visits_total >= 50) with wrvu_total > 0.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Peers are same-specialty clinicians with a practice site in the state and at least 50 visits in the window."
         ],
         "derived_from": [
@@ -9176,7 +9221,7 @@
         "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.25), same ranking.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
         ],
         "derived_from": [
           {
@@ -9286,7 +9331,7 @@
         "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set.",
         "dev": "pd_stg_specialty_wrvu: value at row FLOOR(n x 0.75), same ranking.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
         ],
         "derived_from": [
           {
@@ -19279,7 +19324,7 @@
         "dev": "SUM(IFNULL(pd_provider.wrvu_total, 0)) over members, in pd_group_practice.",
         "caveats": [
           "An encounter billed by two members of the group counts twice.",
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
         ],
         "derived_from": [
@@ -19392,7 +19437,7 @@
         "help": "Members' work RVU total divided by members' priced procedures.",
         "dev": "SUM(pd_provider.wrvu_total) / SUM(pd_provider.wrvu_procedure_count) over members.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
         ],
         "derived_from": [
           {
@@ -19578,6 +19623,58 @@
               "azal.procd"
             ],
             "upstream": true
+          }
+        ]
+      },
+      "wrvu_filter_applied": {
+        "label": "Work RVU filter applied",
+        "help": "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1.",
+        "dev": "pd_provider.wrvu_filter_applied: CASE WHEN primary_procedures_filled = 1 THEN 0 ELSE 1 END at Phase 4 pricing (settings.RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES, floor RVU_LINE_MIN_WORK_RVU); null when nothing was priced.",
+        "caveats": [],
+        "derived_from": [
+          {
+            "ref": "provider.wrvu_filter_applied",
+            "scope": "provider",
+            "field": "wrvu_filter_applied",
+            "label": "Work RVU filter applied"
+          }
+        ],
+        "tables": [
+          {
+            "key": "pd_provider",
+            "name": "pd_provider",
+            "kind": "mart",
+            "external": false,
+            "phase": "Phase 1, overlaid by every later phase",
+            "description": "The provider profile, one row per Type 1 NPI. Phase 1 creates it; every later phase overlays columns.",
+            "built_from": [
+              "az_cms.physician",
+              "azal.npi_spec_grp",
+              "cms_pdc_clinician",
+              "cms_nppes_type1",
+              "cms_pdc_facility_affil",
+              "az_cms.physician_primary_affiliation",
+              "pd_stg_visit",
+              "pd_stg_panel_patient",
+              "pd_stg_top_dx",
+              "pd_stg_top_px",
+              "pd_stg_npi_wrvu",
+              "pd_stg_npi_payor",
+              "pd_stg_npi_dow",
+              "pd_stg_npi_wrvu_prior",
+              "pd_stg_specialty_wrvu",
+              "pd_stg_npi_percentile",
+              "pd_stg_npi_visits_percentile",
+              "pd_stg_visit_site",
+              "cms_pdc_mips",
+              "pd_src_physician",
+              "pd_src_group_practice",
+              "pd_stg_top_primary_px",
+              "pd_stg_npi_px_line",
+              "pd_stg_npi_avg_percentile",
+              "pd_group_practice"
+            ],
+            "upstream": false
           }
         ]
       },
@@ -28157,7 +28254,7 @@
         "help": "The clinician's work RVU total over procedures billed at this site.",
         "dev": "SUM of line-level work RVU for lines at the site's locations (pd_stg_site_wrvu, Phase 4).",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced.",
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied).",
           "Lines with no work RVU, Category II tracking codes and hospital pass-through C codes are left out."
         ],
         "derived_from": [
@@ -28269,7 +28366,7 @@
         "help": "This site's part of the clinician's work RVU total.",
         "dev": "wrvu_at_site / pd_provider.wrvu_total x100, 2 decimals.",
         "caveats": [
-          "Physician work RVU from the Medicare fee schedule, every billed procedure line priced."
+          "Physician work RVU from the Medicare fee schedule, priced per billed procedure line. Each clinician's figures follow their own floor rule: lines below 1 work RVU are left out unless fewer than five of the clinician's procedures are above 1 (see Work RVU filter applied)."
         ],
         "derived_from": [
           {
@@ -31845,6 +31942,22 @@
       }
     },
     "section": {
+      "work_rvu_filter_applied": {
+        "label": "Procedures below 1 work RVU left out",
+        "help": "This clinician has at least five procedures above 1 work RVU, so procedures below 1, such as office visits, are left out of their work RVU figures.",
+        "dev": "Caption for the Volume and Work RVU vs specialty boxes when wrvu_filter_applied is true; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
+      "work_rvu_filter_lifted": {
+        "label": "Every priced procedure counted",
+        "help": "Fewer than five of this clinician's procedures have a work RVU above 1, so every priced procedure, office visits included, counts in their work RVU figures.",
+        "dev": "Caption for the Volume and Work RVU vs specialty boxes when wrvu_filter_applied is false; no table.",
+        "caveats": [],
+        "derived_from": [],
+        "tables": []
+      },
       "volume": {
         "label": "Volume",
         "help": "Visits, panel size and work RVU for the clinician in Nov 2024 to Oct 2025.",

@@ -373,7 +373,7 @@ def get_provider(
         row = cur.fetchone()
     if not row:
         return None
-    _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered", "primary_procedures_filled")
+    _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered", "primary_procedures_filled", "wrvu_filter_applied")
     _null_zero_open_payments(row)
     item = ProviderSpine.model_validate(row)
     return _attach_practices(
@@ -493,7 +493,7 @@ def search_providers(
         rows = cur.fetchall()
     items = []
     for row in rows:
-        _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered", "primary_procedures_filled")
+        _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered", "primary_procedures_filled", "wrvu_filter_applied")
         _null_zero_open_payments(row)
         items.append(ProviderSpine.model_validate(row))
     return ProviderSpineList(items=_attach_practices(conn, items, mart_db=mart_db), total=total)

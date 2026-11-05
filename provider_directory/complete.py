@@ -22,7 +22,7 @@ import re
 
 from provider_directory.activity import PROVIDER_BUCKETS, VISIT_BUCKETS, iter_period_codes
 from provider_directory.activity import CLAIM_ID_BUCKETS
-from provider_directory.analytics import is_hcpcs_sql, period_in_sql, priced_line_filter_sql
+from provider_directory.analytics import is_hcpcs_sql, period_in_sql, priced_line_filter_sql, rvu_line_filter_sql
 from provider_directory.db import quote_ident
 from provider_directory.locations import Phase2Required, table_has_rows
 from provider_directory.schema import create_schema, drop_phase5_cached, drop_phase5_staging
@@ -669,10 +669,12 @@ def _fill_prior_wrvu(
             SUM(l.line_count * {wrvu_expr}),
             SUM(l.line_count)
         FROM {mart}.pd_stg_npi_px_line_prior l
+        INNER JOIN {mart}.pd_provider p ON p.npi = l.npi
         INNER JOIN {lookup}.procd pr
             ON pr.procd_code = l.code COLLATE {MART_COLLATION}
         WHERE MOD(l.npi, {PROVIDER_BUCKETS}) = %s
           AND {priced_line_filter_sql("l.code", "pr")}
+          AND {rvu_line_filter_sql("p", "pr")}
         GROUP BY l.npi
     """
     total = 0
