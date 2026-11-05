@@ -100,7 +100,7 @@ def pos_mix_bucket_sql(sl: str = "sl") -> str:
             WHEN {pos_in_sql(sl, POS_TELEHEALTH)} THEN 'telehealth'
             WHEN {pos_in_sql(sl, POS_INPATIENT)} THEN 'inpatient'
             WHEN {pos_in_sql(sl, POS_LAB)} THEN 'lab'
-            WHEN {like('urgent')} OR {like('emergency')} THEN 'ed'
+            WHEN {like('urgent')} OR {like('emergency')} OR {roll} = 'ed' THEN 'ed'
             WHEN {like('ambulatory surg')} THEN 'asc'
             WHEN {like('outpatient hospital')} THEN 'hopd'
             WHEN {like('acute care hospital')} OR {like('general acute')} THEN 'inpatient'
