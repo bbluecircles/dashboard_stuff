@@ -75,7 +75,7 @@ def test_provider_spine_model_roundtrip():
     assert dumped["hospital_affiliations"] == []
     assert dumped["referrals"] == []
     assert dumped["utilization"] == []
-    assert dumped["visits_top_diagnosis_1_percent"] is None
+    assert dumped["visits_top_diagnosis_1_count"] is None
     assert ProviderSpine.model_validate(dumped).last_name == "Smith"
 
 

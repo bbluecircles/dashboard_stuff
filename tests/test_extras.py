@@ -156,8 +156,8 @@ def test_em_and_pos_sql_use_staging_not_pat_dt():
     assert "21" in known and "81" in known
     mix = pos_mix_bucket_sql("sl")
     assert "inpatient" in mix
-    assert "Independent Laboratory" in mix
-    assert "Short Term Acute Care Hospital" in mix
+    assert "'laborator'" in mix
+    assert "'acute care hospital'" in mix
 
 
 def test_dataset_ids():

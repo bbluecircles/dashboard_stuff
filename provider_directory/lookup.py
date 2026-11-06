@@ -288,11 +288,12 @@ def fetch_group_hospital_affiliations(
     return [HospitalAffiliation.model_validate(row) for row in rows]
 
 
-def fetch_top_code_percents(
+def fetch_top_code_counts(
     conn, npis: list[int], *, mart_db: str = MART_DB
-) -> dict[int, dict[str, float]]:
-    """Share of visits_total from pd_stg_top_dx/px visit_count. Phase 2 already scanned visits."""
-    empty: dict[int, dict[str, float]] = {npi: {} for npi in npis}
+) -> dict[int, dict[str, int]]:
+    """Per top code: the 12-month visit count (visit_count) from
+    pd_stg_top_dx/px/primary_px. Phase 2 already scanned visits."""
+    empty: dict[int, dict[str, int]] = {npi: {} for npi in npis}
     if not npis:
         return {}
     placeholders = ", ".join(["%s"] * len(npis))
@@ -306,9 +307,8 @@ def fetch_top_code_percents(
                     SELECT
                         d.npi,
                         d.rk,
-                        ROUND(100.0 * d.visit_count / NULLIF(p.visits_total, 0), 2) AS pct
+                        d.visit_count
                     FROM {mart}.{quote_ident(table)} d
-                    INNER JOIN {mart}.pd_provider p ON p.npi = d.npi
                     WHERE d.npi IN ({placeholders})
                     """,
                     npis,
@@ -320,9 +320,10 @@ def fetch_top_code_percents(
             raise
         for row in rows:
             rk = int(row["rk"])
-            if rk < 1 or rk > TOP_N or row.get("pct") is None:
+            if rk < 1 or rk > TOP_N:
                 continue
-            by_npi.setdefault(int(row["npi"]), {})[f"{prefix}_{rk}_percent"] = float(row["pct"])
+            if row.get("visit_count") is not None:
+                by_npi.setdefault(int(row["npi"]), {})[f"{prefix}_{rk}_count"] = int(row["visit_count"])
     return by_npi
 
 
@@ -341,7 +342,7 @@ def _attach_practices(
     by_hosp = fetch_hospital_affiliations(conn, npis, mart_db=mart_db)
     by_ref = fetch_referrals(conn, npis, mart_db=mart_db)
     by_util = fetch_utilization(conn, npis, mart_db=mart_db) if include_utilization else {}
-    by_pct = fetch_top_code_percents(conn, npis, mart_db=mart_db)
+    by_pct = fetch_top_code_counts(conn, npis, mart_db=mart_db)
     return [
         item.model_copy(
             update={
@@ -372,7 +373,7 @@ def get_provider(
         row = cur.fetchone()
     if not row:
         return None
-    _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered")
+    _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered", "primary_procedures_filled", "wrvu_filter_applied")
     _null_zero_open_payments(row)
     item = ProviderSpine.model_validate(row)
     return _attach_practices(
@@ -492,7 +493,7 @@ def search_providers(
         rows = cur.fetchall()
     items = []
     for row in rows:
-        _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered")
+        _as_bool(row, "in_system_provider", "active_provider", "telehealth_offered", "primary_procedures_filled", "wrvu_filter_applied")
         _null_zero_open_payments(row)
         items.append(ProviderSpine.model_validate(row))
     return ProviderSpineList(items=_attach_practices(conn, items, mart_db=mart_db), total=total)

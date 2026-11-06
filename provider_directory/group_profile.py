@@ -218,18 +218,17 @@ def fetch_group_top_codes(
     """Top TOP_N from members' stored top codes (pd_stg_top_*). Stay off visit staging on GET.
 
     visit_count on those rows is the NPI's true count for that code. Summing them
-    undercounts members who had the code outside their personal top list. Percent is
-    that sum / group visits_total (lower bound of the org-wide share).
+    undercounts members who had the code outside their personal top list, so the
+    group count is a lower bound. visits_total is accepted for call compatibility.
     """
     if table not in TOP_CODE_TABLES:
         raise ValueError(f"table must be one of {TOP_CODE_TABLES}, got {table!r}")
     mart = quote_ident(mart_db)
-    denom = int(visits_total or 0)
     sql = f"""
         SELECT
             ranked.code,
             ranked.name,
-            CASE WHEN %s > 0 THEN ROUND(100.0 * ranked.visit_count / %s, 2) END AS pct
+            ranked.visit_count
         FROM (
             SELECT
                 d.code,
@@ -244,12 +243,12 @@ def fetch_group_top_codes(
             LIMIT {int(TOP_N)}
         ) ranked
     """
-    rows = _fetch(conn, sql, (denom, denom, organization_id))
+    rows = _fetch(conn, sql, (organization_id,))
     out: dict = {}
     for i, row in enumerate(rows, start=1):
         out[f"{prefix}_{i}"] = row.get("code")
         out[f"{prefix}_{i}_name"] = row.get("name")
-        out[f"{prefix}_{i}_percent"] = row.get("pct")
+        out[f"{prefix}_{i}_count"] = int(row["visit_count"]) if row.get("visit_count") is not None else None
     return out
 
 

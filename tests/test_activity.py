@@ -136,11 +136,11 @@ def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
     assert TOP_N == 5
     st = top_code_statements("`az_pd`", "`azal`")
     assert set(st) == set(TOP_CODE_TABLES)
-    for sql in st.values():
-        assert "WHERE ranked.rk <= 5" in sql
+    for table, sql in st.items():
+        assert ("WHERE picked.pick_rk <= 5" if table == "pd_stg_top_primary_px" else "WHERE ranked.rk <= 5") in sql
         assert "%" not in sql.replace("%%", "").replace("%s", "")
     primary = st["pd_stg_top_primary_px"]
-    assert "INNER JOIN `azal`.procd pr" in primary
+    assert "LEFT JOIN `azal`.procd pr" in primary and "is_strict" in primary
     assert "> 1.0" in primary
     assert "BETWEEN '99202' AND '99499'" in primary
     assert "BETWEEN '98000' AND '98016'" in primary
@@ -165,3 +165,22 @@ def test_top_codes_rank_five_and_primary_procedures_filter_before_ranking():
     assert "TRUNCATE TABLE" in body and "pd_stg_window_claim" not in body and "load_window_claims" not in body
     assert "top_codes_only" in inspect.getsource(run_phase2)
     assert build_parser().parse_args(["phase2", "--top-codes-only"]).top_codes_only is True
+
+
+def test_primary_procedures_fill_from_all_codes_when_fewer_than_five_qualify():
+    from provider_directory.activity import top_code_null_sql, top_code_overlay_sql, top_code_statements
+    from provider_directory.schema import PD_PROVIDER_PHASE2_COLUMNS, ddl_statements
+
+    primary = top_code_statements("`az_pd`", "`azal`")["pd_stg_top_primary_px"]
+    assert "is_strict" in primary and "LEFT JOIN `azal`.procd pr" in primary
+    assert "ORDER BY codes.is_strict DESC, codes.visit_count DESC, codes.code" in primary
+    assert "ORDER BY picked.visit_count DESC, picked.code" in primary
+    assert "WHERE picked.pick_rk <= 5" in primary
+    assert "%" not in primary.replace("%%", "").replace("%s", "")
+    joins, sets = top_code_overlay_sql("`az_pd`")
+    assert "MAX(CASE WHEN is_strict = 0 THEN 1 ELSE 0 END) AS filled" in joins
+    assert "p.primary_procedures_filled = CASE WHEN t_primary_px.npi IS NULL THEN NULL ELSE t_primary_px.filled END" in sets
+    assert "primary_procedures_filled = NULL" in top_code_null_sql()
+    assert dict(PD_PROVIDER_PHASE2_COLUMNS)["primary_procedures_filled"] == "TINYINT NULL"
+    ddl = "\n".join(ddl_statements("az_pd"))
+    assert "is_strict TINYINT NOT NULL DEFAULT 1" in ddl

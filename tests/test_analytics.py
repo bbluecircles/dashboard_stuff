@@ -95,7 +95,7 @@ def test_phase4_sql_stays_on_mart_and_dash():
     case_sql = work_type_case_sql("sl")
     formatted = f"UPDATE t SET w = {case_sql} WHERE MOD(npi, 16) = %s"
     formatted % (3,)
-    assert "Urgent Care" in case_sql
+    assert "im_specialty_rollup" in case_sql and "pos_type_code" not in case_sql
     wrvu = strict_work_rvu_sql("pr")
     assert "NON_FACILITY_TOTAL" in wrvu
     assert "CHAR_LENGTH(TRIM(px)) = 5" in is_hcpcs_sql("px")
@@ -205,6 +205,8 @@ def test_phase4_name_polish_rewrites_blank_unknown_and_person_names_for_any_npi_
     source = inspect.getsource(rebuild_analytics)
     assert "UPPER(TRIM(pr.name)) IN {EMPTY_NAME_SQL_LIST}" in source
     assert "pr.name IS NULL" in source
+    assert "SET pr.name = CONCAT(TRIM(pr.name), '{SITE_OFFICE_SUFFIX}')" in source
+    assert "NOT LIKE CONCAT('%%', UPPER('{SITE_OFFICE_SUFFIX}'))" in source
     assert "IFNULL(pr.npi_type, '') = '1'" not in source
     assert "provider_facility_npi" not in source
 
@@ -228,6 +230,15 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert build_parser().parse_args(["phase4", "--rvu-only", "--rescan-lines"]).rescan_lines is True
     body = inspect.getsource(_rebuild_rvu)
     assert "SUM(l.line_count * {wrvu_expr})" in body and "SUM(l.line_count)" in body
+    from provider_directory.analytics import rvu_line_filter_sql, wrvu_filter_applied_sql
+    from provider_directory.settings import RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES, RVU_LINE_MIN_WORK_RVU
+    assert RVU_FILTER_FOLLOWS_PRIMARY_PROCEDURES is True and RVU_LINE_MIN_WORK_RVU == 1.0
+    floor = rvu_line_filter_sql("p", "pr")
+    assert "IFNULL(p.primary_procedures_filled, 0) = 1" in floor and "> 1.0" in floor
+    assert "CASE WHEN IFNULL(p.primary_procedures_filled, 0) = 1 THEN 0 ELSE 1 END" == wrvu_filter_applied_sql("p")
+    assert body.count("INNER JOIN {mart}.pd_provider p ON p.npi = l.npi") == 2 and body.count("AND {floor}") == 2
+    assert "p.wrvu_filter_applied = {wrvu_filter_applied_sql(\"p\")}" in body
+    assert dict(PD_PROVIDER_PHASE4_COLUMNS)["wrvu_filter_applied"] == "TINYINT NULL"
     assert "phase4 rvu lines reused" in body
     assert "pd_stg_visit v" not in body
     assert "ROUND(w.total_wrvu / NULLIF(w.procedure_count, 0), 3)" in body
@@ -243,9 +254,12 @@ def test_rvu_prices_every_line_and_rvu_only_flag():
     assert build_parser().parse_args(["phase4", "--rvu-only"]).rvu_only is True
 
 
-def test_work_type_normalizes_warehouse_ed_labels():
+def test_service_type_is_the_rollup_and_pos_mix_keys_on_it():
     wt = work_type_case_sql("sl")
-    assert "WHEN 'ED' THEN 'Emergency Department'" in wt
+    assert "sl.im_specialty_rollup" in wt and "POS" not in wt
     from provider_directory.extras import pos_mix_bucket_sql
 
-    assert "IN ('Emergency Department', 'Urgent Care') THEN 'ed'" in pos_mix_bucket_sql("sl")
+    mix = pos_mix_bucket_sql("sl")
+    assert "'urgent'" in mix and "'emergency'" in mix and "THEN 'ed'" in mix
+    assert "Emergency Department" not in mix
+    f"SELECT {mix} FROM t WHERE npi = %s" % (1,)

@@ -233,7 +233,7 @@ def test_caveats_cover_the_fields_clients_ask_about():
     cat = catalog(dev=True)
     must = [("provider", "wrvu_total"), ("group", "wrvu_total"), ("group", "visits_total"), ("provider", "estimated_age"),
             ("provider", "in_system_provider"), ("referral", "patient_count"), ("provider", "visits_percent_medicaid"),
-            ("provider", "activity_specialty_percentile"), ("practice", "visit_share_pct"), ("provider", "visits_top_diagnosis_1_percent"),
+            ("provider", "activity_specialty_percentile"), ("practice", "visit_share_pct"), ("provider", "visits_top_primary_procedure_1_count"),
             ("group", "panel_percent_female"), ("provider", "visits_percent_monday"), ("provider", "visits_percent_office")]
     for scope, key in must:
         assert cat[scope][key]["caveats"], (scope, key)
@@ -329,21 +329,22 @@ def test_top_code_help_covers_five_ranks_and_primary_procedures():
     cat = catalog(dev=True)["provider"]
     for prefix in ("visits_top_diagnosis", "visits_top_procedure", "visits_top_primary_procedure"):
         for i in range(1, 6):
-            assert f"{prefix}_{i}" in cat and f"{prefix}_{i}_name" in cat and f"{prefix}_{i}_percent" in cat, (prefix, i)
+            assert f"{prefix}_{i}" in cat and f"{prefix}_{i}_name" in cat and f"{prefix}_{i}_count" in cat, (prefix, i)
+            assert f"{prefix}_{i}_percent" not in cat
     assert cat["visits_top_primary_procedure_1"]["label"] == "Top primary procedure 1"
     assert "work RVU above 1" in cat["visits_top_primary_procedure_1"]["help"]
     assert "pd_stg_top_primary_px" in cat["visits_top_primary_procedure_1"]["tables"]
     assert any("Visit-type codes" in c for c in cat["visits_top_primary_procedure_2"]["caveats"])
     group = catalog(dev=True)["group"]
-    assert "stored top 5" in group["visits_top_primary_procedure_1_percent"]["help"]
+    assert "stored top 5" in group["visits_top_primary_procedure_1_count"]["help"]
 
 
 def test_section_scope_names_headings_and_group_sources():
     sec = catalog(dev=False)["section"]
     assert sec["top_primary_procedures"]["label"] == "Top primary procedures"
     assert sec["work_rvu_vs_specialty"]["label"] == "Work RVU vs specialty"
-    assert sec["group_source_R"]["label"] == "Master reference file"
-    assert sec["group_source_C"]["label"] == "CMS reassignment"
+    assert "group_source_R" not in sec and "group_source_C" not in sec
+    assert "billing_type" not in catalog(dev=False)["group_practice"]
     for key in ("volume", "referrals", "payer_mix", "sites", "panel", "cms"):
         assert key in sec
 
@@ -385,3 +386,26 @@ def test_referral_wording_follows_the_referral_source_setting():
     for source in ("implied", "claims"):
         for key in ("patient_count", "direction"):
             assert ", not " not in out[source]["ref"][key]["help"]
+
+
+def test_top_code_counts_and_rvu_filter_are_in_the_catalog():
+    cat = catalog(dev=False)
+    prov = cat["provider"]
+    assert prov["visits_top_diagnosis_1_count"]["label"] == "Visits"
+    assert prov["visits_top_primary_procedure_3_count"]["help"].endswith("with this procedure in {window}.")
+    assert "below 1" in prov["visits_top_primary_procedure_1"]["help"]
+    assert "below 1" in cat["section"]["top_primary_procedures"]["help"]
+    assert "number of visits" in cat["section"]["top_diagnoses"]["help"]
+    assert "Office" in cat["practice"]["name"]["help"]
+    assert cat["practice"]["work_type"]["label"] == "Service type"
+
+
+def test_rvu_help_states_the_per_clinician_floor():
+    cat = catalog(dev=False)
+    for key in ("wrvu_total", "wrvu_average", "wrvu_procedure_count"):
+        assert "below 1" in cat["provider"][key]["help"], key
+    assert cat["provider"]["wrvu_filter_applied"]["label"] == "Work RVU filter applied"
+    sec = cat["section"]
+    assert "below 1" in sec["work_rvu_filter_applied"]["help"] and "Fewer than five" in sec["work_rvu_filter_lifted"]["help"]
+    dev = catalog(dev=True)["provider"]["wrvu_state_specialty_median"]
+    assert any("floor rule" in c for c in dev["caveats"])

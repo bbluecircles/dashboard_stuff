@@ -24,6 +24,7 @@ from provider_directory.transforms import (
     PERSON_NAME_REGEXP,
     clean_name_sql,
     org_name_sql,
+    site_name_sql,
     work_type_case_sql,
 )
 
@@ -100,15 +101,16 @@ def is_person_practice_name_sql(expr: str) -> str:
 
 def practice_name_sql(sl: str = "sl") -> str:
     """Site name from az.sl only: DBA, then name, then common name, then
-    street and city. Every candidate goes through org_name_sql, so blank,
-    Unknown and LAST, FIRST values fall through; a site is never named Unknown."""
+    street and city. Every candidate goes through site_name_sql, so blank and
+    Unknown fall through and a clinician's own LAST, FIRST name becomes
+    'LAST, FIRST Office'; a site is never named Unknown."""
     street = f"NULLIF(TRIM({sl}.street), '')"
     city = f"NULLIF(TRIM(SUBSTRING_INDEX(IFNULL({sl}.city, ''), ',', 1)), '')"
     return f"""
         COALESCE(
-            {org_name_sql(f"{sl}.sl_dba_name")},
-            {org_name_sql(f"{sl}.sl_name")},
-            {org_name_sql(f"{sl}.sl_common_name")},
+            {site_name_sql(f"{sl}.sl_dba_name")},
+            {site_name_sql(f"{sl}.sl_name")},
+            {site_name_sql(f"{sl}.sl_common_name")},
             NULLIF(TRIM(BOTH ' ,' FROM CONCAT_WS(', ', {street}, {city})), '')
         )
     """
@@ -133,8 +135,8 @@ def hospital_facility_name_sql(sl: str = "sl") -> str:
 
 
 def work_type_sql(sl: str = "sl") -> str:
-    """Phase 3 work type. The same rule Phase 4 and extras use (transforms.work_type_case_sql),
-    so the label does not change between phases."""
+    """Phase 3 service type (work_type column): the warehouse's im_specialty_rollup
+    as is (transforms.work_type_case_sql). Phase 4 applies the same rule."""
     return work_type_case_sql(sl)
 
 

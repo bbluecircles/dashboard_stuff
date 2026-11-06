@@ -347,3 +347,23 @@ def test_provider_zip_filter_param(tmp_path, monkeypatch):
     assert seen["zip_code"] == "85251"
     assert client.get("/v1/providers", params={"state": "AZ", "zip": "852"}).status_code == 200
     assert client.get("/v1/providers", params={"state": "AZ", "zip": "8525"}).status_code == 422
+
+
+def test_top_codes_carry_twelve_month_counts_next_to_shares():
+    import inspect
+
+    from provider_directory.group_profile import fetch_group_top_codes
+    from provider_directory.lookup import fetch_top_code_counts
+    from provider_directory.models import GroupPracticeProfile, ProviderSpine
+
+    for model in (ProviderSpine, GroupPracticeProfile):
+        fields = model.model_fields
+        for prefix in ("visits_top_diagnosis", "visits_top_procedure", "visits_top_primary_procedure"):
+            for i in range(1, 6):
+                assert f"{prefix}_{i}_count" in fields and f"{prefix}_{i}_percent" not in fields
+    src = inspect.getsource(fetch_top_code_counts)
+    assert "d.visit_count" in src and '_count"] = int(row["visit_count"])' in src and "pct" not in src
+    gsrc = inspect.getsource(fetch_group_top_codes)
+    assert "ranked.visit_count" in gsrc and '_count"] = int(row["visit_count"])' in gsrc and "pct" not in gsrc
+    from provider_directory.models import ProviderGroupPractice
+    assert "billing_type" not in ProviderGroupPractice.model_fields

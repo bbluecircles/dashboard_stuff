@@ -143,6 +143,9 @@ PD_PROVIDER_PHASE2_COLUMNS = (
     ("active_provider", "TINYINT NULL"),
     ("visits_total", "INT UNSIGNED NULL"),
     *TOP_CODE_COLUMNS,
+    # 1 when fewer than TOP_N codes passed the strict primary-procedure rule and
+    # the list was filled from the clinician's other billed codes.
+    ("primary_procedures_filled", "TINYINT NULL"),
     ("panel_size", "INT UNSIGNED NULL"),
     ("panel_average_age", "DECIMAL(5,1) NULL"),
     ("panel_percent_age_0_19", "DECIMAL(6,2) NULL"),
@@ -162,6 +165,10 @@ PD_PROVIDER_PHASE4_COLUMNS = (
     ("wrvu_total", "DECIMAL(14,2) NULL"),
     ("wrvu_average", "DECIMAL(10,3) NULL"),
     ("wrvu_procedure_count", "INT UNSIGNED NULL"),
+    # 1 when lines below RVU_LINE_MIN_WORK_RVU were left out of this clinician's
+    # work RVU figures; 0 when every priced line counted (fewer than five
+    # procedures above the floor); null when nothing was priced.
+    ("wrvu_filter_applied", "TINYINT NULL"),
     ("visits_percent_third_party", "DECIMAL(6,2) NULL"),
     ("visits_percent_medicaid", "DECIMAL(6,2) NULL"),
     ("visits_percent_medicare_advantage", "DECIMAL(6,2) NULL"),
@@ -660,6 +667,7 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
             name VARCHAR(80),
             visit_count INT UNSIGNED NOT NULL,
             rk TINYINT UNSIGNED NOT NULL,
+            is_strict TINYINT NOT NULL DEFAULT 1,
             PRIMARY KEY (npi, rk),
             KEY idx_npi (npi)
         ) {table_options()}
@@ -944,13 +952,16 @@ def ddl_statements(mart_db: str = MART_DB) -> list[str]:
 
 
 def migrate_phase2_columns(conn, mart_db: str = MART_DB) -> None:
-    """Add Phase 2 columns to a pd_provider that was created in Phase 1."""
+    """Add Phase 2 columns to a pd_provider that was created in Phase 1, and the
+    is_strict flag to an older pd_stg_top_primary_px."""
     table = f"{quote_ident(mart_db)}.pd_provider"
+    staging = f"{quote_ident(mart_db)}.pd_stg_top_primary_px"
     with conn.cursor() as cur:
         for name, definition in PD_PROVIDER_PHASE2_COLUMNS:
             cur.execute(
                 f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {quote_ident(name)} {definition}"
             )
+        cur.execute(f"ALTER TABLE {staging} ADD COLUMN IF NOT EXISTS is_strict TINYINT NOT NULL DEFAULT 1")
 
 
 def migrate_phase3_columns(conn, mart_db: str = MART_DB) -> None:

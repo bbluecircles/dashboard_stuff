@@ -23,6 +23,7 @@ from provider_directory.settings import (
     REF_DB,
     REF_GROUP_PRACTICE_TABLE,
     REF_PHYSICIAN_TABLE,
+    REFERENCE_CLAIMS_TIEBREAK,
 )
 from provider_directory.transforms import ORG_NAME_REGEXP, PERSON_NAME_REGEXP, clean_name_sql
 
@@ -311,10 +312,13 @@ def affiliation_name_sql(expr: str, npi_expr: str) -> str:
 
 def overlay_reference_sql(mart: str, bucket: int) -> str:
     """UPDATE pd_provider from pd_src_physician for one NPI bucket: the single
-    affiliation (placeholders cleaned) and the group practice. The master-file
-    group (CMS PAC ID) is the group key: it fills primary_organization_id / name
-    and is mirrored in reference_group_* for the comparison report. Blank stays
-    blank; the columns are always on the profile."""
+    affiliation (placeholders cleaned), the group practice and the specialty.
+    The master-file group (CMS PAC ID) is the group key: it fills
+    primary_organization_id / name and is mirrored in reference_group_* for the
+    comparison report. The specialty (npi_spec_grp code, name and taxonomy
+    category) comes from the master file when its row has one; the warehouse
+    value from Phase 1 stays otherwise. Blank stays blank; the columns are
+    always on the profile."""
     code_ok = f"NOT {self_placeholder_sql('s.affiliation_code', 's.npi')}"
     group_ok = f"NOT {self_placeholder_sql('s.group_prac_code', 's.npi')}"
     name = (
@@ -334,6 +338,15 @@ def overlay_reference_sql(mart: str, bucket: int) -> str:
             p.primary_organization_id = CASE WHEN {group_ok} THEN s.group_prac_code END,
             p.primary_organization_name = CASE WHEN {group_ok}
                 THEN {affiliation_name_sql('s.group_prac_name', 's.npi')} END,
+            p.primary_specialty_code = COALESCE(NULLIF(TRIM(s.npi_spec_grp_code), ''), p.primary_specialty_code),
+            p.primary_specialty_description = CASE
+                WHEN NULLIF(TRIM(s.npi_spec_grp_code), '') IS NOT NULL
+                THEN COALESCE({clean_name_sql('s.npi_spec_grp_name')}, p.primary_specialty_description)
+                ELSE p.primary_specialty_description END,
+            p.specialty_classification = CASE
+                WHEN NULLIF(TRIM(s.npi_spec_grp_code), '') IS NOT NULL
+                THEN COALESCE({clean_name_sql('s.taxonomy_cat_name')}, p.specialty_classification)
+                ELSE p.specialty_classification END,
             p.refreshed_at = NOW()
         WHERE MOD(p.npi, {PROVIDER_BUCKETS}) = {int(bucket)}
     """
@@ -392,8 +405,9 @@ def claims_group_tiebreak_sql(mart: str, bucket: int) -> str:
 
 def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
     """sync --ref step 2: write affiliation_*, reference_group_* and the group key
-    (primary_organization_id / name) onto pd_provider. billing_organization_* is
-    Phase 4's and is left alone."""
+    (primary_organization_id / name) onto pd_provider from the master file copy.
+    The claims tie-break runs only when settings.REFERENCE_CLAIMS_TIEBREAK is on.
+    billing_organization_* is Phase 4's and is left alone."""
     create_schema(conn, mart_db)
     mart = quote_ident(mart_db)
     null_sql = ", ".join(
@@ -412,7 +426,9 @@ def overlay_reference(conn, *, mart_db: str = MART_DB) -> dict[str, int]:
             updated += n
             print(f"ref overlay bucket {bucket}: {n} rows", flush=True)
         tiebreaks = 0
-        if _has_rows(cur, mart, "pd_src_group_practice"):
+        if not REFERENCE_CLAIMS_TIEBREAK:
+            print("ref group tie-break off (REFERENCE_CLAIMS_TIEBREAK): master file group kept as is", flush=True)
+        elif _has_rows(cur, mart, "pd_src_group_practice"):
             for bucket in range(PROVIDER_BUCKETS):
                 cur.execute(claims_group_tiebreak_sql(mart, bucket))
                 n = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0

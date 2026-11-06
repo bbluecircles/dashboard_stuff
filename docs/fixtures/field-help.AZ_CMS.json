@@ -48,11 +48,11 @@
       },
       "primary_specialty_code": {
         "label": "Specialty code",
-        "help": "Taxonomy code of the clinician's primary specialty."
+        "help": "Code of the clinician's primary specialty, from the master reference file."
       },
       "primary_specialty_description": {
         "label": "Specialty",
-        "help": "The clinician's primary specialty."
+        "help": "The clinician's primary specialty, from the master reference file."
       },
       "specialty_classification": {
         "label": "Specialty group",
@@ -72,7 +72,7 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
+        "help": "master_ref when the affiliation comes from the reference file; claims when the optional claims tie-break (settings.REFERENCE_CLAIMS_TIEBREAK, off by default) moved it to a CMS reassignment group; blank otherwise."
       },
       "reference_group_id": {
         "label": "Reference group id",
@@ -110,9 +110,9 @@
         "label": "Top diagnosis 1",
         "help": "Description of the most common diagnosis."
       },
-      "visits_top_diagnosis_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
+      "visits_top_diagnosis_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_2": {
         "label": "Top diagnosis 2",
@@ -122,9 +122,9 @@
         "label": "Top diagnosis 2",
         "help": "Description of the second most common diagnosis."
       },
-      "visits_top_diagnosis_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
+      "visits_top_diagnosis_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_3": {
         "label": "Top diagnosis 3",
@@ -134,9 +134,9 @@
         "label": "Top diagnosis 3",
         "help": "Description of the third most common diagnosis."
       },
-      "visits_top_diagnosis_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
+      "visits_top_diagnosis_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_4": {
         "label": "Top diagnosis 4",
@@ -146,9 +146,9 @@
         "label": "Top diagnosis 4",
         "help": "Description of the fourth most common diagnosis."
       },
-      "visits_top_diagnosis_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
+      "visits_top_diagnosis_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_diagnosis_5": {
         "label": "Top diagnosis 5",
@@ -158,9 +158,9 @@
         "label": "Top diagnosis 5",
         "help": "Description of the fifth most common diagnosis."
       },
-      "visits_top_diagnosis_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis."
+      "visits_top_diagnosis_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits that carried this diagnosis in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_1": {
         "label": "Top procedure 1",
@@ -170,9 +170,9 @@
         "label": "Top procedure 1",
         "help": "Description of the most common procedure."
       },
-      "visits_top_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_2": {
         "label": "Top procedure 2",
@@ -182,9 +182,9 @@
         "label": "Top procedure 2",
         "help": "Description of the second most common procedure."
       },
-      "visits_top_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_3": {
         "label": "Top procedure 3",
@@ -194,9 +194,9 @@
         "label": "Top procedure 3",
         "help": "Description of the third most common procedure."
       },
-      "visits_top_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_4": {
         "label": "Top procedure 4",
@@ -206,9 +206,9 @@
         "label": "Top procedure 4",
         "help": "Description of the fourth most common procedure."
       },
-      "visits_top_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_procedure_5": {
         "label": "Top procedure 5",
@@ -218,21 +218,21 @@
         "label": "Top procedure 5",
         "help": "Description of the fifth most common procedure."
       },
-      "visits_top_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
+        "help": "Most common procedure across the clinician's visits in Nov 2024 to Oct 2025, among those with a physician work RVU above 1. Procedures with a work RVU below 1, office visits, exams, therapy evaluations, psychotherapy and lab panels are filtered out. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
         "help": "Description of the most common primary procedure."
       },
-      "visits_top_primary_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_primary_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_2": {
         "label": "Top primary procedure 2",
@@ -242,9 +242,9 @@
         "label": "Top primary procedure 2",
         "help": "Description of the second most common primary procedure."
       },
-      "visits_top_primary_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_primary_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_3": {
         "label": "Top primary procedure 3",
@@ -254,9 +254,9 @@
         "label": "Top primary procedure 3",
         "help": "Description of the third most common primary procedure."
       },
-      "visits_top_primary_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_primary_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_4": {
         "label": "Top primary procedure 4",
@@ -266,9 +266,9 @@
         "label": "Top primary procedure 4",
         "help": "Description of the fourth most common primary procedure."
       },
-      "visits_top_primary_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_primary_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
       },
       "visits_top_primary_procedure_5": {
         "label": "Top primary procedure 5",
@@ -278,9 +278,13 @@
         "label": "Top primary procedure 5",
         "help": "Description of the fifth most common primary procedure."
       },
-      "visits_top_primary_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure."
+      "visits_top_primary_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of the clinician's visits with this procedure in Nov 2024 to Oct 2025."
+      },
+      "primary_procedures_filled": {
+        "label": "Primary procedures filled",
+        "help": "True when fewer than five of the clinician's procedures have a physician work RVU above 1, so the Top primary procedures list was filled from their other billed codes, office visits included."
       },
       "panel_size": {
         "label": "Panel size",
@@ -324,15 +328,19 @@
       },
       "wrvu_total": {
         "label": "Work RVU total",
-        "help": "Physician work RVU summed over every procedure the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule."
+        "help": "Physician work RVU summed over the procedures the clinician billed in Nov 2024 to Oct 2025, priced from the Medicare fee schedule. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_average": {
         "label": "Average work RVU per procedure",
-        "help": "The work RVU total divided by the number of priced procedures. A measure of how much work each billed procedure carries."
+        "help": "The work RVU total divided by the number of counted procedures. A measure of how much work each billed procedure carries. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_procedure_count": {
         "label": "Priced procedures",
-        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that had a work RVU and so count toward the total."
+        "help": "Billed procedure lines in Nov 2024 to Oct 2025 that count toward the work RVU total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
+      },
+      "wrvu_filter_applied": {
+        "label": "Work RVU filter applied",
+        "help": "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -456,63 +464,63 @@
       },
       "wrvu_prior_year_total": {
         "label": "Prior-year work RVU total",
-        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_average": {
         "label": "Prior-year average work RVU per procedure",
-        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_procedure_count": {
         "label": "Prior-year priced procedures",
-        "help": "Billed procedure lines that count toward the prior-year total."
+        "help": "Billed procedure lines that count toward the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_yoy_change_pct": {
         "label": "Work RVU change vs prior year",
-        "help": "Percent change of the work RVU total against the prior-year total."
+        "help": "Percent change of the work RVU total against the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_average_per_procedure": {
         "label": "Specialty average work RVU per procedure",
-        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median_per_procedure": {
         "label": "Specialty median average work RVU per procedure",
-        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25_per_procedure": {
         "label": "Specialty 25th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75_per_procedure": {
         "label": "Specialty 75th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_average_specialty_percentile": {
         "label": "Average work RVU per procedure percentile within specialty",
-        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
-        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75": {
         "label": "Specialty 75th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_npi_count": {
         "label": "Peers in specialty",
-        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
-        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
@@ -726,7 +734,7 @@
       },
       "affiliation_source": {
         "label": "Affiliation source",
-        "help": "master_ref when the affiliation comes from the reference file; claims when the claims and the CMS reassignment file moved it to a different group; blank otherwise."
+        "help": "master_ref when the affiliation comes from the reference file; claims when the optional claims tie-break (settings.REFERENCE_CLAIMS_TIEBREAK, off by default) moved it to a CMS reassignment group; blank otherwise."
       },
       "reference_group_id": {
         "label": "Reference group id",
@@ -764,9 +772,9 @@
         "label": "Top diagnosis 1",
         "help": "Description of the most common diagnosis."
       },
-      "visits_top_diagnosis_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_diagnosis_1_count": {
+        "label": "Visits",
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_2": {
         "label": "Top diagnosis 2",
@@ -776,9 +784,9 @@
         "label": "Top diagnosis 2",
         "help": "Description of the second most common diagnosis."
       },
-      "visits_top_diagnosis_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_diagnosis_2_count": {
+        "label": "Visits",
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_3": {
         "label": "Top diagnosis 3",
@@ -788,9 +796,9 @@
         "label": "Top diagnosis 3",
         "help": "Description of the third most common diagnosis."
       },
-      "visits_top_diagnosis_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_diagnosis_3_count": {
+        "label": "Visits",
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_4": {
         "label": "Top diagnosis 4",
@@ -800,9 +808,9 @@
         "label": "Top diagnosis 4",
         "help": "Description of the fourth most common diagnosis."
       },
-      "visits_top_diagnosis_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_diagnosis_4_count": {
+        "label": "Visits",
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_diagnosis_5": {
         "label": "Top diagnosis 5",
@@ -812,9 +820,9 @@
         "label": "Top diagnosis 5",
         "help": "Description of the fifth most common diagnosis."
       },
-      "visits_top_diagnosis_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits that carried this diagnosis. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_diagnosis_5_count": {
+        "label": "Visits",
+        "help": "Number of members' visits that carried this diagnosis in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_1": {
         "label": "Top procedure 1",
@@ -824,9 +832,9 @@
         "label": "Top procedure 1",
         "help": "Description of the most common procedure."
       },
-      "visits_top_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_2": {
         "label": "Top procedure 2",
@@ -836,9 +844,9 @@
         "label": "Top procedure 2",
         "help": "Description of the second most common procedure."
       },
-      "visits_top_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_3": {
         "label": "Top procedure 3",
@@ -848,9 +856,9 @@
         "label": "Top procedure 3",
         "help": "Description of the third most common procedure."
       },
-      "visits_top_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_4": {
         "label": "Top procedure 4",
@@ -860,9 +868,9 @@
         "label": "Top procedure 4",
         "help": "Description of the fourth most common procedure."
       },
-      "visits_top_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_procedure_5": {
         "label": "Top procedure 5",
@@ -872,21 +880,21 @@
         "label": "Top procedure 5",
         "help": "Description of the fifth most common procedure."
       },
-      "visits_top_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_1": {
         "label": "Top primary procedure 1",
-        "help": "Most common procedure among those with a physician work RVU above 1, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels, across the clinician's visits in Nov 2024 to Oct 2025."
+        "help": "Most common procedure across the clinician's visits in Nov 2024 to Oct 2025, among those with a physician work RVU above 1. Procedures with a work RVU below 1, office visits, exams, therapy evaluations, psychotherapy and lab panels are filtered out. When fewer than five procedures qualify, the list is filled from the clinician's other billed codes."
       },
       "visits_top_primary_procedure_1_name": {
         "label": "Top primary procedure 1",
         "help": "Description of the most common primary procedure."
       },
-      "visits_top_primary_procedure_1_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_primary_procedure_1_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_2": {
         "label": "Top primary procedure 2",
@@ -896,9 +904,9 @@
         "label": "Top primary procedure 2",
         "help": "Description of the second most common primary procedure."
       },
-      "visits_top_primary_procedure_2_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_primary_procedure_2_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_3": {
         "label": "Top primary procedure 3",
@@ -908,9 +916,9 @@
         "label": "Top primary procedure 3",
         "help": "Description of the third most common primary procedure."
       },
-      "visits_top_primary_procedure_3_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_primary_procedure_3_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_4": {
         "label": "Top primary procedure 4",
@@ -920,9 +928,9 @@
         "label": "Top primary procedure 4",
         "help": "Description of the fourth most common primary procedure."
       },
-      "visits_top_primary_procedure_4_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_primary_procedure_4_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
       },
       "visits_top_primary_procedure_5": {
         "label": "Top primary procedure 5",
@@ -932,9 +940,13 @@
         "label": "Top primary procedure 5",
         "help": "Description of the fifth most common primary procedure."
       },
-      "visits_top_primary_procedure_5_percent": {
-        "label": "Share of visits",
-        "help": "Share of the clinician's visits with this procedure. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      "visits_top_primary_procedure_5_count": {
+        "label": "Visits",
+        "help": "Number of members' visits with this procedure in Nov 2024 to Oct 2025. On the group page this is a lower bound: only members' stored top 5 codes are summed."
+      },
+      "primary_procedures_filled": {
+        "label": "Primary procedures filled",
+        "help": "True when fewer than five of the clinician's procedures have a physician work RVU above 1, so the Top primary procedures list was filled from their other billed codes, office visits included."
       },
       "panel_size": {
         "label": "Panel size",
@@ -978,15 +990,19 @@
       },
       "wrvu_total": {
         "label": "Work RVU total, members combined",
-        "help": "Sum of the member clinicians' work RVU totals."
+        "help": "Sum of the member clinicians' work RVU totals. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1."
       },
       "wrvu_average": {
         "label": "Average work RVU per procedure, members combined",
-        "help": "Members' work RVU total divided by members' priced procedures."
+        "help": "Members' work RVU total divided by members' priced procedures. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1."
       },
       "wrvu_procedure_count": {
         "label": "Priced procedures, members combined",
-        "help": "Sum of members' priced procedure lines."
+        "help": "Sum of members' priced procedure lines. Each member's figure follows their own floor rule: procedures below 1 work RVU are left out for members with at least five procedures above 1."
+      },
+      "wrvu_filter_applied": {
+        "label": "Work RVU filter applied",
+        "help": "True when procedures with a work RVU below 1 were left out of this clinician's work RVU figures. False when every priced procedure counted, because fewer than five of the clinician's procedures are above 1."
       },
       "visits_percent_third_party": {
         "label": "Commercial",
@@ -1110,63 +1126,63 @@
       },
       "wrvu_prior_year_total": {
         "label": "Prior-year work RVU total",
-        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024."
+        "help": "The same work RVU total for the 12 months before the window, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_average": {
         "label": "Prior-year average work RVU per procedure",
-        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024."
+        "help": "Prior-year work RVU total divided by prior-year priced procedures, Nov 2023 to Oct 2024. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_prior_year_procedure_count": {
         "label": "Prior-year priced procedures",
-        "help": "Billed procedure lines that count toward the prior-year total."
+        "help": "Billed procedure lines that count toward the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_yoy_change_pct": {
         "label": "Work RVU change vs prior year",
-        "help": "Percent change of the work RVU total against the prior-year total."
+        "help": "Percent change of the work RVU total against the prior-year total. Procedures with a work RVU below 1 are left out when the clinician has at least five procedures above 1; otherwise every priced procedure counts."
       },
       "wrvu_state_specialty_average": {
         "label": "Specialty mean work RVU total",
-        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits."
+        "help": "Mean of the per-provider work RVU totals among same-specialty clinicians who practise in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_average_per_procedure": {
         "label": "Specialty average work RVU per procedure",
-        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure."
+        "help": "Work RVU per billed procedure across all same-specialty clinicians in the state with at least 50 visits: the cohort's total work RVU divided by its priced procedures. Compare with the clinician's own average per procedure. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median_per_procedure": {
         "label": "Specialty median average work RVU per procedure",
-        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits."
+        "help": "The middle value of clinicians' own average work RVU per procedure among same-specialty peers in the state with at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25_per_procedure": {
         "label": "Specialty 25th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 25th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75_per_procedure": {
         "label": "Specialty 75th percentile average work RVU per procedure",
-        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers."
+        "help": "The average work RVU per procedure at the 75th percentile of same-specialty peers. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_average_specialty_percentile": {
         "label": "Average work RVU per procedure percentile within specialty",
-        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's average work RVU per procedure ranks among same-specialty peers in the state with at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_median": {
         "label": "Specialty median work RVU total",
-        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits."
+        "help": "The middle value of the per-provider work RVU totals among same-specialty clinicians with a practice site in the state and at least 50 visits. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p25": {
         "label": "Specialty 25th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 25th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_p75": {
         "label": "Specialty 75th percentile work RVU total",
-        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set."
+        "help": "The per-provider work RVU total at the 75th percentile of the in-state specialty peer set. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_state_specialty_npi_count": {
         "label": "Peers in specialty",
-        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window."
+        "help": "Number of same-specialty clinicians in the benchmark peer set: a practice site in the state and at least 50 visits in the window. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "wrvu_specialty_percentile": {
         "label": "Work RVU percentile within specialty",
-        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest."
+        "help": "Where the clinician's work RVU total ranks among same-specialty clinicians with a practice site in the state and at least 50 visits. 100 is the highest. Each peer's figure follows the same rule: procedures below 1 work RVU are left out for clinicians with at least five procedures above 1, and every priced procedure counts for the rest."
       },
       "visits_specialty_percentile": {
         "label": "Visits percentile",
@@ -1384,7 +1400,7 @@
       },
       "name": {
         "label": "Site name",
-        "help": "Name of the practice site: its DBA name, else its registered name, else street and city."
+        "help": "Name of the practice site: its DBA name, else its registered name, else street and city. A site named after the clinician reads as their name followed by Office."
       },
       "street": {
         "label": "Street",
@@ -1419,8 +1435,8 @@
         "help": "Phone number from CMS for this clinician at this address, when one matches. Blank means no match; never invented."
       },
       "work_type": {
-        "label": "Work type",
-        "help": "Type of care setting, from the place-of-service code on claims."
+        "label": "Service type",
+        "help": "The warehouse's service type for the location, for example Office Specialty or Short Term Acute Care Hospital."
       },
       "visits_at_site": {
         "label": "Visits at site",
@@ -1452,11 +1468,11 @@
       },
       "wrvu_at_site": {
         "label": "Work RVU at site",
-        "help": "The clinician's work RVU total over procedures billed at this site."
+        "help": "The clinician's work RVU total over procedures billed at this site. Follows the clinician's floor rule: procedures below 1 work RVU are left out when the clinician has at least five procedures above 1."
       },
       "wrvu_share_pct": {
         "label": "Share of work RVU at site",
-        "help": "This site's part of the clinician's work RVU total."
+        "help": "This site's part of the clinician's work RVU total. Follows the clinician's floor rule: procedures below 1 work RVU are left out when the clinician has at least five procedures above 1."
       },
       "visits_percent_monday": {
         "label": "Monday %",
@@ -1507,10 +1523,6 @@
       "organization_name": {
         "label": "Group",
         "help": "Name of the group practice."
-      },
-      "billing_type": {
-        "label": "Source",
-        "help": "R: the master reference file's group practice. C: a CMS reassignment group."
       },
       "is_primary": {
         "label": "Primary",
@@ -1708,6 +1720,14 @@
       }
     },
     "section": {
+      "work_rvu_filter_applied": {
+        "label": "Procedures below 1 work RVU left out",
+        "help": "This clinician has at least five procedures above 1 work RVU, so procedures below 1, such as office visits, are left out of their work RVU figures."
+      },
+      "work_rvu_filter_lifted": {
+        "label": "Every priced procedure counted",
+        "help": "Fewer than five of this clinician's procedures have a work RVU above 1, so every priced procedure, office visits included, counts in their work RVU figures."
+      },
       "volume": {
         "label": "Volume",
         "help": "Visits, panel size and work RVU for the clinician in Nov 2024 to Oct 2025."
@@ -1734,31 +1754,27 @@
       },
       "top_diagnoses": {
         "label": "Top diagnoses",
-        "help": "The five diagnoses most often on the clinician's visits, with each one's share of visits."
+        "help": "The five diagnoses most often on the clinician's visits, with the number of visits in Nov 2024 to Oct 2025 for each."
       },
       "top_procedures": {
         "label": "Top billed codes",
-        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with each one's share of visits. The Top primary procedures list is the one to show; this one is kept for the data export."
+        "help": "The five codes most often billed on the clinician's visits, office visit codes included, with the number of visits in Nov 2024 to Oct 2025 for each. The Top primary procedures list is the one to show; this one is kept for the data export."
       },
       "clinical_summary": {
         "label": "Clinical summary",
-        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure."
+        "help": "The clinician's main practice ZIP code, most common diagnosis and most common primary procedure, each with its number of visits in Nov 2024 to Oct 2025."
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by the clinician, leaving out office visits, exams, therapy evaluations, psychotherapy and lab panels. Empty for clinicians who bill only visit-type services."
+        "help": "The five procedures most often billed by the clinician among those with a physician work RVU above 1, with the number of visits in Nov 2024 to Oct 2025 for each. Procedures with a work RVU below 1 are filtered out, as are office visits, exams, therapy evaluations, psychotherapy and lab panels. When fewer than five qualify, the list is filled from the clinician's other billed codes, office visits included."
+      },
+      "top_primary_procedures_filled": {
+        "label": "Includes all billed codes",
+        "help": "Fewer than five of this clinician's procedures have a physician work RVU above 1 (the rest are filtered out), so the list also shows their most billed office visits and other services."
       },
       "group_practices": {
         "label": "Group practices",
         "help": "The clinician's group practice from the master reference file, then every group the CMS reassignment file lists for them."
-      },
-      "group_source_R": {
-        "label": "Master reference file",
-        "help": "Group practice recorded for the clinician in the master reference file."
-      },
-      "group_source_C": {
-        "label": "CMS reassignment",
-        "help": "A group the clinician reassigns Medicare benefits to, from the CMS reassignment file."
       },
       "referrals": {
         "label": "Referrals",
@@ -1828,15 +1844,15 @@
       },
       "top_diagnoses": {
         "label": "Top diagnoses",
-        "help": "The five diagnoses most often on members' visits, summed from each member's own top five. Shares are a lower bound of the group-wide share."
+        "help": "The five diagnoses most often on members' visits, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five, so the counts are a lower bound of the group-wide figure."
       },
       "top_procedures": {
         "label": "Top procedures",
-        "help": "The five procedure codes most often billed by members, summed from each member's own top five. Shares are a lower bound."
+        "help": "The five procedure codes most often billed by members, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five, so the counts are a lower bound."
       },
       "top_primary_procedures": {
         "label": "Top primary procedures",
-        "help": "The five procedures with a physician work RVU above 1 most often billed by members, summed from each member's own top five; office visits, exams, therapy evaluations, psychotherapy and lab panels left out."
+        "help": "The five procedures most often billed by members, with visit counts in Nov 2024 to Oct 2025 summed from each member's own top five primary procedures. Procedures with a work RVU below 1 are filtered out for each member; a member with fewer than five qualifying procedures contributes their other billed codes too."
       },
       "group_practices": {
         "label": "Group practices",
